@@ -50,7 +50,16 @@ npm run build
 | `VAPID_PRIVATE_KEY` | optional | |
 | `NEXT_PUBLIC_*_ADDRESS` | optional | VeChain testnet |
 
-**Do not set:** `NEXT_PUBLIC_DEMO_MODE`, `SEED_DEMO_USERS`, `RTMP_SERVER_URL`, `HLS_SERVER_URL` (use Livepeer in prod).
+**Do not set:** `NEXT_PUBLIC_DEMO_MODE`, `SEED_DEMO_USERS`
+
+**Streaming (pick one):**
+
+| Mode | Vercel env |
+|------|------------|
+| **Livepeer** (easiest) | `LIVEPEER_API_KEY` + webhook secret — no RTMP vars |
+| **Self-hosted RTMP** | `RTMP_SERVER_URL`, `HLS_SERVER_URL`, `RTMP_AUTH_ENABLED=true` — [RTMP-HETZNER-QUICKSTART.md](./RTMP-HETZNER-QUICKSTART.md) or [RTMP-ORACLE-UK-QUICKSTART.md](./RTMP-ORACLE-UK-QUICKSTART.md) |
+
+Do not set both Livepeer and self-hosted RTMP — Livepeer takes priority.
 
 5. **Deploy** → wait for build (runs `prisma migrate deploy`).
 

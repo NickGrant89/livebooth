@@ -4,6 +4,10 @@ Live streaming + tipping platform — **$DROP** on **VeChain**. Tip the drop, un
 
 **Planned domain:** [livebooth.uk](https://livebooth.uk)
 
+**Self-hosted RTMP (DigitalOcean $12/mo — easiest):** [docs/RTMP-DIGITALOCEAN-QUICKSTART.md](docs/RTMP-DIGITALOCEAN-QUICKSTART.md)  
+**Self-hosted RTMP (Hetzner ~€5/mo):** [docs/RTMP-HETZNER-QUICKSTART.md](docs/RTMP-HETZNER-QUICKSTART.md)  
+**Self-hosted RTMP (Oracle UK free):** [docs/RTMP-ORACLE-UK-QUICKSTART.md](docs/RTMP-ORACLE-UK-QUICKSTART.md)
+
 ## Launch this week
 
 1. `npm run launch:check` — pre-deploy checklist  

@@ -1,0 +1,26 @@
+# HTTPS in front of MediaMTX HLS (required — browsers block http:// HLS on https:// LiveBooth)
+#
+# Install Caddy on the VPS, then:
+#   sudo cp Caddyfile.example /etc/caddy/Caddyfile
+#   # edit domains + email
+#   sudo systemctl reload caddy
+#
+# DNS: hls.yourdomain.com → VPS public IP
+
+{
+	email you@yourdomain.com
+}
+
+# HLS playback (fans watch in browser)
+hls.livebooth.uk {
+	reverse_proxy 127.0.0.1:8888
+}
+
+# Optional: serve VOD recordings written by MediaMTX
+# Files land in ./recordings/live/{ingestKey}/*.fmp4
+stream.livebooth.uk {
+	root * /opt/livebooth/rtmp-server/recordings
+	file_server browse
+}
+
+# RTMP ingest stays on port 1935 (OBS) — no Caddy needed for rtmp://

@@ -107,7 +107,9 @@ docker ps -a | grep livebooth-rtmp
 
 **Publish rejected** — set `RTMP_AUTH_ENABLED=true` on the app and go live first so the ingest key exists in the DB. With auth off, any publish is allowed.
 
-**Production** — use `RTMP_AUTH_ENABLED=true` + HTTPS in front of HLS. See [BETA-LAUNCH.md](../docs/BETA-LAUNCH.md).
+**Production** — use `RTMP_AUTH_ENABLED=true` + HTTPS in front of HLS. Full VPS guide: [RTMP-VPS-DEPLOY.md](../docs/RTMP-VPS-DEPLOY.md).
+
+Files: `docker-compose.production.yml`, `mediamtx.production.yml`, `Caddyfile.example`.
 
 ## Priority order in LiveBooth
 

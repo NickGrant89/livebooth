@@ -1,0 +1,40 @@
+# Production MediaMTX — copy to your VPS as mediamtx.yml
+#
+# BEFORE USE: replace LIVEBOOTH_APP_URL below with your hosted app, e.g.
+#   https://livebooth.uk
+# or https://your-project.vercel.app
+#
+# OBS:  rtmp://YOUR_VPS_OR_DOMAIN:1935/live   stream key = lb_… (from Go Live)
+# HLS:  https://hls.yourdomain.com/live/lb_…/index.m3u8  (via Caddy — see Caddyfile.example)
+
+logLevel: info
+
+rtmp: yes
+rtmpAddress: :1935
+
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+hlsAllowOrigin: '*'
+
+api: yes
+apiAddress: :9997
+
+authMethod: http
+# MediaMTX on VPS calls your LiveBooth app to validate publish keys
+authHTTPAddress: https://LIVEBOOTH_APP_URL/api/rtmp/auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+  - action: read
+  - action: playback
+
+pathDefaults:
+  record: yes
+  recordFormat: fmp4
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+
+paths:
+  all_others:
+    source: publisher

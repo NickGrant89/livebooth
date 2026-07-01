@@ -64,12 +64,15 @@ export function serializeUser(user: {
   };
 }
 
+import { resolveLivePlaybackUrl } from "./streaming";
+
 export function serializeStream(stream: {
   id: string;
   title: string;
   genre: string;
   bpmRange?: string | null;
   status: string;
+  ingestKey?: string | null;
   playbackUrl?: string | null;
   vodUrl?: string | null;
   peakViewers: number;
@@ -96,7 +99,7 @@ export function serializeStream(stream: {
     genre: stream.genre,
     bpmRange: stream.bpmRange,
     status: stream.status,
-    playbackUrl: stream.playbackUrl,
+    playbackUrl: resolveLivePlaybackUrl(stream.status, stream.ingestKey, stream.playbackUrl),
     vodUrl: stream.vodUrl,
     peakViewers: stream.peakViewers,
     totalTips: stream.totalTips,

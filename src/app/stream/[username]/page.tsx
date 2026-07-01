@@ -12,7 +12,7 @@ import { NowPlayingBar } from "@/components/NowPlayingBar";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
-import { isDemoPlayback } from "@/lib/streaming";
+import { isDemoPlayback, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { RequestQueue } from "@/components/RequestQueue";
 import { StreamPageGuide } from "@/components/StreamPageGuide";
 import { QuestStreamChip } from "@/components/QuestStreamChip";
@@ -60,6 +60,8 @@ export default async function StreamPage({
   });
   if (!stream) redirect(`/dj/${username}`);
 
+  const playbackUrl = resolveLivePlaybackUrl(stream.status, stream.ingestKey, stream.playbackUrl);
+
   const achievements = await prisma.userAchievement.findMany({
     where: { userId: dj.id, unlockedAt: { not: null } },
     include: { achievement: true },
@@ -82,9 +84,9 @@ export default async function StreamPage({
               djName={dj.displayName}
               streamTitle={stream.title}
               initialPeak={stream.peakViewers}
-              playbackUrl={stream.playbackUrl}
+              playbackUrl={playbackUrl}
               startedAt={stream.startedAt?.toISOString()}
-              demoPlayback={isDemoPlayback(stream.playbackUrl)}
+              demoPlayback={isDemoPlayback(playbackUrl)}
               station={
                 stream.station
                   ? {

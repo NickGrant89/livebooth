@@ -31,6 +31,19 @@ export function getHlsPlaybackUrl(ingestKey: string): string {
   return DEMO_HLS;
 }
 
+/** Live streams: always use current HLS_SERVER_URL (avoids stale LAN URLs in DB). */
+export function resolveLivePlaybackUrl(
+  status: string,
+  ingestKey: string | null | undefined,
+  storedPlaybackUrl: string | null | undefined,
+): string | null | undefined {
+  if (status !== "live" || !ingestKey) return storedPlaybackUrl;
+  if (isLocalIngestKey(ingestKey) && isLocalRtmpMode()) {
+    return getHlsPlaybackUrl(ingestKey);
+  }
+  return storedPlaybackUrl;
+}
+
 export function isLocalRtmpMode() {
   return useLocalRtmp();
 }
