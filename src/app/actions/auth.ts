@@ -1,0 +1,149 @@
+"use server";
+
+import { headers } from "next/headers";
+import bcrypt from "bcryptjs";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { createSession, setSessionCookie, clearSessionCookie } from "@/lib/auth";
+import { getOrCreateBalance } from "@/lib/ledger";
+import { WELCOME_BONUS, CREATOR_TYPES, type CreatorType } from "@/lib/constants";
+import { isRateLimitedFromHeaders } from "@/lib/rate-limit";
+import type { AuthFormState } from "@/app/actions/auth-types";
+
+export type { AuthFormState } from "@/app/actions/auth-types";
+
+const LOGIN_LIMIT = 15;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const SIGNUP_LIMIT = 8;
+const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
+
+async function findUser(identifier: string) {
+  const id = identifier.trim().toLowerCase();
+  return prisma.user.findFirst({
+    where: {
+      OR: [{ email: id }, { username: id.replace(/@.*/, "") }],
+    },
+  });
+}
+
+function tooManyAttemptsMessage(): AuthFormState {
+  return { error: "Too many attempts. Wait a few minutes and try again." };
+}
+
+export async function loginAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const headerStore = await headers();
+  if (
+    isRateLimitedFromHeaders(headerStore, "login-action", LOGIN_LIMIT, LOGIN_WINDOW_MS)
+  ) {
+    return tooManyAttemptsMessage();
+  }
+
+  const identifier = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (!identifier || !password) {
+    return { error: "Enter email/username and password" };
+  }
+
+  let role = "fan";
+  try {
+    const user = await findUser(identifier);
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      return { error: "Invalid email/username or password" };
+    }
+
+    if (user.suspendedAt) {
+      return {
+        error: user.suspendedReason ?? "This account has been suspended. Contact support@livebooth.local",
+      };
+    }
+
+    role = user.role;
+    const jwt = await createSession(user.id);
+    await setSessionCookie(jwt);
+  } catch (e) {
+    console.error("loginAction:", e);
+    return { error: "Login failed — try again" };
+  }
+
+  const next = String(formData.get("next") ?? "").trim();
+  if (next.startsWith("/") && !next.startsWith("//")) {
+    redirect(next);
+  }
+
+  if (role === "admin") redirect("/admin");
+  redirect("/");
+}
+
+export async function signupAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const headerStore = await headers();
+  if (
+    isRateLimitedFromHeaders(headerStore, "signup-action", SIGNUP_LIMIT, SIGNUP_WINDOW_MS)
+  ) {
+    return tooManyAttemptsMessage();
+  }
+
+  const displayName = String(formData.get("displayName") ?? "").trim();
+  const username = String(formData.get("username") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const role = String(formData.get("role") ?? "fan");
+  const creatorTypeRaw = String(formData.get("creatorType") ?? "dj");
+  const creatorType = CREATOR_TYPES.includes(creatorTypeRaw as CreatorType)
+    ? creatorTypeRaw
+    : "dj";
+
+  if (!displayName || !username || !email || password.length < 6) {
+    return { error: "Fill all fields — password min 6 characters" };
+  }
+
+  if (!/^[a-z0-9_]+$/.test(username)) {
+    return { error: "Username: lowercase letters, numbers, underscore only" };
+  }
+
+  try {
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ email }, { username }] },
+    });
+    if (existing) return { error: "Email or username already taken" };
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email,
+        username,
+        displayName,
+        passwordHash,
+        role: role === "dj" ? "dj" : role === "station" ? "station" : "fan",
+        creatorType: role === "dj" ? creatorType : "dj",
+        avatar: displayName.slice(0, 2).toUpperCase(),
+      },
+    });
+    await getOrCreateBalance(user.id);
+    await prisma.beatBalance.update({
+      where: { userId: user.id },
+      data: { balance: WELCOME_BONUS },
+    });
+
+    const jwt = await createSession(user.id);
+    await setSessionCookie(jwt);
+  } catch (e) {
+    console.error("signupAction:", e);
+    return { error: "Signup failed — try again" };
+  }
+
+  if (role === "admin") redirect("/admin");
+  if (role === "station") redirect("/settings");
+  redirect(role === "dj" ? "/dashboard" : "/");
+}
+
+export async function logoutAction() {
+  await clearSessionCookie();
+  redirect("/");
+}

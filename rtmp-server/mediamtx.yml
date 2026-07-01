@@ -1,0 +1,38 @@
+# LiveBooth RTMP → HLS relay (MediaMTX)
+#
+# OBS:  rtmp://HOST:1935/live   stream key = lb_… (from Go Live / Dashboard)
+# HLS:  http://HOST:8888/live/lb_…/index.m3u8
+#
+# Publish auth: POST http://host.docker.internal:3008/api/rtmp/auth
+# Set RTMP_AUTH_ENABLED=true on the app to require a live stream ingest key.
+
+logLevel: info
+
+rtmp: yes
+rtmpAddress: :1935
+
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+hlsAllowOrigin: '*'
+
+api: yes
+apiAddress: :9997
+
+authMethod: http
+authHTTPAddress: http://host.docker.internal:3008/api/rtmp/auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+  - action: read
+  - action: playback
+
+pathDefaults:
+  record: yes
+  recordFormat: fmp4
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+
+paths:
+  all_others:
+    source: publisher

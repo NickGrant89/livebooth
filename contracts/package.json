@@ -1,0 +1,21 @@
+{
+  "name": "livebooth-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:vechain": "hardhat run scripts/deploy.ts --network vechainTestnet",
+    "deploy:local": "hardhat run scripts/deploy.ts --network hardhat"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^4.9.6",
+    "@vechain/sdk-core": "^2.0.7",
+    "@vechain/sdk-hardhat-plugin": "^2.0.7",
+    "dotenv": "^17.4.2",
+    "hardhat": "^2.22.17",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

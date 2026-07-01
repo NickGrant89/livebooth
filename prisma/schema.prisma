@@ -1,0 +1,593 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String
+  displayName   String
+  bio           String   @default("")
+  avatar        String   @default("")
+  role          String   @default("fan")
+  creatorType   String   @default("dj")
+  walletAddress String?  @unique
+  genres        String   @default("[]")
+  watchMinutes      Float     @default(0)
+  streamStreak      Int       @default(0)
+  lastStreamWeek    String?
+  lastDailyClaimAt  DateTime?
+  weeklySlotDay     Int?
+  weeklySlotHour    Int?
+  weeklySlotLabel   String?
+  suspendedAt       DateTime?
+  suspendedReason   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  balance          BeatBalance?
+  streams          Stream[]
+  tipsSent         Tip[]            @relation("TipsSent")
+  tipsReceived     Tip[]            @relation("TipsReceived")
+  followers        Follow[]         @relation("Following")
+  following        Follow[]         @relation("Followers")
+  achievements     UserAchievement[]
+  chatMessages     ChatMessage[]
+  trackUnlocks     TrackUnlock[]
+  crowdRequests    CrowdRequest[]
+  subscriptions    Subscription[]   @relation("Subscriber")
+  subsAsDJ         Subscription[]   @relation("DJ")
+  ledgerEntries    LedgerEntry[]
+  sessions         Session[]
+  stripePurchases  StripePurchase[]
+  notifications    Notification[]
+  stakesMade           DjStake[]         @relation("StakesMade")
+  stakesReceived       DjStake[]         @relation("StakesReceived")
+  pushSubscriptions    PushSubscription[]
+  ownedStation         RadioStation?     @relation("OwnedStation")
+  stationMemberships   StationResident[] @relation("StationMemberships")
+  stationFollows       StationFollow[]   @relation("StationFollows")
+  stationStakesMade    StationStake[]    @relation("StationStakesMade")
+  flagshipFor          RadioStation?     @relation("StationFlagship")
+  streamReports        StreamReport[]    @relation("StreamReports")
+  chatBansReceived     StreamChatBan[]   @relation("ChatBansReceived")
+  chatBansIssued       StreamChatBan[]   @relation("ChatBansIssued")
+  chatMessageReports   ChatMessageReport[] @relation("ChatMessageReports")
+  fanQuestProgress     FanQuestProgress[]
+  supportTickets       SupportTicket[]
+  passwordResetTokens  PasswordResetToken[]
+  withdrawalRequests   WithdrawalRequest[]
+  adminAuditLogs       AdminAuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model BeatBalance {
+  userId      String @id
+  balance     Float  @default(500)
+  totalEarned Float  @default(0)
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LedgerEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Float
+  type      String
+  reference String?
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
+
+model Stream {
+  id           String    @id @default(cuid())
+  djId         String
+  title        String
+  genre        String
+  bpmRange     String?
+  status       String    @default("scheduled")
+  ingestKey    String?
+  playbackUrl  String?
+  vodUrl       String?
+  providerStreamId String?
+  promotionTier         String?
+  promotedUntil         DateTime?
+  promotionPaidAt       DateTime?
+  promotionDropAmount   Float     @default(0)
+  setScore              Int?
+  setGrade              String?
+  peakViewers  Int       @default(0)
+  totalTips           Float     @default(0)
+  firstTipBonusGiven  Boolean   @default(false)
+  recapJson           String?
+  startedAt           DateTime?
+  endedAt             DateTime?
+  createdAt           DateTime  @default(now())
+  dj                  User      @relation(fields: [djId], references: [id], onDelete: Cascade)
+  chatMessages        ChatMessage[]
+  tips                Tip[]
+  nowPlaying          NowPlaying?
+  trackUnlocks        TrackUnlock[]
+  crowdRequests       CrowdRequest[]
+  collab              StreamCollab?
+  presence            StreamPresence[]
+  highlights          StreamHighlight[]
+  stationId           String?
+  station             RadioStation? @relation(fields: [stationId], references: [id], onDelete: SetNull)
+  moderationStatus    String    @default("ok")
+  moderationReason    String?
+  reportCount         Int       @default(0)
+  aiRiskScore         Float?
+  aiLastScanAt        DateTime?
+
+  reports             StreamReport[]
+  aiScans             StreamAiScan[]
+  chatBans            StreamChatBan[]
+  chatMessageReports  ChatMessageReport[]
+
+  @@index([djId])
+  @@index([status])
+  @@index([stationId])
+  @@index([providerStreamId])
+}
+
+model StreamPresence {
+  streamId  String
+  viewerKey String
+  userId    String?
+  lastSeen  DateTime @default(now())
+  stream    Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@id([streamId, viewerKey])
+  @@index([streamId, lastSeen])
+}
+
+model StreamCollab {
+  id           String @id @default(cuid())
+  streamId     String @unique
+  partnerDjId  String
+  splitRatio   Float  @default(0.5)
+  status       String @default("pending")
+  stream       Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model NowPlaying {
+  id         String   @id @default(cuid())
+  streamId   String   @unique
+  title      String
+  artist     String
+  bpm        Int?
+  musicalKey String?
+  updatedAt  DateTime @updatedAt
+  stream     Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  streamId  String
+  userId    String?
+  username  String
+  message   String
+  isTip     Boolean  @default(false)
+  tipAmount Float?
+  createdAt DateTime @default(now())
+  stream    Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  reports   ChatMessageReport[]
+
+  @@index([streamId])
+}
+
+model Tip {
+  id          String   @id @default(cuid())
+  streamId    String
+  fromUserId  String
+  toUserId    String
+  amount      Float
+  platformFee Float
+  message     String?
+  timestampMs Int?
+  txHash      String?
+  createdAt   DateTime @default(now())
+  stream      Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  fromUser    User     @relation("TipsSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser      User     @relation("TipsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([streamId])
+  @@index([toUserId])
+}
+
+model TrackUnlock {
+  id          String   @id @default(cuid())
+  streamId    String
+  userId      String
+  trackTitle  String
+  trackArtist String
+  amount      Float
+  platformFee Float
+  isFirstUnlock Boolean @default(false)
+  createdAt   DateTime @default(now())
+  stream      Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([streamId])
+  @@index([userId])
+}
+
+model CrowdRequest {
+  id          String   @id @default(cuid())
+  streamId    String
+  fanId       String
+  trackTitle  String
+  trackArtist String?
+  amount      Float
+  platformFee Float    @default(0)
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  stream      Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  fan         User     @relation(fields: [fanId], references: [id], onDelete: Cascade)
+
+  @@index([streamId])
+  @@index([status])
+}
+
+model Subscription {
+  id            String   @id @default(cuid())
+  fanId         String
+  djId          String
+  amount        Float    @default(10)
+  status        String   @default("active")
+  nextBillingAt DateTime
+  createdAt     DateTime @default(now())
+  fan           User     @relation("Subscriber", fields: [fanId], references: [id], onDelete: Cascade)
+  dj            User     @relation("DJ", fields: [djId], references: [id], onDelete: Cascade)
+
+  @@unique([fanId, djId])
+}
+
+model StripePurchase {
+  id              String    @id @default(cuid())
+  userId          String
+  stripeSessionId String    @unique
+  dropAmount      Float
+  amountCents     Int
+  status          String    @default("pending")
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Achievement {
+  id           String @id
+  name         String
+  description  String
+  icon         String
+  tier         String
+  rewardTokens Float
+  requirement  String
+  category     String
+  audience     String @default("dj")
+  metricKey    String
+  threshold    Float
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String    @id @default(cuid())
+  userId        String
+  achievementId String
+  progress      Float     @default(0)
+  unlockedAt    DateTime?
+  claimedAt     DateTime?
+  claimTxHash   String?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+model PlatformStats {
+  id    String @id @default("global")
+  value String @default("{}")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  href      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+model DjStake {
+  id        String   @id @default(cuid())
+  fanId     String
+  djId      String
+  amount    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  fan       User     @relation("StakesMade", fields: [fanId], references: [id], onDelete: Cascade)
+  dj        User     @relation("StakesReceived", fields: [djId], references: [id], onDelete: Cascade)
+
+  @@unique([fanId, djId])
+  @@index([djId])
+}
+
+model StreamHighlight {
+  id          String   @id @default(cuid())
+  streamId    String
+  tipId       String?
+  timestampMs Int
+  amount      Float
+  username    String
+  label       String?
+  createdAt   DateTime @default(now())
+  stream      Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model RadioStation {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  tagline           String   @default("")
+  avatar            String   @default("")
+  tier              String   @default("community")
+  relayUrl          String?
+  ownerId           String   @unique
+  flagshipDjId      String?  @unique
+  embedPrimaryColor String   @default("#53fc18")
+  embedHideBranding Boolean  @default(false)
+  milestonesClaimed String   @default("[]")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  owner             User     @relation("OwnedStation", fields: [ownerId], references: [id], onDelete: Cascade)
+  flagshipDj        User?    @relation("StationFlagship", fields: [flagshipDjId], references: [id], onDelete: SetNull)
+  residents         StationResident[]
+  streams           Stream[]
+  follows           StationFollow[]
+  stakes            StationStake[]
+}
+
+model StationResident {
+  id        String       @id @default(cuid())
+  stationId String
+  djId      String
+  showTitle String       @default("")
+  slotDay   Int?
+  slotHour  Int?
+  slotLabel String?
+  station   RadioStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  dj        User         @relation("StationMemberships", fields: [djId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, djId])
+  @@index([stationId])
+  @@index([djId])
+}
+
+model StationFollow {
+  id         String       @id @default(cuid())
+  followerId String
+  stationId  String
+  createdAt  DateTime     @default(now())
+  follower   User         @relation("StationFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  station    RadioStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, stationId])
+  @@index([stationId])
+}
+
+model StationStake {
+  id        String       @id @default(cuid())
+  fanId     String
+  stationId String
+  amount    Float
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  fan       User         @relation("StationStakesMade", fields: [fanId], references: [id], onDelete: Cascade)
+  station   RadioStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([fanId, stationId])
+  @@index([stationId])
+}
+
+model StreamReport {
+  id         String   @id @default(cuid())
+  streamId   String
+  reporterId String
+  reason     String
+  details    String?
+  createdAt  DateTime @default(now())
+  stream     Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  reporter   User     @relation("StreamReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([streamId, reporterId])
+  @@index([streamId])
+  @@index([createdAt])
+}
+
+model StreamChatBan {
+  id        String   @id @default(cuid())
+  streamId  String
+  userId    String
+  bannedBy  String
+  reason    String?
+  createdAt DateTime @default(now())
+  stream    Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  user      User     @relation("ChatBansReceived", fields: [userId], references: [id], onDelete: Cascade)
+  bannedByUser User  @relation("ChatBansIssued", fields: [bannedBy], references: [id], onDelete: Cascade)
+
+  @@unique([streamId, userId])
+  @@index([streamId])
+}
+
+model ChatMessageReport {
+  id         String   @id @default(cuid())
+  messageId  String
+  streamId   String
+  reporterId String
+  reason     String   @default("spam")
+  details    String?
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  message    ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  stream     Stream      @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  reporter   User        @relation("ChatMessageReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, reporterId])
+  @@index([status])
+  @@index([streamId])
+  @@index([createdAt])
+}
+
+model FanQuestProgress {
+  id              String    @id @default(cuid())
+  userId          String
+  questDate       String
+  questKey        String
+  slot            Int
+  label           String
+  target          Int
+  progress        Int       @default(0)
+  reward          Int
+  completedAt     DateTime?
+  claimedAt       DateTime?
+  claimedStreamId String?
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questDate, slot])
+  @@index([userId, questDate])
+  @@index([claimedStreamId])
+}
+
+model SupportTicket {
+  id         String   @id @default(cuid())
+  userId     String?
+  email      String
+  category   String   @default("other")
+  subject    String
+  body       String
+  status     String   @default("open")
+  adminNotes String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model StreamAiScan {
+  id        String   @id @default(cuid())
+  streamId  String
+  provider  String
+  riskScore Float
+  flags     String   @default("[]")
+  action    String
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+  stream    Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId, createdAt])
+}
+
+model WithdrawalRequest {
+  id           String    @id @default(cuid())
+  userId       String
+  dropAmount   Float
+  feeDrop      Float
+  netDrop      Float
+  usdCents     Int
+  netUsdCents  Int
+  status       String    @default("pending")
+  rejectReason String?
+  reviewedBy   String?
+  paidAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  target    String
+  metadata  String   @default("{}")
+  ipAddress String?
+  createdAt DateTime @default(now())
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, createdAt])
+  @@index([createdAt])
+  @@index([action, createdAt])
+}

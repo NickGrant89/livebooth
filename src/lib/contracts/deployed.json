@@ -1,0 +1,9 @@
+{
+  "chainId": 100010,
+  "network": "vechainTestnet",
+  "dropToken": "0x3ce357a7ddb16a35ee6cd41fe0b9e0f2e27a719c",
+  "tipRouter": "0xa54408730be4360ba192556a57c1d7695d7a8874",
+  "achievementVault": "0xb833c389dcec15fb6064b592541a689b8c82ed89",
+  "deployer": "0x23630Aa9C614523E83a5Adb5CCe9A0E383a942f4",
+  "deployedAt": "2026-06-30T18:24:28.893Z"
+}

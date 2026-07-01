@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LiveBooth
 
-## Getting Started
+Live streaming + tipping platform — **$DROP** on **VeChain**. Tip the drop, unlock track IDs, earn achievements.
 
-First, run the development server:
+**Planned domain:** [livebooth.uk](https://livebooth.uk)
+
+## Launch this week
+
+1. `npm run launch:check` — pre-deploy checklist  
+2. [docs/PRODUCTION-DEPLOY.md](docs/PRODUCTION-DEPLOY.md) — Neon + Vercel + DNS  
+3. [docs/SOFT-LAUNCH.md](docs/SOFT-LAUNCH.md) — onboard 5–10 creators  
+
+## Quick start (local)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env
+npx prisma migrate dev
+npm run db:seed
+npm run dev:clean
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3008](http://localhost:3008)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Local demo for friends (same Wi‑Fi)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run demo:setup   # migrate, seed, LAN URL
+npm run demo:start   # listen on 0.0.0.0 — share the printed link
+```
 
-## Learn More
+Full guide: [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md)
 
-To learn more about Next.js, take a look at the following resources:
+**Beta with remote testers:** [docs/BETA-LAUNCH.md](docs/BETA-LAUNCH.md) (LAN → tunnel → Vercel hosted).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Demo accounts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Role | Email | Password |
+|------|-------|----------|
+| Fan | demo@livebooth.local | password123 |
+| DJ | neonpulse@livebooth.local | password123 |
 
-## Deploy on Vercel
+## VeChain contracts (Phase 2)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Get testnet VET from https://faucet.vecha.in/
+# Add DEPLOYER_PRIVATE_KEY to .env
+npm run contracts:deploy   # deploys to VeChain Testnet (chain 100010)
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Connect **VeWorld** or MetaMask with VeChain Testnet (chain ID `100010`, RPC `https://testnet.veblocks.net`).
+
+## Stack
+
+- Next.js 16, Prisma/Postgres, wagmi + viem
+- Solidity contracts: `DropToken`, `TipRouter`, `AchievementVault`
+- VeChain Thor (EVM-compatible, low-fee tips)
+
+## Local RTMP streaming
+
+Stream from OBS to your own ingest server (Docker):
+
+```bash
+npm run rtmp:start          # MediaMTX on :1935 RTMP, :8888 HLS
+# Add RTMP_SERVER_URL + HLS_SERVER_URL to .env (see .env.example)
+npm run dev:clean
+```
+
+Full guide: [rtmp-server/README.md](rtmp-server/README.md)
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev:clean` | Kill port 3008, start dev server |
+| `npm run rtmp:start` | Start local RTMP/HLS server (Docker) |
+| `npm run rtmp:stop` | Stop RTMP server |
+| `npm run launch:check` | Pre-deploy env + migration check |
+| `npm run smoke:deploy` | Post-deploy smoke test (`SMOKE_BASE_URL=...`) |
+| `npm run contracts:deploy` | Deploy to VeChain Testnet |
+
+Design docs: [docs/design/](docs/design/)

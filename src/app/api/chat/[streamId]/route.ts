@@ -1,0 +1,72 @@
+import { prisma } from "@/lib/db";
+import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
+import { bumpQuestProgress } from "@/lib/quests";
+import { broadcastChatMessage, serializeChatMessage } from "@/lib/chat-hub";
+import { isUserBannedFromStream } from "@/lib/chat-moderation";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ streamId: string }> },
+) {
+  const { streamId } = await params;
+  const { searchParams } = new URL(request.url);
+  const since = searchParams.get("since");
+
+  const messages = await prisma.chatMessage.findMany({
+    where: {
+      streamId,
+      ...(since ? { createdAt: { gt: new Date(since) } } : {}),
+    },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+  });
+
+  return json({
+    messages: messages.map(serializeChatMessage),
+  });
+}
+
+const postSchema = z.object({ message: z.string().min(1).max(500) });
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ streamId: string }> },
+) {
+  const auth = await requireApiUser();
+  if (isApiError(auth)) return auth;
+
+  const limited = enforceRateLimit(request, "chat", 40, 60 * 1000, auth.id);
+  if (limited) return limited;
+
+  const { streamId } = await params;
+
+  try {
+    const body = postSchema.parse(await request.json());
+
+    const stream = await prisma.stream.findUnique({ where: { id: streamId } });
+    if (!stream || stream.status !== "live") return error("Stream not live", 404);
+
+    if (await isUserBannedFromStream(streamId, auth.id)) {
+      return error("You are banned from chat on this stream", 403);
+    }
+
+    const msg = await prisma.chatMessage.create({
+      data: {
+        streamId,
+        userId: auth.id,
+        username: auth.username,
+        message: body.message,
+      },
+    });
+
+    broadcastChatMessage(streamId, msg);
+    await bumpQuestProgress(auth.id, "chat", 1);
+
+    return json({ message: serializeChatMessage(msg) });
+  } catch (e) {
+    if (e instanceof z.ZodError) return error("Invalid message");
+    return error("Failed to send message", 500);
+  }
+}
