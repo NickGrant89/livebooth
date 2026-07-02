@@ -15,7 +15,9 @@ import {
   Target,
 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch-client";
-import { DAY_LABELS, DROP_TOKEN_SYMBOL, STATION_SCHEDULE_CSV_HEADER } from "@/lib/constants";
+import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, STATION_SCHEDULE_CSV_HEADER } from "@/lib/constants";
+import { StationTierUpgrade } from "@/components/StationTierUpgrade";
+import { StationProSetup } from "@/components/StationProSetup";
 
 interface Resident {
   id: string;
@@ -218,6 +220,7 @@ export function StationOwnerDashboard() {
   const { station, stats, milestones, embed, earnings } = data;
   const canRelay = station.tierMeta.relayMode;
   const canEmbed = Boolean(embed);
+  const isProPlus = station.tier === "pro" || station.tier === "network";
 
   return (
     <section className="rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-6 space-y-6">
@@ -248,10 +251,28 @@ export function StationOwnerDashboard() {
       )}
 
       {station.tier === "community" && (
+        <StationTierUpgrade currentTier={station.tier} onUpgraded={load} />
+      )}
+
+      {isProPlus && (
+        <StationProSetup
+          stationSlug={station.slug}
+          relayUrl={relayUrl}
+          embedColor={embedColor}
+          embedSnippet={embed?.snippet ?? null}
+          embedPreviewUrl={embed?.url ?? null}
+          residentCount={station.residents.length}
+          onRelayUrlChange={setRelayUrl}
+          onEmbedColorChange={setEmbedColor}
+          onSaved={load}
+        />
+      )}
+
+      {station.tier === "community" && (
         <p className="text-xs text-zinc-500 border border-white/10 rounded-lg px-3 py-2">
-          <strong className="text-zinc-300">Community tier</strong> — 5 residents, stats dashboard.
-          Pro unlocks relay mode, embed player, and 15 residents. Ask an admin to upgrade in{" "}
-          <Link href="/support" className="text-[#53fc18] hover:underline">support</Link>.
+          <strong className="text-zinc-300">Community tier</strong> — {station.tierMeta.maxResidents}{" "}
+          residents and stats dashboard. Enable Pro above for relay, embed, and {RADIO_TIERS.pro.maxResidents}{" "}
+          residents.
         </p>
       )}
 
