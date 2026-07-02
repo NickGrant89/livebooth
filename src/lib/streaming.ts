@@ -15,8 +15,52 @@ const LIVEPEER_API_KEY = process.env.LIVEPEER_API_KEY;
 const RTMP_SERVER_URL = process.env.RTMP_SERVER_URL?.replace(/\/$/, "");
 const HLS_SERVER_URL = process.env.HLS_SERVER_URL?.replace(/\/$/, "");
 
+function parseHttpLikeUrl(url: string): URL | null {
+  try {
+    return new URL(url.replace(/^rtmp:/, "http:"));
+  } catch {
+    return null;
+  }
+}
+
+function isRawIpHost(hostname: string): boolean {
+  return (
+    /^\d+\.\d+\.\d+\.\d+$/.test(hostname) ||
+    hostname === "localhost" ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("10.")
+  );
+}
+
+/** Map https://hls.example.com → rtmp://rtmp.example.com:1935/live */
+export function deriveRtmpFromHls(hlsUrl?: string): string | null {
+  if (!hlsUrl) return null;
+  try {
+    const u = new URL(hlsUrl);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    if (!u.hostname.startsWith("hls.")) return null;
+    return `rtmp://${u.hostname.replace(/^hls\./, "rtmp.")}:1935/live`;
+  } catch {
+    return null;
+  }
+}
+
+/** Prefer rtmp.* domain over raw VPS IP when HLS uses hls.* subdomain. */
+export function getEffectiveRtmpServerUrl(): string {
+  const explicit = RTMP_SERVER_URL?.replace(/\/$/, "");
+  const derived = deriveRtmpFromHls(HLS_SERVER_URL);
+
+  if (explicit) {
+    const host = parseHttpLikeUrl(explicit)?.hostname;
+    if (host && isRawIpHost(host) && derived) return derived;
+    return explicit;
+  }
+  if (derived) return derived;
+  return "rtmp://127.0.0.1:1935/live";
+}
+
 function useLocalRtmp() {
-  return Boolean(RTMP_SERVER_URL && HLS_SERVER_URL && !LIVEPEER_API_KEY);
+  return Boolean(HLS_SERVER_URL && !LIVEPEER_API_KEY && getEffectiveRtmpServerUrl());
 }
 
 function isLocalIngestKey(ingestKey?: string | null) {
@@ -28,8 +72,7 @@ export function getRtmpIngestUrl(_ingestKey?: string | null): string {
   if (LIVEPEER_API_KEY && !isLocalIngestKey(_ingestKey)) {
     return "rtmp://rtmp.livepeer.com/live";
   }
-  if (RTMP_SERVER_URL) return RTMP_SERVER_URL.replace(/\/$/, "");
-  return "rtmp://127.0.0.1:1935/live";
+  return getEffectiveRtmpServerUrl();
 }
 
 export function getHlsPlaybackUrl(ingestKey: string): string {

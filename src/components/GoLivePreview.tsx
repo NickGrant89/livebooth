@@ -19,12 +19,18 @@ type GoLivePreviewProps = {
   publishing?: boolean;
 };
 
-async function hlsManifestReady(url: string): Promise<boolean> {
+async function hlsManifestReady(url: string, depth = 0): Promise<boolean> {
+  if (depth > 2) return false;
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return false;
     const text = await res.text();
-    if (text.includes("#EXT-X-STREAM-INF")) return true;
+    if (text.includes("#EXT-X-STREAM-INF")) {
+      const match = text.match(/URI="([^"]+)"/);
+      if (match?.[1]) {
+        return hlsManifestReady(new URL(match[1], url).href, depth + 1);
+      }
+    }
     return /#EXTINF:[\d.]+/.test(text);
   } catch {
     return false;

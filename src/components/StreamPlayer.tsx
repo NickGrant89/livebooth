@@ -63,6 +63,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   ref,
 ) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsManifestReadyRef = useRef(false);
   const [volume, setVolume] = useState(80);
   const [muted, setMuted] = useState(true);
   const [elapsed, setElapsed] = useState(0);
@@ -108,8 +109,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     const video = videoRef.current;
     if (!video || !playbackUrl) return;
 
+    hlsManifestReadyRef.current = false;
     setPlaybackError(false);
-    setIsLoading(!isLive);
+    setIsLoading(!isLive && !previewMode);
 
     const isFile =
       playbackUrl.includes("/api/vod/file/") ||
@@ -159,14 +161,16 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     }
 
     if (Hls.isSupported()) {
-      setIsLoading(true);
+      setIsLoading(!previewMode);
       const liveLike = isLive || previewMode;
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: liveLike,
+        // MediaMTX remuxed HLS is more reliable without LL-HLS mode in browsers.
+        lowLatencyMode: false,
         backBufferLength: liveLike ? 30 : 90,
+        liveSyncDurationCount: 3,
         manifestLoadingTimeOut: 15000,
-        manifestLoadingMaxRetry: 6,
+        manifestLoadingMaxRetry: 8,
       });
       hls.loadSource(playbackUrl);
       hls.attachMedia(video);
@@ -176,11 +180,8 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         setPlaybackError(false);
       };
 
-      const onWaiting = () => {
-        if (video.readyState < 3) setIsLoading(true);
-      };
-
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hlsManifestReadyRef.current = true;
         clearLoading();
         video.play().catch(() => undefined);
       });
@@ -202,18 +203,29 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         setIsLoading(false);
       });
 
-      video.addEventListener("playing", clearLoading);
-      video.addEventListener("canplay", clearLoading);
+      const onPlaying = () => clearLoading();
+      const onCanPlay = () => clearLoading();
+      const onWaiting = () => {
+        if (previewMode || hlsManifestReadyRef.current) return;
+        if (video.readyState < 3) setIsLoading(true);
+      };
+
+      video.addEventListener("playing", onPlaying);
+      video.addEventListener("canplay", onCanPlay);
       video.addEventListener("waiting", onWaiting);
 
-      const loadingTimeout = window.setTimeout(() => {
-        if (video.readyState >= 2) clearLoading();
-      }, 12000);
+      const nativeFallback = window.setTimeout(() => {
+        if (previewMode && video.readyState < 2) {
+          hls.destroy();
+          video.src = playbackUrl;
+          video.play().catch(() => undefined);
+        }
+      }, 10000);
 
       return () => {
-        window.clearTimeout(loadingTimeout);
-        video.removeEventListener("playing", clearLoading);
-        video.removeEventListener("canplay", clearLoading);
+        window.clearTimeout(nativeFallback);
+        video.removeEventListener("playing", onPlaying);
+        video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("waiting", onWaiting);
         hls.destroy();
       };
@@ -324,7 +336,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   /** CORS on <video> is only needed for VOD clip export — breaks some live HLS ingest paths. */
   const useCrossOrigin =
     Boolean(playbackUrl) &&
-    playbackNeedsCrossOrigin(playbackUrl) &&
+    playbackNeedsCrossOrigin(playbackUrl!) &&
     !isLive &&
     !previewMode;
 
@@ -346,15 +358,20 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             crossOrigin={useCrossOrigin ? "anonymous" : undefined}
             className="absolute inset-0 h-full w-full object-cover"
           />
-          {isLoading && !playbackError && (
+          {isLoading && !playbackError && !previewMode && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
               <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
               <span className="mt-3 text-xs font-medium text-zinc-300">
-                {previewMode || isLive ? "Connecting preview…" : "Loading replay…"}
+                {isLive ? "Connecting stream…" : "Loading replay…"}
               </span>
             </div>
           )}
-          {muted && !playbackError && !isLoading && (
+          {previewMode && isLoading && !playbackError && (
+            <div className="absolute top-3 left-3 z-10 rounded-md bg-black/70 px-2 py-1 text-[10px] text-zinc-300 backdrop-blur-sm">
+              Buffering preview…
+            </div>
+          )}
+          {muted && !playbackError && (!isLoading || previewMode) && (
             <button
               type="button"
               onClick={unmute}
