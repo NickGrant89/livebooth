@@ -21,6 +21,8 @@ interface StreamPlayerProps {
   isLive: boolean;
   startedAt?: string | null;
   demoPlayback?: boolean;
+  /** Go-live preview — clearer copy and wait for HLS frames before unmute prompt */
+  previewMode?: boolean;
   viewerLabel?: "live" | "peak";
   peakViewers?: number;
   station?: { slug: string; name: string; avatar: string } | null;
@@ -35,6 +37,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   isLive,
   startedAt,
     demoPlayback = false,
+    previewMode = false,
     viewerLabel = "live",
     peakViewers,
     station,
@@ -121,16 +124,56 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     }
 
     if (Hls.isSupported()) {
-      const hls = new Hls();
+      setIsLoading(true);
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 30,
+      });
       hls.loadSource(playbackUrl);
       hls.attachMedia(video);
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) console.error("[hls]", data.type, data.details, playbackUrl);
+
+      const onHlsPlaying = () => {
+        setIsLoading(false);
+        setPlaybackError(false);
+      };
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => undefined);
       });
-      return () => hls.destroy();
+      hls.on(Hls.Events.ERROR, (_e, data) => {
+        if (!data.fatal) return;
+        console.error("[hls]", data.type, data.details, playbackUrl);
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          hls.startLoad();
+          return;
+        }
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+          return;
+        }
+        setPlaybackError(true);
+        setIsLoading(false);
+      });
+
+      video.addEventListener("playing", onHlsPlaying);
+
+      return () => {
+        video.removeEventListener("playing", onHlsPlaying);
+        hls.destroy();
+      };
     }
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      setIsLoading(true);
       video.src = playbackUrl;
+      video.addEventListener(
+        "loadedmetadata",
+        () => {
+          setIsLoading(false);
+          video.play().catch(() => undefined);
+        },
+        { once: true },
+      );
     }
   }, [playbackUrl, isLive]);
 
@@ -191,7 +234,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           {isLoading && !playbackError && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
               <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
-              <span className="mt-3 text-xs font-medium text-zinc-300">Loading replay…</span>
+              <span className="mt-3 text-xs font-medium text-zinc-300">
+                {previewMode || isLive ? "Connecting preview…" : "Loading replay…"}
+              </span>
             </div>
           )}
           {muted && !playbackError && !isLoading && (
@@ -201,14 +246,20 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
               className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] hover:bg-black/50 transition-colors"
             >
               <VolumeX className="h-10 w-10 text-white mb-2" />
-              <span className="text-sm font-semibold text-white">Click to unmute</span>
+              <span className="text-sm font-semibold text-white">
+                {previewMode ? "Click to preview with sound" : "Click to unmute"}
+              </span>
             </button>
           )}
           {playbackError && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 px-6 text-center">
-              <p className="text-sm font-semibold text-white">Recording could not play</p>
+              <p className="text-sm font-semibold text-white">
+                {previewMode || isLive ? "Preview could not load" : "Recording could not play"}
+              </p>
               <p className="mt-2 text-xs text-zinc-400">
-                The file may still be processing on the server. Wait a minute and refresh.
+                {previewMode || isLive
+                  ? "Check OBS is streaming and your stream key matches. Refresh if it should be working."
+                  : "The file may still be processing on the server. Wait a minute and refresh."}
               </p>
             </div>
           )}

@@ -24,7 +24,8 @@ async function hlsManifestReady(url: string): Promise<boolean> {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return false;
     const text = await res.text();
-    return text.includes("#EXTINF") || text.includes("#EXT-X-STREAM-INF");
+    if (text.includes("#EXT-X-STREAM-INF")) return true;
+    return /#EXTINF:[\d.]+/.test(text);
   } catch {
     return false;
   }
@@ -98,7 +99,12 @@ export function GoLivePreview({
 
         <ul className="space-y-1.5 text-xs text-zinc-500">
           <li className={rtmpOnline !== false ? "text-zinc-300" : "text-red-300"}>
-            {rtmpOnline !== false ? "✓" : "✗"} RTMP server reachable
+            {rtmpOnline !== false ? "✓" : "✗"} HLS server reachable
+            {rtmpOnline === false && (
+              <span className="block text-[10px] text-red-300/80 mt-0.5">
+                Cannot reach {ingestMode === "local" ? "streaming server" : "ingest"} — check VPS / DNS
+              </span>
+            )}
           </li>
           <li className={obsConnected ? "text-[#53fc18]" : ""}>
             {obsConnected ? "✓" : "○"} OBS stream detected (HLS manifest)
@@ -125,6 +131,7 @@ export function GoLivePreview({
             viewers={0}
             playbackUrl={playbackUrl}
             isLive
+            previewMode
             demoPlayback={ingestMode === "demo"}
           />
         ) : (
