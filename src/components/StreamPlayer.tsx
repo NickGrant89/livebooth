@@ -8,6 +8,17 @@ import { Disc3, FastForward, Radio, Rewind, Users, Volume2, VolumeX } from "luci
 const VOD_SKIP_SECONDS = 10;
 const VOD_PLAYBACK_SPEEDS = [1, 1.25, 1.5, 2] as const;
 
+function formatMediaTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export interface StreamPlayerHandle {
   seekTo: (seconds: number) => void;
   getVideoElement: () => HTMLVideoElement | null;
@@ -51,12 +62,17 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const [playbackError, setPlaybackError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const isScrubbingRef = useRef(false);
+  const progressRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
     seekTo(seconds: number) {
       const video = videoRef.current;
       if (!video) return;
       video.currentTime = seconds;
+      setCurrentTime(seconds);
       video.play().catch(() => undefined);
       setMuted(false);
     },
@@ -190,6 +206,36 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     }
   }, [volume, muted]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || isLive || previewMode) return;
+
+    const syncDuration = () => {
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        setDuration(video.duration);
+      }
+    };
+    const onTimeUpdate = () => {
+      if (!isScrubbingRef.current) setCurrentTime(video.currentTime);
+    };
+
+    syncDuration();
+    video.addEventListener("loadedmetadata", syncDuration);
+    video.addEventListener("durationchange", syncDuration);
+    video.addEventListener("timeupdate", onTimeUpdate);
+
+    return () => {
+      video.removeEventListener("loadedmetadata", syncDuration);
+      video.removeEventListener("durationchange", syncDuration);
+      video.removeEventListener("timeupdate", onTimeUpdate);
+    };
+  }, [playbackUrl, isLive, previewMode]);
+
+  useEffect(() => {
+    setCurrentTime(0);
+    setDuration(0);
+  }, [playbackUrl]);
+
   function unmute() {
     setMuted(false);
     videoRef.current?.play().catch(() => undefined);
@@ -198,11 +244,31 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   function skip(seconds: number) {
     const video = videoRef.current;
     if (!video) return;
-    const duration = Number.isFinite(video.duration) ? video.duration : undefined;
+    const max = Number.isFinite(video.duration) ? video.duration : undefined;
     const next = video.currentTime + seconds;
-    video.currentTime = duration != null ? Math.min(Math.max(0, next), duration) : Math.max(0, next);
+    const target = max != null ? Math.min(Math.max(0, next), max) : Math.max(0, next);
+    video.currentTime = target;
+    setCurrentTime(target);
     video.play().catch(() => undefined);
     setMuted(false);
+  }
+
+  function seekToRatio(ratio: number) {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    const target = ratio * video.duration;
+    video.currentTime = target;
+    setCurrentTime(target);
+    video.play().catch(() => undefined);
+    setMuted(false);
+  }
+
+  function handleProgressPointer(clientX: number) {
+    const bar = progressRef.current;
+    if (!bar || duration <= 0) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    seekToRatio(ratio);
   }
 
   function cyclePlaybackSpeed() {
@@ -214,6 +280,8 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   }
 
   const speedLabel = playbackSpeed === 1 ? "1x" : `${playbackSpeed}x`;
+  const showSeekBar = !isLive && !previewMode && duration > 0;
+  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   const hours = Math.floor(elapsed / 3600);
   const minutes = Math.floor((elapsed % 3600) / 60);
@@ -309,7 +377,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         )}
       </div>
 
-      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-4 z-10 pb-12">
+      <div className={`absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-4 z-10 ${showSeekBar ? "pb-24" : "pb-12"}`}>
         {station && (
           <Link
             href={`/station/${station.slug}`}
@@ -321,6 +389,50 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         <h2 className="text-lg font-bold text-white">{streamTitle}</h2>
         <p className="text-sm text-zinc-400">{djName}</p>
       </div>
+
+      {showSeekBar && (
+        <div className="absolute bottom-10 inset-x-0 z-10 px-3 sm:px-4">
+          <div
+            ref={progressRef}
+            className="group relative h-2 cursor-pointer rounded-full bg-white/15 touch-none"
+            onClick={(e) => handleProgressPointer(e.clientX)}
+            onPointerDown={(e) => {
+              isScrubbingRef.current = true;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              handleProgressPointer(e.clientX);
+            }}
+            onPointerMove={(e) => {
+              if (!isScrubbingRef.current) return;
+              handleProgressPointer(e.clientX);
+            }}
+            onPointerUp={(e) => {
+              isScrubbingRef.current = false;
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }}
+            onPointerCancel={() => {
+              isScrubbingRef.current = false;
+            }}
+            role="slider"
+            aria-label="Seek"
+            aria-valuemin={0}
+            aria-valuemax={duration}
+            aria-valuenow={currentTime}
+          >
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-[#53fc18]"
+              style={{ width: `${progressPercent}%` }}
+            />
+            <div
+              className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-[#53fc18] opacity-0 shadow transition-opacity group-hover:opacity-100"
+              style={{ left: `calc(${progressPercent}% - 7px)` }}
+            />
+          </div>
+          <div className="mt-1.5 flex justify-between text-[10px] font-mono text-zinc-400 tabular-nums">
+            <span>{formatMediaTime(currentTime)}</span>
+            <span>{formatMediaTime(duration)}</span>
+          </div>
+        </div>
+      )}
 
       <div className="absolute bottom-0 inset-x-0 flex items-center gap-2 sm:gap-3 bg-black/80 px-3 sm:px-4 py-2 backdrop-blur-sm z-10">
         <button type="button" onClick={() => setMuted((m) => !m)} className="text-zinc-400 hover:text-white">
