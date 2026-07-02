@@ -34,6 +34,7 @@ authHTTPExclude:
 
 pathDefaults:
   record: yes
+  # fmp4 on disk; host remux watcher converts to browser-playable MP4 (see scripts/setup-recording-remux.sh)
   recordFormat: fmp4
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 

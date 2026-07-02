@@ -3,7 +3,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import Hls from "hls.js";
-import { Disc3, Radio, Users, Volume2, VolumeX } from "lucide-react";
+import { Disc3, FastForward, Radio, Rewind, Users, Volume2, VolumeX } from "lucide-react";
+
+const VOD_SKIP_SECONDS = 10;
+const VOD_PLAYBACK_SPEEDS = [1, 1.25, 1.5, 2] as const;
 
 export interface StreamPlayerHandle {
   seekTo: (seconds: number) => void;
@@ -42,6 +45,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const [volume, setVolume] = useState(80);
   const [muted, setMuted] = useState(true);
   const [elapsed, setElapsed] = useState(0);
+  const [playbackError, setPlaybackError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
   useImperativeHandle(ref, () => ({
     seekTo(seconds: number) {
@@ -69,15 +75,42 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     const video = videoRef.current;
     if (!video || !playbackUrl) return;
 
+    setPlaybackError(false);
+    setIsLoading(!isLive);
+
     const isFile =
       playbackUrl.includes("/api/vod/file/") ||
       /\.(mp4|fmp4|webm)(\?|$)/i.test(playbackUrl);
 
     if (isFile) {
-      video.src = playbackUrl.startsWith("/")
+      const src = playbackUrl.startsWith("/")
         ? `${window.location.origin}${playbackUrl}`
         : playbackUrl;
+
+      const onError = () => {
+        setPlaybackError(true);
+        setIsLoading(false);
+      };
+      const onLoaded = () => {
+        setIsLoading(false);
+        video.playbackRate = playbackSpeed;
+        video.play().catch(() => undefined);
+      };
+      const onWaiting = () => setIsLoading(true);
+      const onPlaying = () => setIsLoading(false);
+
+      video.addEventListener("error", onError);
+      video.addEventListener("loadeddata", onLoaded);
+      video.addEventListener("waiting", onWaiting);
+      video.addEventListener("playing", onPlaying);
+      video.src = src;
+      video.load();
+
       return () => {
+        video.removeEventListener("error", onError);
+        video.removeEventListener("loadeddata", onLoaded);
+        video.removeEventListener("waiting", onWaiting);
+        video.removeEventListener("playing", onPlaying);
         video.removeAttribute("src");
         video.load();
       };
@@ -95,7 +128,13 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = playbackUrl;
     }
-  }, [playbackUrl]);
+  }, [playbackUrl, isLive]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -108,6 +147,26 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     setMuted(false);
     videoRef.current?.play().catch(() => undefined);
   }
+
+  function skip(seconds: number) {
+    const video = videoRef.current;
+    if (!video) return;
+    const duration = Number.isFinite(video.duration) ? video.duration : undefined;
+    const next = video.currentTime + seconds;
+    video.currentTime = duration != null ? Math.min(Math.max(0, next), duration) : Math.max(0, next);
+    video.play().catch(() => undefined);
+    setMuted(false);
+  }
+
+  function cyclePlaybackSpeed() {
+    setPlaybackSpeed((current) => {
+      const index = VOD_PLAYBACK_SPEEDS.indexOf(current as (typeof VOD_PLAYBACK_SPEEDS)[number]);
+      const next = VOD_PLAYBACK_SPEEDS[(index + 1) % VOD_PLAYBACK_SPEEDS.length]!;
+      return next;
+    });
+  }
+
+  const speedLabel = playbackSpeed === 1 ? "1x" : `${playbackSpeed}x`;
 
   const hours = Math.floor(elapsed / 3600);
   const minutes = Math.floor((elapsed % 3600) / 60);
@@ -125,7 +184,13 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             playsInline
             className="absolute inset-0 h-full w-full object-cover"
           />
-          {muted && (
+          {isLoading && !playbackError && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
+              <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
+              <span className="mt-3 text-xs font-medium text-zinc-300">Loading replay…</span>
+            </div>
+          )}
+          {muted && !playbackError && !isLoading && (
             <button
               type="button"
               onClick={unmute}
@@ -134,6 +199,14 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
               <VolumeX className="h-10 w-10 text-white mb-2" />
               <span className="text-sm font-semibold text-white">Click to unmute</span>
             </button>
+          )}
+          {playbackError && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 px-6 text-center">
+              <p className="text-sm font-semibold text-white">Recording could not play</p>
+              <p className="mt-2 text-xs text-zinc-400">
+                The file may still be processing on the server. Wait a minute and refresh.
+              </p>
+            </div>
           )}
         </>
       ) : (
@@ -194,7 +267,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         <p className="text-sm text-zinc-400">{djName}</p>
       </div>
 
-      <div className="absolute bottom-0 inset-x-0 flex items-center gap-3 bg-black/80 px-4 py-2 backdrop-blur-sm z-10">
+      <div className="absolute bottom-0 inset-x-0 flex items-center gap-2 sm:gap-3 bg-black/80 px-3 sm:px-4 py-2 backdrop-blur-sm z-10">
         <button type="button" onClick={() => setMuted((m) => !m)} className="text-zinc-400 hover:text-white">
           {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
         </button>
@@ -204,9 +277,39 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           max={100}
           value={volume}
           onChange={(e) => setVolume(Number(e.target.value))}
-          className="w-24 accent-[#53fc18]"
+          className="w-20 sm:w-24 accent-[#53fc18]"
         />
-        <span className="text-[10px] text-zinc-600 uppercase ml-auto">
+        {!isLive && playbackUrl && (
+          <>
+            <button
+              type="button"
+              onClick={() => skip(-VOD_SKIP_SECONDS)}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-zinc-300 hover:bg-white/10 hover:text-white"
+              aria-label={`Rewind ${VOD_SKIP_SECONDS} seconds`}
+            >
+              <Rewind className="h-3.5 w-3.5" />
+              <span>{VOD_SKIP_SECONDS}s</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => skip(VOD_SKIP_SECONDS)}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-zinc-300 hover:bg-white/10 hover:text-white"
+              aria-label={`Fast forward ${VOD_SKIP_SECONDS} seconds`}
+            >
+              <FastForward className="h-3.5 w-3.5" />
+              <span>{VOD_SKIP_SECONDS}s</span>
+            </button>
+            <button
+              type="button"
+              onClick={cyclePlaybackSpeed}
+              className="rounded-md px-2 py-1 text-[10px] font-bold text-[#53fc18] hover:bg-[#53fc18]/10"
+              aria-label="Change playback speed"
+            >
+              {speedLabel}
+            </button>
+          </>
+        )}
+        <span className="text-[10px] text-zinc-600 uppercase ml-auto shrink-0">
           {demoPlayback ? "Demo HLS" : playbackUrl?.includes("/api/vod/file/") ? "Recording" : playbackUrl ? "HLS Stream" : "No signal"}
         </span>
       </div>

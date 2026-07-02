@@ -190,5 +190,6 @@ For soft launch, **2 TB is plenty**. Simplicity wins.
 | OBS rejected | Go Live first; check `authHTTPAddress` in mediamtx config |
 | No video in browser | `HLS_SERVER_URL` must be `https://` |
 | Replay black / HLS 404 | Run `bash scripts/fix-caddy-recordings.sh` on droplet; set `RECORDINGS_PUBLIC_URL=https://hls.livebooth.uk/recordings` on Vercel |
+| Replay shows Recording but black | MediaMTX writes fMP4 — run `bash scripts/setup-recording-remux.sh` on droplet to remux for browsers |
 
 See also: [RTMP-VPS-DEPLOY.md](./RTMP-VPS-DEPLOY.md)
