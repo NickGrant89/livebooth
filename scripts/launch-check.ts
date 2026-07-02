@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto";
 
 const REQUIRED_PROD = [
   "DATABASE_URL",
+  "DIRECT_URL",
   "AUTH_SECRET",
   "NEXT_PUBLIC_APP_URL",
 ] as const;

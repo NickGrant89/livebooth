@@ -50,7 +50,8 @@ Use exact values from Vercel if different.
 
 | Variable | Value |
 |----------|--------|
-| `DATABASE_URL` | Neon pooled URL |
+| `DATABASE_URL` | Neon **pooled** URL (`-pooler` in hostname) |
+| `DIRECT_URL` | Neon **direct** URL (same creds, **no** `-pooler`) — **required** for builds |
 | `AUTH_SECRET` | strong random (openssl rand -base64 32) |
 | `NEXT_PUBLIC_APP_URL` | `https://livebooth.uk` |
 | `RTMP_SERVER_URL` | `rtmp://rtmp.livebooth.uk:1935/live` |
