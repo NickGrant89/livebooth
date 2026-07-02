@@ -4,6 +4,11 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import Link from "next/link";
 import Hls from "hls.js";
 import { Disc3, FastForward, Radio, Rewind, Users, Volume2, VolumeX } from "lucide-react";
+import {
+  ensureVideoExportReady,
+  playbackNeedsCrossOrigin,
+  resolvePlaybackUrl,
+} from "@/lib/video-cors";
 
 const VOD_SKIP_SECONDS = 10;
 const VOD_PLAYBACK_SPEEDS = [1, 1.25, 1.5, 2] as const;
@@ -22,6 +27,8 @@ function formatMediaTime(seconds: number) {
 export interface StreamPlayerHandle {
   seekTo: (seconds: number) => void;
   getVideoElement: () => HTMLVideoElement | null;
+  /** Reload with CORS if needed so clip export works without a page refresh. */
+  ensureExportReady: () => Promise<void>;
 }
 
 interface StreamPlayerProps {
@@ -79,7 +86,14 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     getVideoElement() {
       return videoRef.current;
     },
-  }));
+    async ensureExportReady() {
+      const video = videoRef.current;
+      if (!video || !playbackUrl) {
+        throw new Error("Player not ready — wait for the replay to load.");
+      }
+      await ensureVideoExportReady(video, playbackUrl);
+    },
+  }), [playbackUrl]);
 
   useEffect(() => {
     if (!startedAt || !isLive) return;
@@ -102,9 +116,14 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       /\.(mp4|fmp4|webm)(\?|$)/i.test(playbackUrl);
 
     if (isFile) {
-      const src = playbackUrl.startsWith("/")
-        ? `${window.location.origin}${playbackUrl}`
-        : playbackUrl;
+      const src = resolvePlaybackUrl(playbackUrl);
+      const needsCors = playbackNeedsCrossOrigin(playbackUrl);
+
+      if (needsCors) {
+        video.crossOrigin = "anonymous";
+      } else {
+        video.removeAttribute("crossorigin");
+      }
 
       const onError = () => {
         setPlaybackError(true);
@@ -282,11 +301,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const speedLabel = playbackSpeed === 1 ? "1x" : `${playbackSpeed}x`;
   const showSeekBar = !isLive && !previewMode && duration > 0;
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const useCrossOrigin = Boolean(
-    playbackUrl &&
-      (playbackUrl.includes("/api/vod/file/") ||
-        /\.(mp4|fmp4|webm)(\?|$)/i.test(playbackUrl)),
-  );
+  const useCrossOrigin = playbackUrl ? playbackNeedsCrossOrigin(playbackUrl) : false;
 
   const hours = Math.floor(elapsed / 3600);
   const minutes = Math.floor((elapsed % 3600) / 60);
@@ -298,6 +313,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       {playbackUrl ? (
         <>
           <video
+            key={playbackUrl ?? "idle"}
             ref={videoRef}
             autoPlay
             muted={muted}

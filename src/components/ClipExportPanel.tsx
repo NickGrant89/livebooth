@@ -52,9 +52,16 @@ export function ClipExportPanel({
       return;
     }
 
+    const player = playerRef.current;
+    if (!player) {
+      setError("Player not ready — wait for the replay to load.");
+      return;
+    }
+
     setExporting(true);
     setProgress(0);
     try {
+      await player.ensureExportReady();
       const blob = await exportVerticalClip(
         video,
         startSec,
