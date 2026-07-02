@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/fetch-client";
 import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, STATION_SCHEDULE_CSV_HEADER } from "@/lib/constants";
 import { StationTierUpgrade } from "@/components/StationTierUpgrade";
 import { StationProSetup } from "@/components/StationProSetup";
+import { DjUserPicker, type DjSearchResult } from "@/components/DjUserPicker";
 
 interface Resident {
   id: string;
@@ -419,11 +420,14 @@ export function StationOwnerDashboard() {
           ))}
         </ul>
         <div className="flex flex-wrap gap-2">
-          <input
+          <DjUserPicker
             value={newDj}
-            onChange={(e) => setNewDj(e.target.value)}
-            placeholder="DJ username"
-            className="flex-1 min-w-[120px] rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
+            onChange={setNewDj}
+            onSelect={(dj: DjSearchResult) => {
+              if (!newShow.trim()) setNewShow(dj.displayName);
+            }}
+            placeholder="Search DJ username"
+            className="flex-1 min-w-[160px]"
           />
           <input
             value={newShow}

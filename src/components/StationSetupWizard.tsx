@@ -6,6 +6,7 @@ import { Building2, Loader2, Radio, ArrowRight } from "lucide-react";
 import { apiFetch } from "@/lib/fetch-client";
 import { normalizeStationSlug } from "@/lib/station-slug";
 import { RADIO_TIERS } from "@/lib/constants";
+import { DjUserPicker } from "@/components/DjUserPicker";
 
 interface StationSetupWizardProps {
   suggestedSlug: string;
@@ -179,11 +180,10 @@ export function StationSetupWizard({
               <Radio className="h-3.5 w-3.5" />
               First resident DJ username
             </label>
-            <input
+            <DjUserPicker
               value={firstDj}
-              onChange={(e) => setFirstDj(e.target.value)}
-              placeholder="neonpulse"
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-white"
+              onChange={setFirstDj}
+              placeholder="Search DJ username"
             />
             <p className="text-[11px] text-zinc-600 mt-1">They must already have a DJ account on LiveBooth</p>
           </div>
