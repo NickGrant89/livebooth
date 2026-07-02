@@ -49,7 +49,7 @@ export default function DjGuidePage() {
         <GuideStep n={2} title="OBS setup">
           <ul className="list-disc list-inside text-sm text-zinc-400 mt-2 space-y-1">
             <li>Settings → Stream → Custom service</li>
-            <li>Server: the RTMP URL shown in your dashboard</li>
+            <li>Server: copy from Go Live — production uses <code className="bg-white/10 px-1 rounded">rtmp://rtmp.livebooth.uk:1935/live</code></li>
             <li>Stream key: copy from dashboard (keep it secret)</li>
             <li>Start streaming in OBS, then fans see your HLS feed in the booth</li>
           </ul>

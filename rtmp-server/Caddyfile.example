@@ -5,7 +5,9 @@
 #   # edit domains + email
 #   sudo systemctl reload caddy
 #
-# DNS: hls.yourdomain.com → VPS public IP
+# DNS (all → VPS public IP, grey cloud / DNS only in Cloudflare):
+#   hls.livebooth.uk   — HTTPS HLS playback (Caddy below)
+#   rtmp.livebooth.uk  — RTMP ingest port 1935 (OBS, no Caddy)
 
 {
 	email you@yourdomain.com
@@ -29,4 +31,4 @@ hls.livebooth.uk {
 # 	header Access-Control-Allow-Origin *
 # }
 
-# RTMP ingest stays on port 1935 (OBS) — no Caddy needed for rtmp://
+# RTMP ingest: rtmp://rtmp.livebooth.uk:1935/live (DNS A → VPS IP, port 1935 open)

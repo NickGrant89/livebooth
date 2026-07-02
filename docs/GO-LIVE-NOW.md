@@ -29,13 +29,14 @@ Cloudflare → **livebooth.uk** → **DNS → Records**
 
 Use exact values from Vercel if different.
 
-### HLS → DigitalOcean (DNS only grey ☁️)
+### HLS + RTMP → DigitalOcean (DNS only grey ☁️)
 
 | Type | Name | Content | Proxy |
 |------|------|---------|--------|
 | A | `hls` | `46.101.2.57` | **DNS only** |
+| A | `rtmp` | `46.101.2.57` | **DNS only** |
 
-**Do not** proxy `hls` — Caddy needs direct Let’s Encrypt.
+**Do not** proxy `hls` or `rtmp` — Caddy needs direct Let’s Encrypt on `hls`; RTMP ingest uses TCP **1935** on the droplet IP.
 
 ### Cloudflare SSL
 
@@ -52,7 +53,7 @@ Use exact values from Vercel if different.
 | `DATABASE_URL` | Neon pooled URL |
 | `AUTH_SECRET` | strong random (openssl rand -base64 32) |
 | `NEXT_PUBLIC_APP_URL` | `https://livebooth.uk` |
-| `RTMP_SERVER_URL` | `rtmp://46.101.2.57:1935/live` |
+| `RTMP_SERVER_URL` | `rtmp://rtmp.livebooth.uk:1935/live` |
 | `HLS_SERVER_URL` | `https://hls.livebooth.uk` |
 | `RTMP_AUTH_ENABLED` | `true` |
 
@@ -147,7 +148,7 @@ SMOKE_BASE_URL=https://livebooth.uk npm run smoke:deploy
 **Stream test:**
 
 1. Creator login → **Go Live**
-2. OBS: `rtmp://46.101.2.57:1935/live` + stream key `lb_…`
+2. OBS: server `rtmp://rtmp.livebooth.uk:1935/live`, stream key `lb_…`
 3. Watch on https://livebooth.uk/stream/yourusername
 
 ---

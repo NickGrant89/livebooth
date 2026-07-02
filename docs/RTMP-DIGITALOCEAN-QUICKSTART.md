@@ -98,13 +98,17 @@ docker compose -f docker-compose.production.yml logs -f
 
 ---
 
-## Part 4 — HTTPS HLS
+## Part 4 — DNS (HLS + RTMP)
 
-DNS at your domain registrar:
+At your domain registrar (Cloudflare → **DNS only**, grey cloud):
 
 ```
-hls.livebooth.uk  →  YOUR_DROPLET_IP
+hls.livebooth.uk   →  YOUR_DROPLET_IP
+rtmp.livebooth.uk  →  YOUR_DROPLET_IP
 ```
+
+- **HLS** (`hls.`) — HTTPS playback via Caddy (below).
+- **RTMP** (`rtmp.`) — OBS ingest on port **1935** (no Caddy; MediaMTX listens directly).
 
 Caddy:
 
@@ -138,7 +142,7 @@ systemctl reload caddy
 
 | Variable | Value |
 |----------|--------|
-| `RTMP_SERVER_URL` | `rtmp://YOUR_DROPLET_IP:1935/live` |
+| `RTMP_SERVER_URL` | `rtmp://rtmp.livebooth.uk:1935/live` |
 | `HLS_SERVER_URL` | `https://hls.livebooth.uk` |
 | `RECORDINGS_PUBLIC_URL` | `https://hls.livebooth.uk/recordings` |
 | `RTMP_AUTH_ENABLED` | `true` |
@@ -150,7 +154,7 @@ Remove `LIVEPEER_API_KEY` → **Redeploy**.
 ## Part 6 — Test
 
 1. Creator account → **Go Live**
-2. OBS: server `rtmp://YOUR_IP:1935/live`, stream key `lb_…`
+2. OBS: server `rtmp://rtmp.livebooth.uk:1935/live`, stream key `lb_…`
 3. Start streaming → open stream page
 
 ---

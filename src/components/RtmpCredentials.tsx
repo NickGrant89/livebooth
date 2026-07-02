@@ -9,8 +9,19 @@ interface RtmpCredentialsProps {
   demoMode?: boolean;
 }
 
+function rtmpHostLabel(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "rtmp:" && u.protocol !== "rtmps:") return null;
+    return u.port ? `${u.hostname}:${u.port}` : u.hostname;
+  } catch {
+    return null;
+  }
+}
+
 export function RtmpCredentials({ rtmpUrl, ingestKey, demoMode }: RtmpCredentialsProps) {
   const [copied, setCopied] = useState<"url" | "key" | null>(null);
+  const hostLabel = rtmpHostLabel(rtmpUrl);
 
   async function copy(text: string, field: "url" | "key") {
     await navigator.clipboard.writeText(text);
@@ -22,7 +33,14 @@ export function RtmpCredentials({ rtmpUrl, ingestKey, demoMode }: RtmpCredential
     <div className="rounded-xl border border-[#15CFF4]/25 bg-[#15CFF4]/5 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Radio className="h-4 w-4 text-[#15CFF4]" />
-        <h3 className="font-semibold text-sm">OBS / RTMP credentials</h3>
+        <div>
+          <h3 className="font-semibold text-sm">OBS / RTMP credentials</h3>
+          {hostLabel && (
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              Ingest server · {hostLabel}
+            </p>
+          )}
+        </div>
       </div>
       {demoMode && (
         <p className="text-xs text-amber-400/90">
@@ -60,8 +78,8 @@ export function RtmpCredentials({ rtmpUrl, ingestKey, demoMode }: RtmpCredential
         </div>
       </div>
       <p className="text-[11px] text-zinc-500">
-        OBS → Settings → Stream → Custom → Service: Custom. Paste <strong className="text-zinc-400">Server URL</strong> and{" "}
-        <strong className="text-zinc-400">Stream key</strong> separately (do not put the key in the server URL).
+        OBS → Settings → Stream → Custom. Paste <strong className="text-zinc-400">Server URL</strong> and{" "}
+        <strong className="text-zinc-400">Stream key</strong> separately — never put the key in the server URL.
       </p>
     </div>
   );
