@@ -19,6 +19,7 @@ import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, STATION_SCHEDULE_CSV_HEADER
 import { StationTierUpgrade } from "@/components/StationTierUpgrade";
 import { StationProSetup } from "@/components/StationProSetup";
 import { DjUserPicker, type DjSearchResult } from "@/components/DjUserPicker";
+import { STAKING_COPY, STAKING_DEEMPHASIZED } from "@/lib/staking-ui";
 
 interface Resident {
   id: string;
@@ -494,25 +495,39 @@ export function StationOwnerDashboard() {
       </div>
 
       {milestones.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase text-zinc-500">Staking milestones</h3>
-          {milestones.map((m) => (
-            <div key={m.key} className="text-xs">
-              <div className="flex justify-between text-zinc-400 mb-0.5">
-                <span className={m.claimed ? "text-[#53fc18]" : ""}>
-                  {m.label} ({m.current}/{m.threshold}) {m.claimed && "✓"}
-                </span>
-                <span>+{m.rewardPerStaker} DROP/staker</span>
+        <details
+          className="space-y-2 group"
+          open={!STAKING_DEEMPHASIZED}
+        >
+          <summary className="text-xs font-bold uppercase text-zinc-500 cursor-pointer list-none flex items-center gap-2">
+            <span className="group-open:rotate-90 transition-transform inline-block">›</span>
+            {STAKING_DEEMPHASIZED ? STAKING_COPY.ownerMilestones : "Staking milestones"}
+          </summary>
+          <div className="space-y-2 pt-1">
+            {STAKING_DEEMPHASIZED && (
+              <p className="text-[11px] text-zinc-600">
+                Optional beta feature — fans who stake can earn small DROP bonuses when your station hits
+                follower and tip goals. Tips remain the main way creators earn.
+              </p>
+            )}
+            {milestones.map((m) => (
+              <div key={m.key} className="text-xs">
+                <div className="flex justify-between text-zinc-400 mb-0.5">
+                  <span className={m.claimed ? "text-[#53fc18]" : ""}>
+                    {m.label} ({m.current}/{m.threshold}) {m.claimed && "✓"}
+                  </span>
+                  <span>+{m.rewardPerStaker} DROP/staker</span>
+                </div>
+                <div className="h-1 rounded-full bg-white/5">
+                  <div
+                    className="h-full rounded-full bg-[#53fc18]/70"
+                    style={{ width: `${m.progress}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-1 rounded-full bg-white/5">
-                <div
-                  className="h-full rounded-full bg-[#53fc18]/70"
-                  style={{ width: `${m.progress}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </details>
       )}
 
       {embed && (

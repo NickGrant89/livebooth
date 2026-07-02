@@ -15,7 +15,7 @@ export default async function ResidenciesPage() {
           <h1 className="text-3xl font-bold text-white">Radio stations</h1>
         </div>
         <p className="text-zinc-400 max-w-2xl">
-          Branded channels with resident DJ lineups. Follow a station for go-live alerts, stake DROP, and catch
+          Branded channels with resident DJ lineups. Follow a station for go-live alerts and catch
           the next show.
         </p>
         <Link

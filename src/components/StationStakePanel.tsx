@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { TrendingUp, Target } from "lucide-react";
+import { ChevronDown, Target, TrendingUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { MIN_STAKE_AMOUNT, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { STAKING_COPY, STAKING_DEEMPHASIZED } from "@/lib/staking-ui";
 
 interface Milestone {
   key: string;
@@ -27,6 +28,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
   const [flagshipDj, setFlagshipDj] = useState<{ username: string; displayName: string } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(!STAKING_DEEMPHASIZED);
 
   function load() {
     apiFetch(`/api/stations/${slug}/stake`)
@@ -34,7 +36,9 @@ export function StationStakePanel({ slug }: { slug: string }) {
       .then((d) => {
         setTotalStaked(d.totalStaked ?? 0);
         setStakerCount(d.stakerCount ?? 0);
-        setMyStake(d.myStake?.amount ?? null);
+        const stake = d.myStake?.amount ?? null;
+        setMyStake(stake);
+        if (stake != null) setOpen(true);
         setMilestones(d.milestones ?? []);
         setFlagshipDj(d.flagshipDj ?? null);
       });
@@ -59,6 +63,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
     setLoading(false);
     if (res.ok) {
       setMyStake(parseInt(amount, 10));
+      setOpen(true);
       await refresh();
       load();
     } else {
@@ -77,31 +82,30 @@ export function StationStakePanel({ slug }: { slug: string }) {
     }
   }
 
-  return (
-    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 space-y-4">
-      <div>
-        <h3 className="font-semibold flex items-center gap-2 text-cyan-300">
-          <TrendingUp className="h-4 w-4" />
-          Stake on this station
-        </h3>
-        <p className="text-xs text-zinc-500 mt-1">
-          {stakerCount} stakers · {totalStaked} {DROP_TOKEN_SYMBOL} pooled — milestone rewards when goals hit
+  const title = STAKING_DEEMPHASIZED ? STAKING_COPY.stationTitle : "Stake on this station";
+  const shellClass = STAKING_DEEMPHASIZED
+    ? "rounded-xl border border-white/10 bg-white/[0.02]"
+    : "rounded-xl border border-cyan-500/20 bg-cyan-500/5";
+
+  const body = (
+    <div className={`space-y-4 ${STAKING_DEEMPHASIZED ? "p-5 pt-0" : ""}`}>
+      <p className="text-xs text-zinc-500">
+        {STAKING_DEEMPHASIZED ? STAKING_COPY.stationHint : `${stakerCount} stakers · ${totalStaked} ${DROP_TOKEN_SYMBOL} pooled — milestone rewards when goals hit`}
+      </p>
+      {flagshipDj && (
+        <p className="text-xs text-zinc-400">
+          Flagship show:{" "}
+          <Link href={`/dj/${flagshipDj.username}`} className="text-[#53fc18] hover:underline">
+            {flagshipDj.displayName}
+          </Link>
         </p>
-        {flagshipDj && (
-          <p className="text-xs text-zinc-400 mt-1">
-            Flagship show:{" "}
-            <Link href={`/dj/${flagshipDj.username}`} className="text-cyan-300 hover:underline">
-              {flagshipDj.displayName}
-            </Link>
-          </p>
-        )}
-      </div>
+      )}
 
       {myStake != null ? (
         <div className="flex items-center justify-between">
           <p className="text-sm">
             Your stake:{" "}
-            <span className="text-cyan-300 font-bold">
+            <span className="text-[#53fc18] font-bold">
               {myStake} {DROP_TOKEN_SYMBOL}
             </span>
           </p>
@@ -127,7 +131,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
             type="button"
             onClick={stake}
             disabled={loading}
-            className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-200 disabled:opacity-50"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-white/10 disabled:opacity-50"
           >
             Stake
           </button>
@@ -139,10 +143,10 @@ export function StationStakePanel({ slug }: { slug: string }) {
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {milestones.length > 0 && (
-        <div className="pt-2 border-t border-cyan-500/10 space-y-2">
+        <div className="pt-2 border-t border-white/10 space-y-2">
           <p className="text-[10px] font-bold uppercase text-zinc-500 flex items-center gap-1">
             <Target className="h-3 w-3" />
-            Milestones
+            Community milestones
           </p>
           {milestones.map((m) => (
             <div key={m.key}>
@@ -164,6 +168,44 @@ export function StationStakePanel({ slug }: { slug: string }) {
           ))}
         </div>
       )}
+    </div>
+  );
+
+  if (STAKING_DEEMPHASIZED) {
+    return (
+      <div className={shellClass}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 p-5 text-left"
+        >
+          <span className="font-medium text-sm text-zinc-300 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-zinc-500" />
+            {title}
+            {myStake != null && (
+              <span className="text-[10px] font-bold text-[#53fc18]">
+                {myStake} {DROP_TOKEN_SYMBOL} staked
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+        {open && body}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${shellClass} p-5 space-y-4`}>
+      <div>
+        <h3 className="font-semibold flex items-center gap-2 text-cyan-300">
+          <TrendingUp className="h-4 w-4" />
+          {title}
+        </h3>
+      </div>
+      {body}
     </div>
   );
 }

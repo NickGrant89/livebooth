@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { ChevronDown, TrendingUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { MIN_STAKE_AMOUNT, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { STAKING_COPY, STAKING_DEEMPHASIZED } from "@/lib/staking-ui";
 
 export function StakePanel({ djUsername }: { djUsername: string }) {
   const { user, refresh } = useAuth();
@@ -14,6 +15,7 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
   const [amount, setAmount] = useState(String(MIN_STAKE_AMOUNT));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(!STAKING_DEEMPHASIZED);
 
   useEffect(() => {
     apiFetch(`/api/stake?djUsername=${encodeURIComponent(djUsername)}`)
@@ -21,9 +23,15 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
       .then((d) => {
         setTotalStaked(d.totalStaked ?? 0);
         setStakerCount(d.stakerCount ?? 0);
-        setMyStake(d.myStake?.amount ?? null);
+        const stake = d.myStake?.amount ?? null;
+        setMyStake(stake);
+        if (stake != null) setOpen(true);
       });
   }, [djUsername]);
+
+  if (STAKING_DEEMPHASIZED && myStake == null) {
+    return null;
+  }
 
   async function stake() {
     if (!user) {
@@ -59,19 +67,29 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
     }
   }
 
-  return (
-    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 mt-6">
-      <h3 className="font-semibold flex items-center gap-2 text-cyan-300">
-        <TrendingUp className="h-4 w-4" />
-        Stake on this DJ
-      </h3>
+  const title = STAKING_DEEMPHASIZED ? STAKING_COPY.djTitle : "Stake on this DJ";
+
+  const body = (
+    <>
       <p className="text-xs text-zinc-500 mt-1">
-        Back {djUsername} with DROP — {stakerCount} stakers · {totalStaked} {DROP_TOKEN_SYMBOL} pooled
+        {STAKING_DEEMPHASIZED
+          ? STAKING_COPY.djHint
+          : `Back ${djUsername} with DROP — ${stakerCount} stakers · ${totalStaked} ${DROP_TOKEN_SYMBOL} pooled`}
       </p>
       {myStake != null ? (
         <div className="mt-3 flex items-center justify-between">
-          <p className="text-sm">Your stake: <span className="text-cyan-300 font-bold">{myStake} {DROP_TOKEN_SYMBOL}</span></p>
-          <button type="button" onClick={unstake} disabled={loading} className="text-xs text-zinc-400 hover:text-white underline">
+          <p className="text-sm">
+            Your stake:{" "}
+            <span className="text-[#53fc18] font-bold">
+              {myStake} {DROP_TOKEN_SYMBOL}
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={unstake}
+            disabled={loading}
+            className="text-xs text-zinc-400 hover:text-white underline"
+          >
             Unstake
           </button>
         </div>
@@ -88,7 +106,7 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
             type="button"
             onClick={stake}
             disabled={loading}
-            className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-200 disabled:opacity-50"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-white/10 disabled:opacity-50"
           >
             Stake
           </button>
@@ -97,6 +115,37 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
         <p className="text-xs text-zinc-500 mt-2">Sign in to stake</p>
       )}
       {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+    </>
+  );
+
+  if (STAKING_DEEMPHASIZED) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] mt-6">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 p-5 text-left"
+        >
+          <span className="font-medium text-sm text-zinc-300 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-zinc-500" />
+            {title}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+        {open && <div className="px-5 pb-5">{body}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 mt-6">
+      <h3 className="font-semibold flex items-center gap-2 text-cyan-300">
+        <TrendingUp className="h-4 w-4" />
+        {title}
+      </h3>
+      {body}
     </div>
   );
 }
