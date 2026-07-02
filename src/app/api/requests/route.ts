@@ -113,7 +113,7 @@ export async function POST(request: Request) {
     const stream = await prisma.stream.findUnique({ where: { id: body.streamId } });
     if (!stream || stream.status !== "live") return error("Stream not live", 404);
 
-    const pricing = await getFanStreamPricing(auth.id, stream.djId);
+    const pricing = await getFanStreamPricing(auth.id, stream.djId, stream.stationId);
     const amount = body.amount ?? pricing.requestCost;
     if (amount < pricing.requestCost) {
       return error(`VIP request cost is ${pricing.requestCost} DROP`, 400);

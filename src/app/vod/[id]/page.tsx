@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { VodReplay } from "@/components/VodReplay";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
+import { getVodAccess } from "@/lib/staker-perks";
 import { isDemoPlayback, isFilePlaybackUrl } from "@/lib/streaming";
 import {
   findLatestRemoteRecordingFilename,
@@ -41,9 +43,25 @@ export default async function VODPage({
   const { id } = await params;
   const stream = await prisma.stream.findUnique({
     where: { id },
-    include: { dj: true, highlights: { orderBy: { timestampMs: "asc" } } },
+    include: {
+      dj: true,
+      station: { select: { slug: true, ownerId: true } },
+      highlights: { orderBy: { timestampMs: "asc" } },
+    },
   });
   if (!stream || stream.status !== "ended") notFound();
+
+  const session = await getSessionUser();
+  const vodAccess = await getVodAccess(
+    session?.id,
+    {
+      djId: stream.djId,
+      stationId: stream.stationId,
+      endedAt: stream.endedAt,
+      station: stream.station,
+    },
+    session?.role,
+  );
 
   let setGrade = stream.setGrade;
   let setScore = stream.setScore;
@@ -106,6 +124,11 @@ export default async function VODPage({
         }))}
         setGrade={setGrade}
         setScore={setScore}
+        earlyAccessBlocked={
+          !vodAccess.allowed && vodAccess.reason === "early_access"
+            ? { publicAt: vodAccess.publicAt, stationSlug: vodAccess.stationSlug }
+            : undefined
+        }
       />
     </div>
   );

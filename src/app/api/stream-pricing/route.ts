@@ -12,6 +12,6 @@ export async function GET(request: Request) {
   const stream = await prisma.stream.findUnique({ where: { id: streamId } });
   if (!stream) return error("Stream not found", 404);
 
-  const pricing = await getFanStreamPricing(auth.id, stream.djId);
+  const pricing = await getFanStreamPricing(auth.id, stream.djId, stream.stationId);
   return json(pricing);
 }

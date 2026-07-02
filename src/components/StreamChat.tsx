@@ -8,6 +8,7 @@ import { useOnChainDrop } from "@/hooks/useOnChainDrop";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { TRACK_UNLOCK_COST, REQUEST_COST, HIGHLIGHT_TIP_MIN } from "@/lib/constants";
 import { AchievementToasts, useAchievementUnlocks } from "@/components/AchievementToasts";
+import { StakerBadge, tierFromBadgeLabel } from "@/components/StakerBadge";
 
 interface StreamChatProps {
   streamId: string;
@@ -43,6 +44,8 @@ export function StreamChat({
   const [requestCost, setRequestCost] = useState(REQUEST_COST);
   const [trackUnlockCost, setTrackUnlockCost] = useState(TRACK_UNLOCK_COST);
   const [isVip, setIsVip] = useState(false);
+  const [isStaker, setIsStaker] = useState(false);
+  const [stakerTier, setStakerTier] = useState<string | null>(null);
   const [tipAtDrop, setTipAtDrop] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -113,6 +116,8 @@ export function StreamChat({
           setRequestCost(d.requestCost);
           setTrackUnlockCost(d.trackUnlockCost);
           setIsVip(Boolean(d.vip));
+          setIsStaker(Boolean(d.staker));
+          setStakerTier(d.stakerTier ?? null);
         }
       });
   }, [user, streamId]);
@@ -300,6 +305,11 @@ export function StreamChat({
             {isVip && (
               <span className="ml-1 text-purple-400 normal-case">· VIP perks active</span>
             )}
+            {isStaker && (
+              <span className="ml-1 text-cyan-400 normal-case">
+                · Member perks (cheaper unlocks{stakerTier ? ` · ${stakerTier}` : ""})
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -337,6 +347,9 @@ export function StreamChat({
                 }`}
               >
                 {msg.username}
+                {msg.stakerBadge && (
+                  <StakerBadge label={msg.stakerBadge} tier={tierFromBadgeLabel(msg.stakerBadge)} />
+                )}
                 {isVip && user?.username === msg.username && (
                   <span className="ml-1 text-purple-300" title="VIP">⭐</span>
                 )}

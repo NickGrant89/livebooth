@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const pricing = await getFanStreamPricing(auth.id, stream.djId);
+    const pricing = await getFanStreamPricing(auth.id, stream.djId, stream.stationId);
 
     const unlock = await processTrackUnlock(
       auth.id,

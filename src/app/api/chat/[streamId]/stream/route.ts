@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getChatHub, serializeChatMessage } from "@/lib/chat-hub";
+import { enrichChatPayloads } from "@/lib/staker-perks";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,12 @@ export async function GET(
           take: 100,
         });
 
-        send({ type: "history", messages: history.map(serializeChatMessage) });
+        const enriched = await enrichChatPayloads(
+          { djId: stream.djId, stationId: stream.stationId },
+          history.map((m) => serializeChatMessage(m)),
+        );
+
+        send({ type: "history", messages: enriched });
 
         const unsubscribe = hub.subscribe(streamId, (message) => {
           send({ type: "message", message });

@@ -2,9 +2,8 @@ import { prisma } from "./db";
 import {
   VIP_REQUEST_COST,
   VIP_TRACK_UNLOCK_COST,
-  REQUEST_COST,
-  TRACK_UNLOCK_COST,
 } from "./constants";
+import { getFanStreamPricingWithStakerPerks } from "./staker-perks";
 
 export async function isVipSubscriber(fanId: string, djId: string): Promise<boolean> {
   const sub = await prisma.subscription.findUnique({
@@ -14,13 +13,9 @@ export async function isVipSubscriber(fanId: string, djId: string): Promise<bool
   return sub.nextBillingAt.getTime() > Date.now();
 }
 
-export async function getFanStreamPricing(fanId: string, djId: string) {
+export async function getFanStreamPricing(fanId: string, djId: string, stationId?: string | null) {
   const vip = await isVipSubscriber(fanId, djId);
-  return {
-    vip,
-    requestCost: vip ? VIP_REQUEST_COST : REQUEST_COST,
-    trackUnlockCost: vip ? VIP_TRACK_UNLOCK_COST : TRACK_UNLOCK_COST,
-  };
+  return getFanStreamPricingWithStakerPerks(fanId, djId, stationId, vip);
 }
 
 export async function listActiveSubscriptions(fanId: string) {

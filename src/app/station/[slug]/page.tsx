@@ -14,6 +14,7 @@ import {
 import { notFound } from "next/navigation";
 import { StationFollowButton } from "@/components/StationFollowButton";
 import { StationStakePanel } from "@/components/StationStakePanel";
+import { StationFanCta } from "@/components/StationFanCta";
 import { ShareMenu } from "@/components/ShareMenu";
 import {
   getStationBySlug,
@@ -125,6 +126,12 @@ export default async function StationPage({
           </div>
         </div>
       </header>
+
+      <StationFanCta
+        slug={station.slug}
+        liveDjUsername={liveStream?.dj.username}
+        liveStreamTitle={liveStream?.title}
+      />
 
       {/* Live / off-air */}
       {liveStream ? (

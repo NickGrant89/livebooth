@@ -4,6 +4,7 @@ import { bumpQuestProgress } from "@/lib/quests";
 import { broadcastChatMessage, serializeChatMessage } from "@/lib/chat-hub";
 import { isUserBannedFromStream } from "@/lib/chat-moderation";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { enrichChatPayloads, getStakerBadgeForStream } from "@/lib/staker-perks";
 import { z } from "zod";
 
 export async function GET(
@@ -14,6 +15,12 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const since = searchParams.get("since");
 
+  const stream = await prisma.stream.findUnique({
+    where: { id: streamId },
+    select: { djId: true, stationId: true },
+  });
+  if (!stream) return error("Stream not found", 404);
+
   const messages = await prisma.chatMessage.findMany({
     where: {
       streamId,
@@ -23,9 +30,12 @@ export async function GET(
     take: 100,
   });
 
-  return json({
-    messages: messages.map(serializeChatMessage),
-  });
+  const enriched = await enrichChatPayloads(
+    { djId: stream.djId, stationId: stream.stationId },
+    messages.map((m) => serializeChatMessage(m)),
+  );
+
+  return json({ messages: enriched });
 }
 
 const postSchema = z.object({ message: z.string().min(1).max(500) });
@@ -45,7 +55,10 @@ export async function POST(
   try {
     const body = postSchema.parse(await request.json());
 
-    const stream = await prisma.stream.findUnique({ where: { id: streamId } });
+    const stream = await prisma.stream.findUnique({
+      where: { id: streamId },
+      select: { status: true, djId: true, stationId: true },
+    });
     if (!stream || stream.status !== "live") return error("Stream not live", 404);
 
     if (await isUserBannedFromStream(streamId, auth.id)) {
@@ -61,10 +74,11 @@ export async function POST(
       },
     });
 
-    broadcastChatMessage(streamId, msg);
+    const stakerBadge = await getStakerBadgeForStream(auth.id, stream);
+    broadcastChatMessage(streamId, msg, stakerBadge);
     await bumpQuestProgress(auth.id, "chat", 1);
 
-    return json({ message: serializeChatMessage(msg) });
+    return json({ message: serializeChatMessage(msg, stakerBadge) });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid message");
     return error("Failed to send message", 500);

@@ -29,6 +29,24 @@ export const FIRST_TIP_BONUS = 5;
 export const HIGHLIGHT_TIP_MIN = 25;
 export const MIN_STAKE_AMOUNT = 50;
 
+/** Staker membership perks (v2) */
+export const STAKER_UNLOCK_DISCOUNT = 0.15;
+export const STAKER_REQUEST_DISCOUNT = 0.1;
+export const STAKER_TIP_GRADE_BOOST = 1.1;
+export const STAKER_VOD_EARLY_HOURS = 24;
+export const STAKER_TIER_CORE_MIN = 150;
+export const STAKER_TIER_LEGEND_MIN = 500;
+
+export const STAKER_PERKS = [
+  "Member badge in live chat",
+  "15% off track ID unlocks on station shows",
+  "10% off crowd requests on station shows",
+  "Early replay access (24h before public)",
+  "Your tips count 1.1× toward set grade",
+  "Share in station milestone DROP rewards",
+  "Monthly member draw — top stakers eligible (soon)",
+] as const;
+
 /** Station tip split: 70% DJ / 20% station / 10% platform */
 export const STATION_TIP_DJ_SHARE = 0.7;
 export const STATION_TIP_STATION_SHARE = 0.2;
@@ -69,11 +87,11 @@ export type RadioTierId = keyof typeof RADIO_TIERS;
 
 /** Station staking milestones — rewards paid to all current stakers when hit */
 export const STATION_MILESTONES = [
-  { key: "followers_25", metric: "followers" as const, threshold: 25, rewardPerStaker: 5, label: "25 station followers" },
-  { key: "followers_100", metric: "followers" as const, threshold: 100, rewardPerStaker: 15, label: "100 station followers" },
-  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPerStaker: 20, label: "500 DROP staked on station" },
-  { key: "staked_2000", metric: "staked" as const, threshold: 2000, rewardPerStaker: 50, label: "2,000 DROP staked on station" },
-  { key: "tips_1000", metric: "tips" as const, threshold: 1000, rewardPerStaker: 25, label: "1,000 DROP tipped on shows" },
+  { key: "followers_25", metric: "followers" as const, threshold: 25, rewardPerStaker: 8, label: "25 station followers" },
+  { key: "followers_100", metric: "followers" as const, threshold: 100, rewardPerStaker: 25, label: "100 station followers" },
+  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPerStaker: 30, label: "500 DROP staked on station" },
+  { key: "staked_2000", metric: "staked" as const, threshold: 2000, rewardPerStaker: 75, label: "2,000 DROP staked on station" },
+  { key: "tips_1000", metric: "tips" as const, threshold: 1000, rewardPerStaker: 40, label: "1,000 DROP tipped on shows" },
 ] as const;
 
 export type StationMilestoneKey = (typeof STATION_MILESTONES)[number]["key"];

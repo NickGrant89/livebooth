@@ -1,7 +1,8 @@
 import { prisma } from "./db";
-import { debitUser, creditUser } from "./ledger";
+import { creditUser, debitUser } from "./ledger";
 import { MIN_STAKE_AMOUNT, STATION_MILESTONES } from "./constants";
 import { getStationStats } from "./stations";
+import { notifyUser } from "./notifications";
 
 export async function getStationFollowCount(stationId: string) {
   return prisma.stationFollow.count({ where: { stationId } });
@@ -124,6 +125,13 @@ export async function evaluateStationMilestones(stationId: string) {
         "station_milestone",
         stationId,
         { milestone: milestone.key, label: milestone.label },
+      );
+      await notifyUser(
+        staker.fanId,
+        "station_milestone",
+        `${station.name} milestone unlocked`,
+        `You earned +${milestone.rewardPerStaker} DROP — ${milestone.label}`,
+        station.slug ? `/station/${station.slug}` : undefined,
       );
     }
 

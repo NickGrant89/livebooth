@@ -10,6 +10,7 @@ import {
   STATION_TIP_PLATFORM_SHARE,
 } from "./constants";
 import { applyFirstTipBonus, createStreamHighlight } from "./retention";
+import { getStakerBadgeForStream } from "./staker-perks";
 
 export async function getOrCreateBalance(userId: string) {
   let balance = await prisma.beatBalance.findUnique({ where: { userId } });
@@ -193,7 +194,12 @@ export async function processTip(
       tipAmount: amount,
     },
   });
-  broadcastChatMessage(streamId, chatMsg);
+
+  const stakerBadge = await getStakerBadgeForStream(fromUserId, {
+    djId: toUserId,
+    stationId: stream?.stationId ?? null,
+  });
+  broadcastChatMessage(streamId, chatMsg, stakerBadge);
 
   return tip;
 }

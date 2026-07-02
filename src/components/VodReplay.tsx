@@ -8,6 +8,7 @@ import { ShareMenu } from "@/components/ShareMenu";
 import { FanGradeShare } from "@/components/FanGradeShare";
 import { ClipExportPanel } from "@/components/ClipExportPanel";
 import { formatClipTimestamp } from "@/lib/clip-export";
+import { STAKER_VOD_EARLY_HOURS } from "@/lib/constants";
 
 type Highlight = {
   id: string;
@@ -29,6 +30,10 @@ type VodReplayProps = {
   highlights: Highlight[];
   setGrade?: string | null;
   setScore?: number | null;
+  earlyAccessBlocked?: {
+    publicAt: string;
+    stationSlug: string | null;
+  };
 };
 
 function formatTimestamp(ms: number) {
@@ -50,6 +55,7 @@ export function VodReplay({
   highlights,
   setGrade,
   setScore,
+  earlyAccessBlocked,
 }: VodReplayProps) {
   const playerRef = useRef<StreamPlayerHandle>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -66,16 +72,41 @@ export function VodReplay({
 
   return (
     <>
-      <StreamPlayer
-        ref={playerRef}
-        djName={djName}
-        streamTitle={title}
-        viewers={peakViewers}
-        playbackUrl={playbackUrl}
-        isLive={false}
-        demoPlayback={demoPlayback}
-        viewerLabel="peak"
-      />
+      {earlyAccessBlocked ? (
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-6 mb-6 text-center">
+          <p className="text-lg font-bold text-white">Members-only replay window</p>
+          <p className="text-sm text-zinc-400 mt-2 max-w-md mx-auto">
+            Station members get replay access for the first {STAKER_VOD_EARLY_HOURS} hours after a
+            show ends. Everyone else can watch after that — or become a member now.
+          </p>
+          <p className="text-xs text-zinc-500 mt-3">
+            Public replay:{" "}
+            {new Date(earlyAccessBlocked.publicAt).toLocaleString(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+          </p>
+          {earlyAccessBlocked.stationSlug && (
+            <Link
+              href={`/station/${earlyAccessBlocked.stationSlug}#stake`}
+              className="inline-flex mt-4 rounded-lg bg-[#53fc18] px-5 py-2.5 text-sm font-bold text-black"
+            >
+              Become a member
+            </Link>
+          )}
+        </div>
+      ) : (
+        <StreamPlayer
+          ref={playerRef}
+          djName={djName}
+          streamTitle={title}
+          viewers={peakViewers}
+          playbackUrl={playbackUrl}
+          isLive={false}
+          demoPlayback={demoPlayback}
+          viewerLabel="peak"
+        />
+      )}
       {demoPlayback && (
         <p className="mt-3 text-xs text-amber-400/90 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           VOD replay uses the same demo HLS feed until OBS recording is wired up. Highlight jumps seek within the demo clip.
@@ -113,7 +144,7 @@ export function VodReplay({
         setScore={setScore ?? null}
       />
 
-      {highlights.length > 0 && (
+      {highlights.length > 0 && !earlyAccessBlocked && (
         <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
           <h2 className="font-semibold text-amber-200 mb-1">Legendary moments</h2>
           <p className="text-xs text-amber-200/60 mb-3">Tap a moment to jump in the replay</p>
@@ -142,15 +173,17 @@ export function VodReplay({
         </div>
       )}
 
-      <ClipExportPanel
-        playerRef={playerRef}
-        streamId={streamId}
-        title={title}
-        djName={djName}
-        djUsername={djUsername}
-        startSec={clipStartSec}
-        timestampLabel={clipLabel}
-      />
+      {!earlyAccessBlocked && (
+        <ClipExportPanel
+          playerRef={playerRef}
+          streamId={streamId}
+          title={title}
+          djName={djName}
+          djUsername={djUsername}
+          startSec={clipStartSec}
+          timestampLabel={clipLabel}
+        />
+      )}
     </>
   );
 }

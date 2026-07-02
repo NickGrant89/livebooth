@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { effectiveTipsForSetScore } from "./staker-perks";
 
 const GRADE_THRESHOLDS_NEW = [
   { grade: "S", min: 2000 },
@@ -147,7 +148,18 @@ export async function computeLiveSetScore(streamId: string) {
   const input = await loadStreamScoreInput(streamId);
   if (!input) return null;
 
-  const { score, breakdown } = scoreFromComponents(input);
+  const streamMeta = await prisma.stream.findUnique({
+    where: { id: streamId },
+    select: { stationId: true, totalTips: true },
+  });
+  const effectiveTips = streamMeta
+    ? await effectiveTipsForSetScore(streamId, streamMeta.stationId, streamMeta.totalTips)
+    : input.totalTips;
+
+  const { score, breakdown } = scoreFromComponents({
+    ...input,
+    totalTips: effectiveTips,
+  });
   const { par, streamCount } = await djPar(stream.djId, streamId);
   const grade = gradeFromScore(score, par, streamCount + 1);
 
@@ -172,7 +184,18 @@ export async function computeSetScore(streamId: string) {
   const input = await loadStreamScoreInput(streamId);
   if (!input) return null;
 
-  const { score, breakdown } = scoreFromComponents(input);
+  const streamMeta = await prisma.stream.findUnique({
+    where: { id: streamId },
+    select: { stationId: true, totalTips: true },
+  });
+  const effectiveTips = streamMeta
+    ? await effectiveTipsForSetScore(streamId, streamMeta.stationId, streamMeta.totalTips)
+    : input.totalTips;
+
+  const { score, breakdown } = scoreFromComponents({
+    ...input,
+    totalTips: effectiveTips,
+  });
   const { par, streamCount } = await djPar(stream.djId, streamId);
   const grade = gradeFromScore(score, par, streamCount + 1);
 

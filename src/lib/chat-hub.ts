@@ -5,6 +5,7 @@ export interface ChatMessagePayload {
   message: string;
   isTip?: boolean;
   tipAmount?: number;
+  stakerBadge?: string | null;
   createdAt: string;
 }
 
@@ -61,7 +62,7 @@ export function serializeChatMessage(msg: {
   isTip: boolean;
   tipAmount: number | null;
   createdAt: Date;
-}): ChatMessagePayload {
+}, stakerBadge?: string | null): ChatMessagePayload {
   return {
     id: msg.id,
     userId: msg.userId,
@@ -69,6 +70,7 @@ export function serializeChatMessage(msg: {
     message: msg.message,
     isTip: msg.isTip,
     tipAmount: msg.tipAmount ?? undefined,
+    stakerBadge: stakerBadge ?? undefined,
     createdAt: msg.createdAt.toISOString(),
   };
 }
@@ -84,6 +86,7 @@ export function broadcastChatMessage(
     tipAmount: number | null;
     createdAt: Date;
   },
+  stakerBadge?: string | null,
 ) {
-  publishChatMessage(streamId, serializeChatMessage(msg));
+  publishChatMessage(streamId, serializeChatMessage(msg, stakerBadge));
 }
