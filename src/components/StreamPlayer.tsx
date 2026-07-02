@@ -160,21 +160,32 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
     if (Hls.isSupported()) {
       setIsLoading(true);
+      const liveLike = isLive || previewMode;
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 30,
+        lowLatencyMode: liveLike,
+        backBufferLength: liveLike ? 30 : 90,
+        manifestLoadingTimeOut: 15000,
+        manifestLoadingMaxRetry: 6,
       });
       hls.loadSource(playbackUrl);
       hls.attachMedia(video);
 
-      const onHlsPlaying = () => {
+      const clearLoading = () => {
         setIsLoading(false);
         setPlaybackError(false);
       };
 
+      const onWaiting = () => {
+        if (video.readyState < 3) setIsLoading(true);
+      };
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        clearLoading();
         video.play().catch(() => undefined);
+      });
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        if (video.readyState >= 2) clearLoading();
       });
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
@@ -191,10 +202,19 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         setIsLoading(false);
       });
 
-      video.addEventListener("playing", onHlsPlaying);
+      video.addEventListener("playing", clearLoading);
+      video.addEventListener("canplay", clearLoading);
+      video.addEventListener("waiting", onWaiting);
+
+      const loadingTimeout = window.setTimeout(() => {
+        if (video.readyState >= 2) clearLoading();
+      }, 12000);
 
       return () => {
-        video.removeEventListener("playing", onHlsPlaying);
+        window.clearTimeout(loadingTimeout);
+        video.removeEventListener("playing", clearLoading);
+        video.removeEventListener("canplay", clearLoading);
+        video.removeEventListener("waiting", onWaiting);
         hls.destroy();
       };
     }
@@ -210,7 +230,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         { once: true },
       );
     }
-  }, [playbackUrl, isLive]);
+  }, [playbackUrl, isLive, previewMode]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -301,7 +321,12 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const speedLabel = playbackSpeed === 1 ? "1x" : `${playbackSpeed}x`;
   const showSeekBar = !isLive && !previewMode && duration > 0;
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const useCrossOrigin = playbackUrl ? playbackNeedsCrossOrigin(playbackUrl) : false;
+  /** CORS on <video> is only needed for VOD clip export — breaks some live HLS ingest paths. */
+  const useCrossOrigin =
+    Boolean(playbackUrl) &&
+    playbackNeedsCrossOrigin(playbackUrl) &&
+    !isLive &&
+    !previewMode;
 
   const hours = Math.floor(elapsed / 3600);
   const minutes = Math.floor((elapsed % 3600) / 60);
