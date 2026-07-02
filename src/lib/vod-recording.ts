@@ -4,6 +4,9 @@ import path from "node:path";
 const RECORDINGS_DIR =
   process.env.RECORDINGS_DIR ?? path.join(process.cwd(), "rtmp-server/recordings");
 
+/** Public HTTPS base for VPS recordings, e.g. https://stream.livebooth.uk */
+const RECORDINGS_PUBLIC_URL = process.env.RECORDINGS_PUBLIC_URL?.replace(/\/$/, "");
+
 export function isLocalRecordingEnabled(): boolean {
   return Boolean(
     process.env.RTMP_SERVER_URL &&
@@ -12,8 +15,47 @@ export function isLocalRecordingEnabled(): boolean {
   );
 }
 
+export function isRemoteRecordingEnabled(): boolean {
+  return Boolean(isLocalRecordingEnabled() && RECORDINGS_PUBLIC_URL);
+}
+
 function recordingDirForIngestKey(ingestKey: string): string {
   return path.join(RECORDINGS_DIR, "live", ingestKey);
+}
+
+export function getRemoteRecordingFileUrl(relativePath: string): string | null {
+  if (!RECORDINGS_PUBLIC_URL) return null;
+  return `${RECORDINGS_PUBLIC_URL}/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+/** Parse Caddy file_server browse HTML for .fmp4 / .mp4 links. */
+export async function findLatestRemoteRecordingFilename(ingestKey: string): Promise<string | null> {
+  if (!RECORDINGS_PUBLIC_URL) return null;
+  const listingUrl = `${RECORDINGS_PUBLIC_URL}/live/${encodeURIComponent(ingestKey)}/`;
+  try {
+    const res = await fetch(listingUrl, { cache: "no-store" });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const files = [
+      ...html.matchAll(/href="([^"?]+\.(?:fmp4|mp4))"/gi),
+      ...html.matchAll(/href='([^'?]+\.(?:fmp4|mp4))'/gi),
+      ...html.matchAll(/>([^<]+\.(?:fmp4|mp4))<\//gi),
+    ]
+      .map((m) => decodeURIComponent(m[1]!.trim()))
+      .map((f) => f.replace(/^\.\//, ""))
+      .filter((f) => !f.includes("..") && !f.includes("/"));
+    const unique = [...new Set(files)];
+    if (unique.length === 0) return null;
+    return unique.sort().at(-1)!;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveRemoteRecordingVodUrl(ingestKey: string): Promise<string | null> {
+  const filename = await findLatestRemoteRecordingFilename(ingestKey);
+  if (!filename) return null;
+  return getRecordingPublicUrl(ingestKey, filename);
 }
 
 /** Latest fmp4/mp4 for an ingest key, if MediaMTX finished writing it. */
@@ -30,29 +72,39 @@ export function findLatestRecordingFile(ingestKey: string): string | null {
   return files[files.length - 1]!;
 }
 
+/** Same-origin URL — Vercel proxies to VPS when RECORDINGS_PUBLIC_URL is set. */
 export function getRecordingPublicUrl(ingestKey: string, filename: string): string {
   return `/api/vod/file/live/${encodeURIComponent(ingestKey)}/${encodeURIComponent(filename)}`;
 }
 
 export function resolveRecordingVodUrl(ingestKey: string | null | undefined): string | null {
   if (!ingestKey || !isLocalRecordingEnabled()) return null;
-  const file = findLatestRecordingFile(ingestKey);
-  if (!file) return null;
-  return getRecordingPublicUrl(ingestKey, file);
+  const localFile = findLatestRecordingFile(ingestKey);
+  if (localFile) return getRecordingPublicUrl(ingestKey, localFile);
+  return null;
 }
 
 export async function resolveRecordingVodUrlWithRetry(
   ingestKey: string | null | undefined,
-  attempts = 4,
-  delayMs = 1200,
+  attempts = 8,
+  delayMs = 2000,
 ): Promise<string | null> {
+  if (!ingestKey || !isLocalRecordingEnabled()) return null;
+
   for (let i = 0; i < attempts; i++) {
-    const url = resolveRecordingVodUrl(ingestKey);
-    if (url) return url;
+    const localFile = findLatestRecordingFile(ingestKey);
+    if (localFile) return getRecordingPublicUrl(ingestKey, localFile);
+
+    if (isRemoteRecordingEnabled()) {
+      const remote = await resolveRemoteRecordingVodUrl(ingestKey);
+      if (remote) return remote;
+    }
+
     if (i < attempts - 1) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
+
   return null;
 }
 

@@ -191,7 +191,7 @@ export default async function DJProfilePage({
             {archiveStreams.length} replay{archiveStreams.length === 1 ? "" : "s"}
             {liveStream ? " · go live to add more" : ""}
           </p>
-          <DjArchiveList streams={archiveStreams} liveStreamId={liveStream?.id} />
+          <DjArchiveList streams={archiveStreams} liveStreamId={liveStream?.id} canDelete={isOwnProfile && isDj} />
         </section>
       ) : (
         <>

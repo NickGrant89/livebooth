@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { notifyUser } from "./notifications";
 import { isDemoPlayback } from "./streaming";
+import { resolveRecordingVodUrlWithRetry } from "./vod-recording";
 import {
   STREAM_REPORT_AUTO_STOP,
   STREAM_REPORT_WINDOW_MS,
@@ -19,6 +20,11 @@ export async function forceEndStream(
   });
   if (!stream || stream.status !== "live") return null;
 
+  let vodUrl: string | null = null;
+  if (stream.ingestKey) {
+    vodUrl = await resolveRecordingVodUrlWithRetry(stream.ingestKey);
+  }
+
   const updated = await prisma.stream.update({
     where: { id: streamId },
     data: {
@@ -26,7 +32,7 @@ export async function forceEndStream(
       endedAt: new Date(),
       moderationStatus: status,
       moderationReason: reason,
-      vodUrl: null,
+      vodUrl,
     },
   });
 

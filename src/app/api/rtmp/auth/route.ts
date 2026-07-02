@@ -9,6 +9,20 @@ export async function POST(request: Request) {
     return new Response("bad request", { status: 400 });
   }
 
-  const ok = await validateRtmpPublish(payload);
+  if (payload.action === "publish") {
+    console.info("[rtmp-auth] publish", JSON.stringify(payload));
+  }
+
+  let ok = false;
+  try {
+    ok = await validateRtmpPublish(payload);
+  } catch (err) {
+    console.error("[rtmp-auth] error", err, JSON.stringify(payload));
+    return new Response("error", { status: 500 });
+  }
+
+  if (!ok) {
+    console.warn("[rtmp-auth] denied", JSON.stringify(payload));
+  }
   return new Response(ok ? "ok" : "forbidden", { status: ok ? 200 : 403 });
 }

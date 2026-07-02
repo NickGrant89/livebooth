@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { VodReplay } from "@/components/VodReplay";
 import { prisma } from "@/lib/db";
-import { isDemoPlayback, isFilePlaybackUrl } from "@/lib/streaming";
+import { isDemoPlayback, isFilePlaybackUrl, hasStreamReplay } from "@/lib/streaming";
+import { resolveRecordingVodUrlWithRetry } from "@/lib/vod-recording";
 import { vodMetadata } from "@/lib/metadata-share";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,19 @@ export default async function VODPage({
   });
   if (!stream || stream.status !== "ended") notFound();
 
-  const playbackUrl = stream.vodUrl ?? stream.playbackUrl;
+  let vodUrl = stream.vodUrl;
+  if (!hasStreamReplay(vodUrl, stream.playbackUrl) && stream.ingestKey) {
+    const repaired = await resolveRecordingVodUrlWithRetry(stream.ingestKey);
+    if (repaired) {
+      vodUrl = repaired;
+      await prisma.stream.update({
+        where: { id: stream.id },
+        data: { vodUrl: repaired },
+      });
+    }
+  }
+
+  const playbackUrl = vodUrl ?? stream.playbackUrl;
   const demoPlayback = isDemoPlayback(playbackUrl) && !isFilePlaybackUrl(playbackUrl);
 
   return (

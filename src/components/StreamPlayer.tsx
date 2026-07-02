@@ -87,6 +87,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       const hls = new Hls();
       hls.loadSource(playbackUrl);
       hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (_e, data) => {
+        if (data.fatal) console.error("[hls]", data.type, data.details, playbackUrl);
+      });
       return () => hls.destroy();
     }
     if (video.canPlayType("application/vnd.apple.mpegurl")) {

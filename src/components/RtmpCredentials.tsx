@@ -60,7 +60,8 @@ export function RtmpCredentials({ rtmpUrl, ingestKey, demoMode }: RtmpCredential
         </div>
       </div>
       <p className="text-[11px] text-zinc-500">
-        OBS → Settings → Stream → Custom → paste server + key, then Start Streaming.
+        OBS → Settings → Stream → Custom → Service: Custom. Paste <strong className="text-zinc-400">Server URL</strong> and{" "}
+        <strong className="text-zinc-400">Stream key</strong> separately (do not put the key in the server URL).
       </p>
     </div>
   );

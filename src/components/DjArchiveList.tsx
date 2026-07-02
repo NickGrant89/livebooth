@@ -1,6 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { Play, Radio } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Play, Radio, Trash2, Loader2 } from "lucide-react";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { hasStreamReplay } from "@/lib/streaming";
+import { apiFetch } from "@/lib/fetch-client";
 
 export type ArchiveStream = {
   id: string;
@@ -19,7 +25,7 @@ export type ArchiveStream = {
 function formatSetDate(startedAt: Date | null, endedAt: Date | null) {
   const d = endedAt ?? startedAt;
   if (!d) return "Unknown date";
-  return d.toLocaleDateString(undefined, {
+  return new Date(d).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -28,7 +34,7 @@ function formatSetDate(startedAt: Date | null, endedAt: Date | null) {
 
 function formatDuration(startedAt: Date | null, endedAt: Date | null) {
   if (!startedAt || !endedAt) return null;
-  const min = Math.round((endedAt.getTime() - startedAt.getTime()) / 60000);
+  const min = Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60000);
   if (min < 1) return "<1 min";
   return `${min} min`;
 }
@@ -76,20 +82,41 @@ const rowClass = (hasReplay: boolean) =>
   `flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors ${
     hasReplay
       ? "border-white/5 bg-[#141416] hover:border-[#53fc18]/25"
-      : "border-white/5 bg-[#141416]/50 opacity-60 cursor-default"
+      : "border-white/5 bg-[#141416]/50"
   }`;
 
 export function DjArchiveList({
   streams,
   liveStreamId,
+  canDelete = false,
 }: {
   streams: ArchiveStream[];
   liveStreamId?: string;
+  canDelete?: boolean;
 }) {
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function deleteArchive(streamId: string, title: string) {
+    if (!confirm(`Delete "${title}" from your archive? This cannot be undone.`)) return;
+    setDeletingId(streamId);
+    try {
+      const res = await apiFetch(`/api/streams/${streamId}/archive`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        alert(data.error ?? "Failed to delete");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   if (streams.length === 0 && !liveStreamId) {
     return (
       <p className="text-sm text-zinc-500 rounded-xl border border-white/5 bg-[#141416] px-4 py-8 text-center">
-        No replays yet — ended sets appear here after the DJ finishes streaming.
+        No replays yet — ended sets appear here after you finish streaming.
       </p>
     );
   }
@@ -98,17 +125,33 @@ export function DjArchiveList({
     <div className="space-y-2">
       {streams.map((s) => {
         const duration = formatDuration(s.startedAt, s.endedAt);
-        const hasReplay = Boolean(s.vodUrl ?? s.playbackUrl);
-        if (hasReplay) {
-          return (
-            <Link key={s.id} href={`/vod/${s.id}`} className={rowClass(true)}>
-              <ArchiveRowContent stream={s} duration={duration} hasReplay />
-            </Link>
-          );
-        }
+        const hasReplay = hasStreamReplay(s.vodUrl, s.playbackUrl);
+        const inner = <ArchiveRowContent stream={s} duration={duration} hasReplay={hasReplay} />;
+
         return (
-          <div key={s.id} className={rowClass(false)} aria-disabled>
-            <ArchiveRowContent stream={s} duration={duration} hasReplay={false} />
+          <div key={s.id} className={`${rowClass(hasReplay)} group`}>
+            {hasReplay ? (
+              <Link href={`/vod/${s.id}`} className="flex flex-1 items-center gap-4 min-w-0">
+                {inner}
+              </Link>
+            ) : (
+              <div className="flex flex-1 items-center gap-4 min-w-0 opacity-60">{inner}</div>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => deleteArchive(s.id, s.title)}
+                disabled={deletingId === s.id}
+                className="shrink-0 rounded-lg border border-white/10 p-2 text-zinc-500 hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                aria-label={`Delete ${s.title}`}
+              >
+                {deletingId === s.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </button>
+            )}
           </div>
         );
       })}

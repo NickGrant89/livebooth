@@ -15,12 +15,12 @@ function isLocalIngestKey(ingestKey?: string | null) {
   return !ingestKey || ingestKey.startsWith("lb_");
 }
 
-/** OBS server field (stream key is separate). */
-export function getRtmpIngestUrl(ingestKey?: string | null): string {
-  if (LIVEPEER_API_KEY && !isLocalIngestKey(ingestKey)) {
+/** OBS server URL — stream key is a separate field (see RtmpCredentials). */
+export function getRtmpIngestUrl(_ingestKey?: string | null): string {
+  if (LIVEPEER_API_KEY && !isLocalIngestKey(_ingestKey)) {
     return "rtmp://rtmp.livepeer.com/live";
   }
-  if (RTMP_SERVER_URL) return RTMP_SERVER_URL;
+  if (RTMP_SERVER_URL) return RTMP_SERVER_URL.replace(/\/$/, "");
   return "rtmp://127.0.0.1:1935/live";
 }
 
@@ -82,6 +82,18 @@ export function isFilePlaybackUrl(url: string | null | undefined): boolean {
   );
 }
 
+/** Whether an ended stream has a playable archive (not a dead live HLS URL). */
+export function hasStreamReplay(vodUrl: string | null | undefined, playbackUrl: string | null | undefined): boolean {
+  const url = vodUrl ?? playbackUrl;
+  if (!url) return false;
+  if (isFilePlaybackUrl(url)) return true;
+  if (url.includes("livepeercdn.studio")) return true;
+  if (HLS_SERVER_URL && url.startsWith(HLS_SERVER_URL)) return false;
+  if (url.includes("hls.livebooth.uk")) return false;
+  if (isDemoPlayback(url)) return true;
+  return false;
+}
+
 export async function createStreamSession(
   djId: string,
   title: string,
@@ -133,7 +145,9 @@ export async function createStreamSession(
 
   const playbackUrl = useLocalRtmp()
     ? getHlsPlaybackUrl(ingestKey)
-    : DEMO_HLS;
+    : process.env.NODE_ENV === "production"
+      ? getHlsPlaybackUrl(ingestKey)
+      : DEMO_HLS;
 
   return prisma.stream.create({
     data: {

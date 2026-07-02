@@ -110,7 +110,17 @@ function LoginForm() {
         </p>
       </form>
 
-      {isDemo && (
+        {isAdminLogin && !isDemo && (
+          <p className="text-center text-xs text-zinc-500 mt-4">
+            Admin access requires an account with the admin role.{" "}
+            <Link href="/support" className="text-[#53fc18] hover:underline">
+              Contact support
+            </Link>{" "}
+            if you need access.
+          </p>
+        )}
+
+        {isDemo && (
         <div className="text-center text-xs text-zinc-600 mt-6 font-mono space-y-1">
           <p>Local demo — see DemoHostBanner for LAN URL</p>
           <p>Fan: demo@livebooth.local · DJ: neonpulse@livebooth.local</p>

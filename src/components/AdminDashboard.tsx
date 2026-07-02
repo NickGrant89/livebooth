@@ -17,7 +17,7 @@ import {
   Building2,
 } from "lucide-react";
 
-type Tab = "overview" | "users" | "streams" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "audit";
+type Tab = "overview" | "users" | "streams" | "archives" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "audit";
 
 type PromotionRow = {
   streamId: string;
@@ -95,6 +95,7 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [users, setUsers] = useState<Array<Record<string, unknown>>>([]);
   const [streams, setStreams] = useState<Array<Record<string, unknown>>>([]);
+  const [archives, setArchives] = useState<Array<Record<string, unknown>>>([]);
   const [moderation, setModeration] = useState<{
     flagged: unknown[];
     recentReports: unknown[];
@@ -127,6 +128,7 @@ export function AdminDashboard() {
     { id: "overview", label: "Overview", icon: Shield },
     { id: "users", label: "Users", icon: Users },
     { id: "streams", label: "Live streams", icon: Radio },
+    { id: "archives", label: "Archive", icon: ScrollText },
     { id: "stations", label: "Radio stations", icon: Building2 },
     { id: "promotions", label: "Promotions", icon: Megaphone },
     { id: "treasury", label: "Treasury", icon: Landmark },
@@ -172,6 +174,23 @@ export function AdminDashboard() {
     if (res.ok) {
       const d = await res.json();
       setUsers(d.users ?? []);
+    }
+  }
+
+  async function loadArchives() {
+    const res = await apiFetch("/api/admin/archives");
+    if (res.ok) {
+      const d = await res.json();
+      setArchives(d.streams ?? []);
+    }
+  }
+
+  async function deleteArchive(streamId: string, title: string) {
+    if (!confirm(`Delete archive "${title}"?`)) return;
+    const res = await apiFetch(`/api/streams/${streamId}/archive`, { method: "DELETE" });
+    if (res.ok) {
+      setMsg("Archive deleted");
+      loadArchives();
     }
   }
 
@@ -277,6 +296,7 @@ export function AdminDashboard() {
       loadOverview(),
       tab === "users" ? loadUsers() : Promise.resolve(),
       tab === "streams" ? loadStreams() : Promise.resolve(),
+      tab === "archives" ? loadArchives() : Promise.resolve(),
       tab === "stations" ? loadStations() : Promise.resolve(),
       tab === "promotions" ? loadPromotions() : Promise.resolve(),
       tab === "treasury" ? loadTreasury() : Promise.resolve(),
@@ -468,6 +488,42 @@ export function AdminDashboard() {
               </button>
             </div>
           );})}
+        </div>
+      ) : tab === "archives" ? (
+        <div className="space-y-2">
+          {archives.length === 0 ? (
+            <p className="text-zinc-500 text-sm">No archived sets</p>
+          ) : (
+            archives.map((s) => {
+              const dj = s.dj as { username: string; displayName: string };
+              const hasReplay = Boolean(s.hasReplay);
+              return (
+                <div key={String(s.id)} className="rounded-xl border border-white/10 bg-[#141416] p-4 flex flex-wrap justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-white">{String(s.title)}</p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      @{dj.username} · {s.peakViewers != null ? `${s.peakViewers} peak` : ""}
+                      {hasReplay ? " · replay available" : " · no replay file"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {hasReplay && (
+                      <Link href={`/vod/${String(s.id)}`} className="text-xs text-[#53fc18] underline self-center">
+                        Watch
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => deleteArchive(String(s.id), String(s.title))}
+                      className="rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       ) : tab === "promotions" ? (
         promotions ? (

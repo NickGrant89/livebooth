@@ -7,6 +7,7 @@ export type MediaMtxAuthPayload = {
   action?: string;
   path?: string;
   protocol?: string;
+  query?: string;
 };
 
 /** When false, MediaMTX auth callback allows all publishes (local dev). */
@@ -24,7 +25,7 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
   const action = payload.action ?? "";
   if (action !== "publish") return true;
 
-  const ingestKey = extractIngestKey(payload.path, payload.user, payload.password);
+  const ingestKey = extractIngestKey(payload.path, payload.user, payload.password, payload.query);
   if (!ingestKey) return false;
 
   const stream = await prisma.stream.findFirst({
@@ -38,7 +39,7 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
   return Boolean(stream);
 }
 
-function extractIngestKey(path?: string, user?: string, password?: string): string | null {
+function extractIngestKey(path?: string, user?: string, password?: string, query?: string): string | null {
   if (path) {
     const parts = path.split("/").filter(Boolean);
     const liveIdx = parts.indexOf("live");
@@ -51,6 +52,18 @@ function extractIngestKey(path?: string, user?: string, password?: string): stri
 
   for (const candidate of [user, password]) {
     if (candidate?.startsWith("lb_")) return candidate;
+  }
+
+  // MediaMTX RTMP may pass ?user=…&pass=… or key-only in query
+  if (query) {
+    const params = new URLSearchParams(query);
+    for (const key of ["pass", "password", "key", "stream", "name"]) {
+      const val = params.get(key);
+      if (val?.startsWith("lb_")) return val;
+    }
+    for (const val of params.values()) {
+      if (val.startsWith("lb_")) return val;
+    }
   }
 
   return null;

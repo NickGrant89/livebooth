@@ -11,6 +11,10 @@ services:
     volumes:
       - ./recordings:/recordings
       - ./mediamtx.production.yml:/mediamtx.yml:ro
+      # MediaMTX image has no CA bundle — needed for HTTPS auth callback to Vercel
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    environment:
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
     ports:
       - "1935:1935"              # RTMP ingest (public)
       - "127.0.0.1:8888:8888"    # HLS — localhost only; reverse-proxy via Caddy

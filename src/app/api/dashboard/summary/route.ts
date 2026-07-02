@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { contractsConfigured } from "@/lib/web3/contracts";
+import { hasStreamReplay } from "@/lib/streaming";
 
 export async function GET() {
   const auth = await requireApiUser();
@@ -69,7 +70,7 @@ export async function GET() {
     recentSets: recentSets.map((s) => ({
       ...s,
       endedAt: s.endedAt?.toISOString() ?? null,
-      hasReplay: Boolean(s.vodUrl ?? s.playbackUrl),
+      hasReplay: hasStreamReplay(s.vodUrl, s.playbackUrl),
     })),
     lastSet: recentSets[0]
       ? {

@@ -8,6 +8,8 @@
 # HLS:  https://hls.yourdomain.com/live/lb_…/index.m3u8  (via Caddy — see Caddyfile.example)
 
 logLevel: info
+readTimeout: 30s
+writeTimeout: 30s
 
 rtmp: yes
 rtmpAddress: :1935
@@ -15,7 +17,7 @@ rtmpAddress: :1935
 hls: yes
 hlsAddress: :8888
 hlsAlwaysRemux: yes
-hlsAllowOrigin: '*'
+hlsAllowOrigins: ['*']
 
 api: yes
 apiAddress: :9997

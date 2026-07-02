@@ -16,11 +16,13 @@ hls.livebooth.uk {
 	reverse_proxy 127.0.0.1:8888
 }
 
-# Optional: serve VOD recordings written by MediaMTX
-# Files land in ./recordings/live/{ingestKey}/*.fmp4
+# Optional: serve VOD recordings written by MediaMTX (required for archive replays)
+# Files: /opt/livebooth/rtmp-server/recordings/live/{ingestKey}/*.mp4
+# DNS: stream.livebooth.uk → VPS IP (grey cloud / DNS only)
 stream.livebooth.uk {
 	root * /opt/livebooth/rtmp-server/recordings
 	file_server browse
+	header Access-Control-Allow-Origin *
 }
 
 # RTMP ingest stays on port 1935 (OBS) — no Caddy needed for rtmp://

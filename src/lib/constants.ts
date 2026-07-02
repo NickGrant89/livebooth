@@ -153,7 +153,11 @@ export const WITHDRAWAL_KYC_MONTHLY_USD_CENTS = 100_000;
 export const WITHDRAWAL_MIN_ACCOUNT_AGE_DAYS = 7;
 
 export function isDemoEconomyMode(): boolean {
-  return process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
+  return process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+}
+
+export function isBetaMode(): boolean {
+  return process.env.NEXT_PUBLIC_BETA_MODE === "true";
 }
 
 /** Show demo account hints in UI (login page, help). Off in production unless explicitly enabled. */

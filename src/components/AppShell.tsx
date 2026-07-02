@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { DailyLoginBanner } from "@/components/DailyLoginBanner";
 import { DemoHostBanner } from "@/components/DemoHostBanner";
+import { BetaBanner } from "@/components/BetaBanner";
 import type { AuthUser } from "@/context/AuthContext";
 
 export function AppShell({
@@ -28,6 +29,7 @@ export function AppShell({
     <Providers initialUser={initialUser}>
       <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
         <Navbar />
+        <BetaBanner />
         <DemoHostBanner />
         <DailyLoginBanner />
         <main className="relative z-[1] flex-1 min-w-0 w-full">{children}</main>
