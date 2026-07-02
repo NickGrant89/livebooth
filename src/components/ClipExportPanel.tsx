@@ -3,7 +3,7 @@
 import { useState, type RefObject } from "react";
 import { Download, Film, Loader2 } from "lucide-react";
 import type { StreamPlayerHandle } from "@/components/StreamPlayer";
-import { buildOgImageUrl } from "@/lib/share";
+import { getClientSiteUrl } from "@/lib/share";
 import {
   downloadBlob,
   exportVerticalClip,
@@ -30,16 +30,17 @@ export function ClipExportPanel({
 }: ClipExportPanelProps) {
   const [duration, setDuration] = useState<30 | 60>(30);
   const [exporting, setExporting] = useState(false);
+  const [downloadingCard, setDownloadingCard] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
 
-  const clipCardUrl = buildOgImageUrl({
+  const clipCardUrl = `${getClientSiteUrl()}/api/og?${new URLSearchParams({
     type: "clip",
     dj: djName,
     title,
     username: djUsername,
     timestamp: timestampLabel ?? formatClipTimestamp(startSec),
-  });
+  }).toString()}`;
 
   const safeName = title.replace(/[^\w\s-]/g, "").trim().slice(0, 30) || "clip";
 
@@ -67,6 +68,21 @@ export function ClipExportPanel({
     } finally {
       setExporting(false);
       setProgress(0);
+    }
+  }
+
+  async function downloadShareCard() {
+    setDownloadingCard(true);
+    setError("");
+    try {
+      const res = await fetch(clipCardUrl);
+      if (!res.ok) throw new Error("Could not generate share card");
+      downloadBlob(await res.blob(), `livebooth-${safeName}-card.png`);
+    } catch {
+      setError("Share card download failed — opening image in a new tab.");
+      window.open(clipCardUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloadingCard(false);
     }
   }
 
@@ -127,16 +143,19 @@ export function ClipExportPanel({
           )}
           {exporting ? "Exporting…" : `Download ${duration}s clip`}
         </button>
-        <a
-          href={clipCardUrl}
-          download={`livebooth-${safeName}-card.png`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-white/10"
+        <button
+          type="button"
+          onClick={downloadShareCard}
+          disabled={downloadingCard || exporting}
+          className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-white/10 disabled:opacity-50"
         >
-          <Download className="h-4 w-4" />
+          {downloadingCard ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
           Share card (PNG)
-        </a>
+        </button>
       </div>
       <p className="text-[10px] text-zinc-600">
         Video clip exports as WebM (9:16). Upload to TikTok or convert to MP4 locally if needed.

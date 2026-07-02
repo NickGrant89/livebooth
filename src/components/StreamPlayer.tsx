@@ -282,6 +282,11 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const speedLabel = playbackSpeed === 1 ? "1x" : `${playbackSpeed}x`;
   const showSeekBar = !isLive && !previewMode && duration > 0;
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const useCrossOrigin = Boolean(
+    playbackUrl &&
+      (playbackUrl.includes("/api/vod/file/") ||
+        /\.(mp4|fmp4|webm)(\?|$)/i.test(playbackUrl)),
+  );
 
   const hours = Math.floor(elapsed / 3600);
   const minutes = Math.floor((elapsed % 3600) / 60);
@@ -297,6 +302,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             autoPlay
             muted={muted}
             playsInline
+            crossOrigin={useCrossOrigin ? "anonymous" : undefined}
             className="absolute inset-0 h-full w-full object-cover"
           />
           {isLoading && !playbackError && (
