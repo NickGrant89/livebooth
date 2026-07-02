@@ -9,6 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Migrations need a direct Postgres connection (Neon pooler breaks pg_advisory_lock).
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

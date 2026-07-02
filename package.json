@@ -26,7 +26,7 @@
     "smoke:deploy": "npx tsx scripts/smoke-deploy.ts",
     "launch:check": "npx tsx scripts/launch-check.ts",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && sh -c 'DATABASE_URL=\"${DIRECT_URL:-$DATABASE_URL}\" prisma migrate deploy' && next build",
     "start": "next start",
     "lint": "eslint",
     "db:up": "docker compose up -d postgres",

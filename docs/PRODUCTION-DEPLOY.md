@@ -108,7 +108,8 @@ Set environment variables in the Vercel dashboard (or `vercel env add`):
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `DATABASE_URL` | ✅ | Neon pooled Postgres URL |
+| `DATABASE_URL` | ✅ | Neon **pooled** Postgres URL (`-pooler` in hostname) |
+| `DIRECT_URL` | ✅ | Neon **direct** URL (same creds, **no** `-pooler`) — used by `prisma migrate deploy` |
 | `AUTH_SECRET` | ✅ | `openssl rand -base64 32` |
 | `NEXT_PUBLIC_APP_URL` | ✅ | `https://your-app.vercel.app` |
 | `RESEND_API_KEY` | ✅ | Password reset email |
@@ -130,6 +131,8 @@ Vercel runs `npm run vercel-build` which executes:
 ```
 prisma generate && prisma migrate deploy && next build
 ```
+
+`migrate deploy` uses `DIRECT_URL` when set (Neon pooler cannot hold Prisma’s advisory lock — error **P1002**).
 
 Push to GitHub and connect the repo, or:
 
