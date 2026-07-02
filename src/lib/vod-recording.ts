@@ -101,9 +101,14 @@ export function findLatestRecordingFile(ingestKey: string): string | null {
   return files[files.length - 1]!;
 }
 
-/** Same-origin URL — Vercel proxies to VPS when RECORDINGS_PUBLIC_URL is set. */
+/** Public playback URL — direct from VPS when configured, else same-origin proxy. */
 export function getRecordingPublicUrl(ingestKey: string, filename: string): string {
-  return `/api/vod/file/live/${encodeURIComponent(ingestKey)}/${encodeURIComponent(filename)}`;
+  const relativePath = `live/${ingestKey}/${filename}`;
+  if (isRemoteRecordingEnabled()) {
+    const direct = getRemoteRecordingFileUrl(relativePath);
+    if (direct) return direct;
+  }
+  return `/api/vod/file/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 export function resolveRecordingVodUrl(ingestKey: string | null | undefined): string | null {

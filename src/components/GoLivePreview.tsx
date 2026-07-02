@@ -1,0 +1,158 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Loader2, MonitorPlay, Radio, WifiOff } from "lucide-react";
+import { StreamPlayer } from "@/components/StreamPlayer";
+import { RtmpCredentials } from "@/components/RtmpCredentials";
+
+type PreviewStatus = "waiting" | "checking" | "ready" | "error";
+
+type GoLivePreviewProps = {
+  title: string;
+  djName: string;
+  playbackUrl: string;
+  rtmpUrl: string;
+  ingestKey: string;
+  ingestMode?: "livepeer" | "local" | "demo";
+  rtmpOnline?: boolean | null;
+  onPublish: () => void;
+  publishing?: boolean;
+};
+
+async function hlsManifestReady(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return false;
+    const text = await res.text();
+    return text.includes("#EXTINF") || text.includes("#EXT-X-STREAM-INF");
+  } catch {
+    return false;
+  }
+}
+
+export function GoLivePreview({
+  title,
+  djName,
+  playbackUrl,
+  rtmpUrl,
+  ingestKey,
+  ingestMode,
+  rtmpOnline,
+  onPublish,
+  publishing = false,
+}: GoLivePreviewProps) {
+  const [status, setStatus] = useState<PreviewStatus>("waiting");
+  const [checks, setChecks] = useState(0);
+
+  const pollPreview = useCallback(async () => {
+    if (!playbackUrl) return;
+    setStatus((s) => (s === "ready" ? s : "checking"));
+    const ready = await hlsManifestReady(playbackUrl);
+    setChecks((n) => n + 1);
+    setStatus(ready ? "ready" : "waiting");
+  }, [playbackUrl]);
+
+  useEffect(() => {
+    if (!playbackUrl || ingestMode === "demo") return;
+    void pollPreview();
+    const interval = setInterval(() => {
+      void pollPreview();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [playbackUrl, ingestMode, pollPreview]);
+
+  const obsConnected = status === "ready";
+  const canPublish = obsConnected || ingestMode === "demo";
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#15CFF4]/15 border border-[#15CFF4]/30 px-3 py-1 text-xs font-bold text-[#15CFF4] uppercase">
+          <MonitorPlay className="h-3 w-3" /> Preview mode
+        </span>
+        <h2 className="text-xl font-bold mt-3">{title}</h2>
+        <p className="text-sm text-zinc-400 mt-1">
+          Fans can&apos;t see you yet — check video and audio, then go live.
+        </p>
+      </div>
+
+      <RtmpCredentials rtmpUrl={rtmpUrl} ingestKey={ingestKey} demoMode={ingestMode === "demo"} />
+
+      <div className="rounded-xl border border-white/10 bg-black/40 p-3 space-y-3">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="text-zinc-400">Preview checks</span>
+          {status === "checking" ? (
+            <span className="inline-flex items-center gap-1.5 text-zinc-300">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking feed…
+            </span>
+          ) : obsConnected ? (
+            <span className="inline-flex items-center gap-1.5 text-[#53fc18] font-semibold">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Signal detected
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-amber-300">
+              <WifiOff className="h-3.5 w-3.5" /> Waiting for OBS…
+            </span>
+          )}
+        </div>
+
+        <ul className="space-y-1.5 text-xs text-zinc-500">
+          <li className={rtmpOnline !== false ? "text-zinc-300" : "text-red-300"}>
+            {rtmpOnline !== false ? "✓" : "✗"} RTMP server reachable
+          </li>
+          <li className={obsConnected ? "text-[#53fc18]" : ""}>
+            {obsConnected ? "✓" : "○"} OBS stream detected (HLS manifest)
+          </li>
+          <li>{checks > 0 ? "✓" : "○"} Preview player below</li>
+        </ul>
+
+        {ingestMode === "demo" && (
+          <p className="text-xs text-amber-400/90 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+            Demo mode shows a sample HLS feed. Connect real RTMP in production to preview your OBS output.
+          </p>
+        )}
+
+        {!obsConnected && ingestMode !== "demo" && (
+          <p className="text-xs text-zinc-400">
+            Start streaming in OBS with the credentials above. This page refreshes every few seconds until your feed appears.
+          </p>
+        )}
+
+        {playbackUrl ? (
+          <StreamPlayer
+            djName={djName}
+            streamTitle={title}
+            viewers={0}
+            playbackUrl={playbackUrl}
+            isLive
+            demoPlayback={ingestMode === "demo"}
+          />
+        ) : (
+          <div className="aspect-video rounded-lg bg-black/60 flex items-center justify-center text-sm text-zinc-500">
+            No preview URL
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={onPublish}
+        disabled={publishing || !canPublish}
+        className="w-full rounded-lg bg-gradient-to-r from-[#53fc18] to-[#15CFF4] py-3 text-sm font-bold text-black disabled:opacity-40"
+      >
+        {publishing ? "Publishing…" : obsConnected ? "Looks good — go live" : "Waiting for OBS signal…"}
+      </button>
+
+      {!canPublish && (
+        <button
+          type="button"
+          onClick={onPublish}
+          disabled={publishing}
+          className="w-full rounded-lg bg-white/5 py-2.5 text-xs text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-40"
+        >
+          Publish anyway (skip preview check)
+        </button>
+      )}
+    </div>
+  );
+}

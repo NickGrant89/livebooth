@@ -117,8 +117,9 @@ export const DJ_OBS_STEPS = [
 export const GO_LIVE_STEPS = [
   { label: "Details", hint: "Title & genre help fans discover your set" },
   { label: "OBS setup", hint: "How to connect your encoder" },
-  { label: "Go live", hint: "Creates your stream key" },
-  { label: "Broadcast", hint: "Copy credentials & open dashboard" },
+  { label: "Stream key", hint: "Creates your private RTMP credentials" },
+  { label: "Preview", hint: "Check video & audio before fans see you" },
+  { label: "Live", hint: "Share your booth & open dashboard" },
 ];
 
 export const FAN_WALLET_TIPS = [

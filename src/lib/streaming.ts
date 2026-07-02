@@ -45,12 +45,14 @@ export function resolveLivePlaybackUrl(
   ingestKey: string | null | undefined,
   storedPlaybackUrl: string | null | undefined,
 ): string | null | undefined {
-  if (status !== "live" || !ingestKey) return storedPlaybackUrl;
+  if ((status !== "live" && status !== "preparing") || !ingestKey) return storedPlaybackUrl;
   if (isLocalIngestKey(ingestKey) && isLocalRtmpMode()) {
     return getHlsPlaybackUrl(ingestKey);
   }
   return storedPlaybackUrl;
 }
+
+export const BROADCAST_ACTIVE_STATUSES = ["preparing", "live"] as const;
 
 export function isLocalRtmpMode() {
   return useLocalRtmp();
@@ -111,11 +113,10 @@ export async function createStreamSession(
             title,
             genre,
             bpmRange,
-            status: "live",
+            status: "preparing",
             ingestKey: data.streamKey,
             playbackUrl,
             providerStreamId: data.id,
-            startedAt: new Date(),
             stationId: stationId ?? undefined,
           },
         });
@@ -137,11 +138,25 @@ export async function createStreamSession(
       title,
       genre,
       bpmRange,
-      status: "live",
+      status: "preparing",
       ingestKey,
       playbackUrl,
-      startedAt: new Date(),
       stationId: stationId ?? undefined,
+    },
+  });
+}
+
+export async function publishStreamSession(streamId: string, djId: string) {
+  const stream = await prisma.stream.findFirst({
+    where: { id: streamId, djId, status: "preparing" },
+  });
+  if (!stream) return null;
+
+  return prisma.stream.update({
+    where: { id: streamId },
+    data: {
+      status: "live",
+      startedAt: new Date(),
     },
   });
 }

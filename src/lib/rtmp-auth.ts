@@ -31,7 +31,7 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
   const stream = await prisma.stream.findFirst({
     where: {
       ingestKey,
-      status: "live",
+      status: { in: ["preparing", "live"] },
     },
     select: { id: true },
   });

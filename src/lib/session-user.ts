@@ -1,7 +1,7 @@
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getOrCreateBalance } from "@/lib/ledger";
-import { getRtmpIngestUrl, getIngestModeForStream } from "@/lib/streaming";
+import { getRtmpIngestUrl, getIngestModeForStream, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { parseGenres } from "@/lib/api-utils";
 import type { AuthUser } from "@/context/AuthContext";
 
@@ -22,7 +22,7 @@ export async function getAuthUserForClient(): Promise<AuthUser | null> {
   await getOrCreateBalance(user.id);
 
   const liveStream = await prisma.stream.findFirst({
-    where: { djId: user.id, status: "live" },
+    where: { djId: user.id, status: { in: ["preparing", "live"] } },
   });
 
   return {
@@ -39,8 +39,14 @@ export async function getAuthUserForClient(): Promise<AuthUser | null> {
       ? {
           id: liveStream.id,
           title: liveStream.title,
+          status: liveStream.status,
           ingestKey: liveStream.ingestKey,
           rtmpUrl: liveStream.ingestKey ? getRtmpIngestUrl(liveStream.ingestKey) : null,
+          playbackUrl: resolveLivePlaybackUrl(
+            liveStream.status,
+            liveStream.ingestKey,
+            liveStream.playbackUrl,
+          ),
           ingestMode: getIngestModeForStream(liveStream.ingestKey, liveStream.playbackUrl),
         }
       : null,

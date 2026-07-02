@@ -42,8 +42,16 @@ export async function GET() {
       },
     }),
     prisma.stream.findFirst({
-      where: { djId: auth.id, status: "live" },
-      select: { id: true, title: true, peakViewers: true, totalTips: true, setGrade: true, setScore: true },
+      where: { djId: auth.id, status: { in: ["preparing", "live"] } },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        peakViewers: true,
+        totalTips: true,
+        setGrade: true,
+        setScore: true,
+      },
     }),
     prisma.userAchievement.count({
       where: { userId: auth.id, unlockedAt: { not: null } },

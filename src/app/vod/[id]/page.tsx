@@ -4,7 +4,13 @@ import Link from "next/link";
 import { VodReplay } from "@/components/VodReplay";
 import { prisma } from "@/lib/db";
 import { isDemoPlayback, isFilePlaybackUrl } from "@/lib/streaming";
-import { resolveRecordingVodUrlWithRetry } from "@/lib/vod-recording";
+import {
+  findLatestRemoteRecordingFilename,
+  getRecordingPublicUrl,
+  isRemoteRecordingEnabled,
+  resolveRecordingVodUrl,
+} from "@/lib/vod-recording";
+import { computeSetScore } from "@/lib/set-score";
 import { vodMetadata } from "@/lib/metadata-share";
 
 export const dynamic = "force-dynamic";
@@ -39,11 +45,25 @@ export default async function VODPage({
   });
   if (!stream || stream.status !== "ended") notFound();
 
+  let setGrade = stream.setGrade;
+  let setScore = stream.setScore;
+  if (!setGrade) {
+    const scored = await computeSetScore(stream.id);
+    if (scored) {
+      setGrade = scored.setGrade;
+      setScore = scored.setScore;
+    }
+  }
+
   let vodUrl = stream.vodUrl;
   let playbackUrl: string | null = vodUrl ?? stream.playbackUrl;
 
   if (stream.ingestKey && !isFilePlaybackUrl(playbackUrl)) {
-    const repaired = await resolveRecordingVodUrlWithRetry(stream.ingestKey, 6, 800);
+    let repaired = await resolveRecordingVodUrl(stream.ingestKey);
+    if (!repaired && isRemoteRecordingEnabled()) {
+      const filename = await findLatestRemoteRecordingFilename(stream.ingestKey);
+      if (filename) repaired = getRecordingPublicUrl(stream.ingestKey, filename);
+    }
     if (repaired) {
       vodUrl = repaired;
       playbackUrl = repaired;
@@ -84,8 +104,8 @@ export default async function VODPage({
           username: h.username,
           amount: h.amount,
         }))}
-        setGrade={stream.setGrade}
-        setScore={stream.setScore}
+        setGrade={setGrade}
+        setScore={setScore}
       />
     </div>
   );

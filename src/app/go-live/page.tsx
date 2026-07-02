@@ -3,15 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Radio, Mic, Headphones, ChevronRight } from "lucide-react";
+import { Radio, Mic, Headphones, ChevronRight, BookOpen } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
-import { RtmpCredentials } from "@/components/RtmpCredentials";
 import { GenrePicker } from "@/components/GenrePicker";
+import { GoLivePreview } from "@/components/GoLivePreview";
 import { DJ_OBS_STEPS, GO_LIVE_STEPS } from "@/lib/guidance";
-import { BookOpen } from "lucide-react";
 import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
+
+type StreamInfo = {
+  id: string;
+  rtmpUrl: string;
+  ingestKey: string;
+  playbackUrl?: string | null;
+  title?: string;
+  status?: string;
+  ingestMode?: "livepeer" | "local" | "demo";
+};
 
 export default function GoLivePage() {
   const { user, refresh, loading } = useAuth();
@@ -20,13 +29,7 @@ export default function GoLivePage() {
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("live-band");
   const [bpmRange, setBpmRange] = useState("");
-  const [streamInfo, setStreamInfo] = useState<{
-    id: string;
-    rtmpUrl: string;
-    ingestKey: string;
-    title?: string;
-    ingestMode?: "livepeer" | "local" | "demo";
-  } | null>(null);
+  const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [rtmpOnline, setRtmpOnline] = useState<boolean | null>(null);
@@ -49,10 +52,12 @@ export default function GoLivePage() {
       id: existingLive.id,
       rtmpUrl: existingLive.rtmpUrl,
       ingestKey: existingLive.ingestKey,
+      playbackUrl: existingLive.playbackUrl,
       title: existingLive.title,
+      status: existingLive.status,
       ingestMode: existingLive.ingestMode,
     });
-    setStep(4);
+    setStep(existingLive.status === "live" ? 5 : 4);
   }
 
   async function endAndRestart() {
@@ -81,15 +86,31 @@ export default function GoLivePage() {
     const data = await res.json();
     setSubmitting(false);
     if (!res.ok) {
-      setError(data.error ?? "Failed to go live");
+      setError(data.error ?? "Failed to create stream");
       return;
     }
     setStreamInfo(data.stream);
     await refresh();
-    setStep(4);
-    if (data.alreadyLive) {
-      setError("");
+    setStep(data.stream.status === "live" ? 5 : 4);
+  }
+
+  async function publishStream() {
+    if (!streamInfo?.id) return;
+    setSubmitting(true);
+    setError("");
+    const res = await apiFetch("/api/streams/go-live/publish", {
+      method: "POST",
+      body: JSON.stringify({ streamId: streamInfo.id }),
+    });
+    const data = await res.json();
+    setSubmitting(false);
+    if (!res.ok) {
+      setError(data.error ?? "Failed to publish stream");
+      return;
     }
+    setStreamInfo(data.stream);
+    await refresh();
+    setStep(5);
   }
 
   if (loading) {
@@ -122,6 +143,8 @@ export default function GoLivePage() {
     );
   }
 
+  const displayTitle = streamInfo?.title || title || user.liveStream?.title || "Live set";
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-3xl font-bold mb-2 text-center">Go Live</h1>
@@ -132,7 +155,6 @@ export default function GoLivePage() {
         </Link>
       </p>
 
-      {/* Step progress */}
       <div className="flex justify-between mb-6 px-2">
         {GO_LIVE_STEPS.map((s, i) => {
           const n = i + 1;
@@ -168,9 +190,9 @@ export default function GoLivePage() {
             <p className="text-sm text-amber-100">
               You already have an active stream:{" "}
               <strong className="text-white">{existingLive.title}</strong>
-            </p>
-            <p className="text-xs text-amber-200/70">
-              Demo seed keeps some DJs &quot;live&quot; for the homepage. End it to run through the full setup, or jump to your RTMP credentials.
+              {existingLive.status === "preparing" && (
+                <span className="text-amber-200/80"> (preview — not public yet)</span>
+              )}
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -178,7 +200,7 @@ export default function GoLivePage() {
                 onClick={resumeLiveStream}
                 className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15"
               >
-                Show RTMP credentials
+                {existingLive.status === "live" ? "Back to live booth" : "Continue preview"}
               </button>
               <button
                 type="button"
@@ -190,6 +212,10 @@ export default function GoLivePage() {
               </button>
             </div>
           </div>
+        )}
+
+        {error && step !== 3 && (
+          <p className="mb-4 text-red-400 text-sm text-center">{error}</p>
         )}
 
         {step === 1 && (
@@ -237,9 +263,6 @@ export default function GoLivePage() {
                 <li key={line}>{line}</li>
               ))}
             </ol>
-            <p className="text-xs text-[#15CFF4]">
-              Local dev: run <code className="bg-black/30 px-1 rounded">npm run rtmp:start</code> · Production: set LIVEPEER_API_KEY
-            </p>
             {rtmpOnline === false && (
               <p className="text-xs text-red-400">
                 RTMP server not detected — run <code className="bg-black/30 px-1 rounded">npm run rtmp:start</code> before OBS.
@@ -257,31 +280,54 @@ export default function GoLivePage() {
             <Radio className="h-16 w-16 text-[#53fc18] mx-auto animate-pulse" />
             <h2 className="text-xl font-bold">{title}</h2>
             <p className="text-sm text-zinc-400 capitalize">{genre.replace("-", " ")}</p>
+            <p className="text-xs text-zinc-500">
+              Creates your stream key. Fans won&apos;t be notified until you finish the preview step.
+            </p>
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               onClick={startStream}
               disabled={submitting}
               className="w-full rounded-lg bg-gradient-to-r from-[#53fc18] to-[#15CFF4] py-3 text-sm font-bold text-black disabled:opacity-50"
             >
-              {submitting ? "Starting..." : "Start Broadcasting"}
+              {submitting ? "Creating…" : "Get stream key →"}
             </button>
             <button onClick={() => setStep(2)} className="text-sm text-zinc-500">← Back</button>
           </div>
         )}
 
         {step === 4 && streamInfo && (
+          <div className="space-y-4">
+            <GoLivePreview
+              title={displayTitle}
+              djName={user.displayName}
+              playbackUrl={streamInfo.playbackUrl ?? ""}
+              rtmpUrl={streamInfo.rtmpUrl}
+              ingestKey={streamInfo.ingestKey}
+              ingestMode={streamInfo.ingestMode}
+              rtmpOnline={rtmpOnline}
+              onPublish={publishStream}
+              publishing={submitting}
+            />
+            <button
+              type="button"
+              onClick={endAndRestart}
+              disabled={submitting}
+              className="w-full rounded-lg bg-white/5 py-2.5 text-sm text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-50"
+            >
+              Cancel setup
+            </button>
+          </div>
+        )}
+
+        {step === 5 && streamInfo && (
           <div className="space-y-5">
             <div className="text-center">
               <span className="inline-flex items-center gap-2 rounded-full bg-red-500/20 border border-red-500/30 px-3 py-1 text-xs font-bold text-red-400 uppercase">
                 <Radio className="h-3 w-3 animate-pulse" /> You are live
               </span>
-              <h2 className="text-xl font-bold mt-3">{streamInfo.title || title || user.liveStream?.title}</h2>
+              <h2 className="text-xl font-bold mt-3">{displayTitle}</h2>
+              <p className="text-sm text-zinc-400 mt-1">Followers have been notified. Share your booth link.</p>
             </div>
-            <RtmpCredentials
-              rtmpUrl={streamInfo.rtmpUrl}
-              ingestKey={streamInfo.ingestKey}
-              demoMode={streamInfo.ingestMode === "demo"}
-            />
             {rtmpOnline === false && streamInfo.ingestMode === "local" && (
               <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 RTMP server is offline. Run{" "}
@@ -292,13 +338,13 @@ export default function GoLivePage() {
             <ShareReminderBanner
               username={user.username}
               djName={user.displayName}
-              setTitle={streamInfo.title || title || user.liveStream?.title || "Live set"}
+              setTitle={displayTitle}
             />
             <div className="flex justify-center w-full">
               <ShareLiveButton
                 username={user.username}
                 djName={user.displayName}
-                setTitle={streamInfo.title || title || user.liveStream?.title || "Live set"}
+                setTitle={displayTitle}
                 variant="secondary"
                 label="More share options"
               />
@@ -317,9 +363,6 @@ export default function GoLivePage() {
             >
               {submitting ? "Ending stream…" : "End stream"}
             </button>
-            <p className="text-xs text-zinc-500 text-center">
-              On dashboard: update <strong className="text-zinc-400">Now Playing</strong> so fans can unlock track IDs, and respond to crowd requests.
-            </p>
           </div>
         )}
       </div>

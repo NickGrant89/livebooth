@@ -35,35 +35,15 @@ export async function GET(
 
   if (isRemoteRecordingEnabled()) {
     const bases = getRecordingsPublicBaseUrls();
-    const range = request.headers.get("range");
 
     for (const base of bases) {
       const remoteUrl = getRemoteRecordingFileUrl(relativePath, base);
       if (!remoteUrl) continue;
 
       try {
-        const remoteRes = await fetch(remoteUrl, {
-          cache: "no-store",
-          headers: range ? { Range: range } : undefined,
-        });
-
-        if (remoteRes.ok || remoteRes.status === 206) {
-          const headers = new Headers();
-          headers.set(
-            "Content-Type",
-            remoteRes.headers.get("Content-Type") ?? recordingsContentType(name),
-          );
-          const len = remoteRes.headers.get("Content-Length");
-          if (len) headers.set("Content-Length", len);
-          const contentRange = remoteRes.headers.get("Content-Range");
-          if (contentRange) headers.set("Content-Range", contentRange);
-          headers.set("Accept-Ranges", "bytes");
-          headers.set("Cache-Control", "public, max-age=86400");
-
-          return new Response(remoteRes.body, {
-            status: remoteRes.status,
-            headers,
-          });
+        const head = await fetch(remoteUrl, { method: "HEAD", cache: "no-store" });
+        if (head.ok) {
+          return Response.redirect(remoteUrl, 307);
         }
       } catch {
         // try next base URL

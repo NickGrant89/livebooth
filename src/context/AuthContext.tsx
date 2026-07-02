@@ -25,8 +25,10 @@ export interface AuthUser {
   liveStream?: {
     id: string;
     title: string;
+    status?: string;
     ingestKey?: string | null;
     rtmpUrl?: string | null;
+    playbackUrl?: string | null;
     ingestMode?: "livepeer" | "local" | "demo";
   } | null;
 }

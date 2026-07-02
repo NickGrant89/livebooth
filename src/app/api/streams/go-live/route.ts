@@ -1,7 +1,6 @@
 import { getSessionUser } from "@/lib/auth";
-import { createStreamSession, endStreamSession, getRtmpIngestUrl, getIngestModeForStream } from "@/lib/streaming";
+import { createStreamSession, endStreamSession, getRtmpIngestUrl, getIngestModeForStream, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { evaluateAchievements } from "@/lib/achievements";
-import { notifyFollowersGoLive, notifyDjShareReminder, notifyStationFollowersResidentGoLive } from "@/lib/notifications";
 import { updateDjStreak, buildStreamRecap } from "@/lib/retention";
 import { computeSetScore } from "@/lib/set-score";
 import { getStationForDj } from "@/lib/stations";
@@ -20,13 +19,19 @@ function serializeGoLiveStream(stream: {
   ingestKey: string | null;
   playbackUrl: string | null;
   title: string;
+  status?: string;
 }) {
   return {
     id: stream.id,
     ingestKey: stream.ingestKey,
     rtmpUrl: getRtmpIngestUrl(stream.ingestKey),
-    playbackUrl: stream.playbackUrl,
+    playbackUrl: resolveLivePlaybackUrl(
+      stream.status ?? "preparing",
+      stream.ingestKey,
+      stream.playbackUrl,
+    ),
     title: stream.title,
+    status: stream.status ?? "preparing",
     ingestMode: getIngestModeForStream(stream.ingestKey, stream.playbackUrl),
   };
 }
@@ -41,7 +46,7 @@ export async function POST(request: Request) {
   }
 
   const existing = await prisma.stream.findFirst({
-    where: { djId: user.id, status: "live" },
+    where: { djId: user.id, status: { in: ["preparing", "live"] } },
   });
   if (existing) {
     return json({ stream: serializeGoLiveStream(existing), alreadyLive: true });
@@ -58,21 +63,6 @@ export async function POST(request: Request) {
       station?.id,
     );
 
-    const dj = await prisma.user.findUnique({ where: { id: user.id } });
-    if (dj) {
-      await notifyFollowersGoLive(user.id, dj.displayName, dj.username, body.title);
-      if (station?.id) {
-        await notifyStationFollowersResidentGoLive(
-          station.id,
-          dj.displayName,
-          dj.username,
-          body.title,
-        );
-      }
-      await notifyDjShareReminder(user.id, dj.username, body.title);
-      await updateDjStreak(user.id);
-    }
-
     return json({ stream: serializeGoLiveStream(stream), alreadyLive: false });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid stream details");
@@ -87,7 +77,7 @@ export async function DELETE() {
   const user = auth;
 
   const stream = await prisma.stream.findFirst({
-    where: { djId: user.id, status: "live" },
+    where: { djId: user.id, status: { in: ["preparing", "live"] } },
   });
   if (!stream) return error("No live stream", 404);
 

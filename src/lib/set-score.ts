@@ -149,9 +149,11 @@ export async function computeLiveSetScore(streamId: string) {
 
   const { score, breakdown } = scoreFromComponents(input);
   const { par, streamCount } = await djPar(stream.djId, streamId);
+  const grade = gradeFromScore(score, par, streamCount + 1);
 
   return {
     score,
+    grade,
     breakdown,
     par,
     streamCount: streamCount + 1,

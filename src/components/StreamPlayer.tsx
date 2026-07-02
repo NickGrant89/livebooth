@@ -96,19 +96,23 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         video.playbackRate = playbackSpeed;
         video.play().catch(() => undefined);
       };
+      const onCanPlay = () => setIsLoading(false);
       const onWaiting = () => setIsLoading(true);
       const onPlaying = () => setIsLoading(false);
 
       video.addEventListener("error", onError);
       video.addEventListener("loadeddata", onLoaded);
+      video.addEventListener("canplay", onCanPlay);
       video.addEventListener("waiting", onWaiting);
       video.addEventListener("playing", onPlaying);
+      video.preload = "auto";
       video.src = src;
       video.load();
 
       return () => {
         video.removeEventListener("error", onError);
         video.removeEventListener("loadeddata", onLoaded);
+        video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("waiting", onWaiting);
         video.removeEventListener("playing", onPlaying);
         video.removeAttribute("src");

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { ShareMenu } from "@/components/ShareMenu";
-import { buildOgImageUrl } from "@/lib/share";
+import { getClientSiteUrl } from "@/lib/share";
 import { apiFetch } from "@/lib/fetch-client";
 import { useAuth } from "@/context/AuthContext";
 
@@ -16,6 +16,11 @@ type Props = {
   setScore: number | null;
 };
 
+function buildGradeCardUrl(params: Record<string, string>) {
+  const q = new URLSearchParams(params);
+  return `${getClientSiteUrl()}/api/og?${q.toString()}`;
+}
+
 export function FanGradeShare({
   streamId,
   djName,
@@ -26,6 +31,8 @@ export function FanGradeShare({
 }: Props) {
   const { user } = useAuth();
   const [contribution, setContribution] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -45,11 +52,30 @@ export function FanGradeShare({
   };
   if (setScore != null) cardParams.score = String(setScore);
   if (contribution != null) cardParams.contribution = String(contribution);
-  const cardUrl = buildOgImageUrl(cardParams);
+  const cardUrl = buildGradeCardUrl(cardParams);
 
-  const shareText = contribution
-    ? `I helped ${djName} hit Grade ${setGrade} on LiveBooth (+${contribution} to the set)`
-    : `${djName} earned Grade ${setGrade} on LiveBooth`;
+  async function downloadGradeCard() {
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      const res = await fetch(cardUrl);
+      if (!res.ok) throw new Error("Could not generate grade card");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `livebooth-grade-${djUsername}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setDownloadError("Download failed — opening image in a new tab instead.");
+      window.open(cardUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <div className="mt-4 rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-4">
@@ -68,16 +94,19 @@ export function FanGradeShare({
         </p>
       )}
       <div className="flex flex-wrap gap-2 mt-3">
-        <a
-          href={cardUrl}
-          download={`livebooth-grade-${djUsername}.png`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold hover:bg-white/10"
+        <button
+          type="button"
+          onClick={downloadGradeCard}
+          disabled={downloading}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
         >
-          <Download className="h-3.5 w-3.5" />
+          {downloading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
           Grade card
-        </a>
+        </button>
         <ShareMenu
           kind="recap"
           path={`/vod/${streamId}`}
@@ -89,7 +118,9 @@ export function FanGradeShare({
           className="text-xs"
         />
       </div>
-      <p className="text-[10px] text-zinc-600 mt-2 sr-only">{shareText}</p>
+      {downloadError && (
+        <p className="text-[10px] text-amber-400/90 mt-2">{downloadError}</p>
+      )}
     </div>
   );
 }
