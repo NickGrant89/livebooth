@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Play, Radio, Trash2, Loader2 } from "lucide-react";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
-import { hasStreamReplay } from "@/lib/streaming";
+import { hasStreamReplay } from "@/lib/playback-url";
 import { apiFetch } from "@/lib/fetch-client";
 
 export type ArchiveStream = {

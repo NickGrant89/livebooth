@@ -1,11 +1,19 @@
+import "server-only";
+
 import { prisma } from "./db";
 import { resolveRecordingVodUrlWithRetry } from "./vod-recording";
+import {
+  DEMO_HLS,
+  isDemoPlayback,
+  isFilePlaybackUrl,
+  hasStreamReplay,
+} from "./playback-url";
+
+export { isDemoPlayback, isFilePlaybackUrl, hasStreamReplay };
 
 const LIVEPEER_API_KEY = process.env.LIVEPEER_API_KEY;
 const RTMP_SERVER_URL = process.env.RTMP_SERVER_URL?.replace(/\/$/, "");
 const HLS_SERVER_URL = process.env.HLS_SERVER_URL?.replace(/\/$/, "");
-
-const DEMO_HLS = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
 
 function useLocalRtmp() {
   return Boolean(RTMP_SERVER_URL && HLS_SERVER_URL && !LIVEPEER_API_KEY);
@@ -66,32 +74,6 @@ export function getIngestModeForStream(
     return "local";
   }
   return isLocalIngestKey(ingestKey) ? getIngestMode() : "livepeer";
-}
-
-export function isDemoPlayback(playbackUrl: string | null | undefined): boolean {
-  if (!playbackUrl) return true;
-  if (playbackUrl.includes("/api/vod/file/")) return false;
-  return playbackUrl.includes("mux.dev/x36xhzz");
-}
-
-export function isFilePlaybackUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  return (
-    url.includes("/api/vod/file/") ||
-    /\.(mp4|fmp4|webm)(\?|$)/i.test(url)
-  );
-}
-
-/** Whether an ended stream has a playable archive (not a dead live HLS URL). */
-export function hasStreamReplay(vodUrl: string | null | undefined, playbackUrl: string | null | undefined): boolean {
-  const url = vodUrl ?? playbackUrl;
-  if (!url) return false;
-  if (isFilePlaybackUrl(url)) return true;
-  if (url.includes("livepeercdn.studio")) return true;
-  if (HLS_SERVER_URL && url.startsWith(HLS_SERVER_URL)) return false;
-  if (url.includes("hls.livebooth.uk")) return false;
-  if (isDemoPlayback(url)) return true;
-  return false;
 }
 
 export async function createStreamSession(
