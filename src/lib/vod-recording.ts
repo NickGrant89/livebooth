@@ -6,7 +6,7 @@ import path from "node:path";
 const RECORDINGS_DIR =
   process.env.RECORDINGS_DIR ?? path.join(process.cwd(), "rtmp-server/recordings");
 
-/** Public HTTPS base for VPS recordings, e.g. https://stream.livebooth.uk */
+/** Public HTTPS base for VPS recordings, e.g. https://hls.livebooth.uk/recordings */
 const RECORDINGS_PUBLIC_URL = process.env.RECORDINGS_PUBLIC_URL?.replace(/\/$/, "");
 
 export function isLocalRecordingEnabled(): boolean {
@@ -17,36 +17,52 @@ export function isLocalRecordingEnabled(): boolean {
   );
 }
 
+/** Bases to try when listing/fetching remote recordings (primary env + HLS /recordings fallback). */
+export function getRecordingsPublicBaseUrls(): string[] {
+  const hls = process.env.HLS_SERVER_URL?.replace(/\/$/, "");
+  const candidates = [
+    RECORDINGS_PUBLIC_URL,
+    hls ? `${hls}/recordings` : undefined,
+  ].filter(Boolean) as string[];
+  return [...new Set(candidates)];
+}
+
 export function isRemoteRecordingEnabled(): boolean {
-  return Boolean(isLocalRecordingEnabled() && RECORDINGS_PUBLIC_URL);
+  return Boolean(isLocalRecordingEnabled() && getRecordingsPublicBaseUrls().length > 0);
 }
 
 function recordingDirForIngestKey(ingestKey: string): string {
   return path.join(RECORDINGS_DIR, "live", ingestKey);
 }
 
-export function getRemoteRecordingFileUrl(relativePath: string): string | null {
-  if (!RECORDINGS_PUBLIC_URL) return null;
-  return `${RECORDINGS_PUBLIC_URL}/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+export function getRemoteRecordingFileUrl(relativePath: string, baseUrl?: string): string | null {
+  const base = baseUrl ?? getRecordingsPublicBaseUrls()[0];
+  if (!base) return null;
+  return `${base}/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-/** Parse Caddy file_server browse HTML for .fmp4 / .mp4 links. */
-export async function findLatestRemoteRecordingFilename(ingestKey: string): Promise<string | null> {
-  if (!RECORDINGS_PUBLIC_URL) return null;
-  const listingUrl = `${RECORDINGS_PUBLIC_URL}/live/${encodeURIComponent(ingestKey)}/`;
+function parseRecordingFilenamesFromListing(html: string): string[] {
+  const files = [
+    ...html.matchAll(/href="([^"?]+\.(?:fmp4|mp4))"/gi),
+    ...html.matchAll(/href='([^'?]+\.(?:fmp4|mp4))'/gi),
+    ...html.matchAll(/>([^<]+\.(?:fmp4|mp4))<\//gi),
+  ]
+    .map((m) => decodeURIComponent(m[1]!.trim()))
+    .map((f) => f.replace(/^\.\//, ""))
+    .filter((f) => !f.includes("..") && !f.includes("/"));
+  return [...new Set(files)];
+}
+
+async function listRemoteRecordingFilename(
+  baseUrl: string,
+  ingestKey: string,
+): Promise<string | null> {
+  const listingUrl = `${baseUrl}/live/${encodeURIComponent(ingestKey)}/`;
   try {
     const res = await fetch(listingUrl, { cache: "no-store" });
     if (!res.ok) return null;
     const html = await res.text();
-    const files = [
-      ...html.matchAll(/href="([^"?]+\.(?:fmp4|mp4))"/gi),
-      ...html.matchAll(/href='([^'?]+\.(?:fmp4|mp4))'/gi),
-      ...html.matchAll(/>([^<]+\.(?:fmp4|mp4))<\//gi),
-    ]
-      .map((m) => decodeURIComponent(m[1]!.trim()))
-      .map((f) => f.replace(/^\.\//, ""))
-      .filter((f) => !f.includes("..") && !f.includes("/"));
-    const unique = [...new Set(files)];
+    const unique = parseRecordingFilenamesFromListing(html);
     if (unique.length === 0) return null;
     return unique.sort().at(-1)!;
   } catch {
@@ -54,10 +70,21 @@ export async function findLatestRemoteRecordingFilename(ingestKey: string): Prom
   }
 }
 
+/** Parse Caddy file_server browse HTML for .fmp4 / .mp4 links. */
+export async function findLatestRemoteRecordingFilename(ingestKey: string): Promise<string | null> {
+  for (const base of getRecordingsPublicBaseUrls()) {
+    const filename = await listRemoteRecordingFilename(base, ingestKey);
+    if (filename) return filename;
+  }
+  return null;
+}
+
 async function resolveRemoteRecordingVodUrl(ingestKey: string): Promise<string | null> {
-  const filename = await findLatestRemoteRecordingFilename(ingestKey);
-  if (!filename) return null;
-  return getRecordingPublicUrl(ingestKey, filename);
+  for (const base of getRecordingsPublicBaseUrls()) {
+    const filename = await listRemoteRecordingFilename(base, ingestKey);
+    if (filename) return getRecordingPublicUrl(ingestKey, filename);
+  }
+  return null;
 }
 
 /** Latest fmp4/mp4 for an ingest key, if MediaMTX finished writing it. */

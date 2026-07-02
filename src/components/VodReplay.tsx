@@ -25,6 +25,7 @@ type VodReplayProps = {
   totalTips: number;
   playbackUrl: string;
   demoPlayback: boolean;
+  recordingUnavailable?: boolean;
   highlights: Highlight[];
   setGrade?: string | null;
   setScore?: number | null;
@@ -45,6 +46,7 @@ export function VodReplay({
   totalTips,
   playbackUrl,
   demoPlayback,
+  recordingUnavailable = false,
   highlights,
   setGrade,
   setScore,
@@ -77,6 +79,11 @@ export function VodReplay({
       {demoPlayback && (
         <p className="mt-3 text-xs text-amber-400/90 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           VOD replay uses the same demo HLS feed until OBS recording is wired up. Highlight jumps seek within the demo clip.
+        </p>
+      )}
+      {recordingUnavailable && (
+        <p className="mt-3 text-xs text-zinc-400 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+          Recording is not available yet. If you just ended the stream, wait a minute and refresh — the archive file is written when OBS disconnects.
         </p>
       )}
       <div className="mt-4 rounded-xl border border-white/5 bg-[#141416] p-4 flex flex-wrap items-start justify-between gap-4">

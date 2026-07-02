@@ -118,6 +118,12 @@ nano /etc/caddy/Caddyfile
 }
 
 hls.livebooth.uk {
+	handle /recordings/* {
+		uri strip_prefix /recordings
+		root * /opt/livebooth/rtmp-server/recordings
+		file_server browse
+		header Access-Control-Allow-Origin *
+	}
 	reverse_proxy 127.0.0.1:8888
 }
 ```
@@ -134,6 +140,7 @@ systemctl reload caddy
 |----------|--------|
 | `RTMP_SERVER_URL` | `rtmp://YOUR_DROPLET_IP:1935/live` |
 | `HLS_SERVER_URL` | `https://hls.livebooth.uk` |
+| `RECORDINGS_PUBLIC_URL` | `https://hls.livebooth.uk/recordings` |
 | `RTMP_AUTH_ENABLED` | `true` |
 
 Remove `LIVEPEER_API_KEY` → **Redeploy**.
@@ -182,5 +189,6 @@ For soft launch, **2 TB is plenty**. Simplicity wins.
 | Forgot password | Droplet → **Access → Reset root password** |
 | OBS rejected | Go Live first; check `authHTTPAddress` in mediamtx config |
 | No video in browser | `HLS_SERVER_URL` must be `https://` |
+| Replay black / HLS 404 | Run `bash scripts/fix-caddy-recordings.sh` on droplet; set `RECORDINGS_PUBLIC_URL=https://hls.livebooth.uk/recordings` on Vercel |
 
 See also: [RTMP-VPS-DEPLOY.md](./RTMP-VPS-DEPLOY.md)

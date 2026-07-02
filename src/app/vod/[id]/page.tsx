@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { VodReplay } from "@/components/VodReplay";
 import { prisma } from "@/lib/db";
-import { isDemoPlayback, isFilePlaybackUrl, hasStreamReplay } from "@/lib/streaming";
+import { isDemoPlayback, isFilePlaybackUrl } from "@/lib/streaming";
 import { resolveRecordingVodUrlWithRetry } from "@/lib/vod-recording";
 import { vodMetadata } from "@/lib/metadata-share";
 
@@ -40,19 +40,28 @@ export default async function VODPage({
   if (!stream || stream.status !== "ended") notFound();
 
   let vodUrl = stream.vodUrl;
-  if (!hasStreamReplay(vodUrl, stream.playbackUrl) && stream.ingestKey) {
-    const repaired = await resolveRecordingVodUrlWithRetry(stream.ingestKey);
+  let playbackUrl: string | null = vodUrl ?? stream.playbackUrl;
+
+  if (stream.ingestKey && !isFilePlaybackUrl(playbackUrl)) {
+    const repaired = await resolveRecordingVodUrlWithRetry(stream.ingestKey, 6, 800);
     if (repaired) {
       vodUrl = repaired;
-      await prisma.stream.update({
-        where: { id: stream.id },
-        data: { vodUrl: repaired },
-      });
+      playbackUrl = repaired;
+      if (stream.vodUrl !== repaired) {
+        await prisma.stream.update({
+          where: { id: stream.id },
+          data: { vodUrl: repaired },
+        });
+      }
     }
   }
 
-  const playbackUrl = vodUrl ?? stream.playbackUrl;
-  const demoPlayback = isDemoPlayback(playbackUrl) && !isFilePlaybackUrl(playbackUrl);
+  if (playbackUrl && !isFilePlaybackUrl(playbackUrl) && !isDemoPlayback(playbackUrl)) {
+    playbackUrl = null;
+  }
+
+  const demoPlayback = Boolean(playbackUrl && isDemoPlayback(playbackUrl) && !isFilePlaybackUrl(playbackUrl));
+  const recordingUnavailable = !playbackUrl && !demoPlayback;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -68,6 +77,7 @@ export default async function VODPage({
         totalTips={stream.totalTips}
         playbackUrl={playbackUrl ?? ""}
         demoPlayback={demoPlayback}
+        recordingUnavailable={recordingUnavailable}
         highlights={stream.highlights.map((h) => ({
           id: h.id,
           timestampMs: h.timestampMs,

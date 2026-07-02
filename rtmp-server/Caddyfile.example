@@ -11,18 +11,22 @@
 	email you@yourdomain.com
 }
 
-# HLS playback (fans watch in browser)
+# HLS playback (fans watch in browser) + archive recordings at /recordings/
 hls.livebooth.uk {
+	handle /recordings/* {
+		uri strip_prefix /recordings
+		root * /opt/livebooth/rtmp-server/recordings
+		file_server browse
+		header Access-Control-Allow-Origin *
+	}
 	reverse_proxy 127.0.0.1:8888
 }
 
-# Optional: serve VOD recordings written by MediaMTX (required for archive replays)
-# Files: /opt/livebooth/rtmp-server/recordings/live/{ingestKey}/*.mp4
-# DNS: stream.livebooth.uk → VPS IP (grey cloud / DNS only)
-stream.livebooth.uk {
-	root * /opt/livebooth/rtmp-server/recordings
-	file_server browse
-	header Access-Control-Allow-Origin *
-}
+# Optional separate subdomain (requires DNS A record → VPS IP):
+# stream.livebooth.uk {
+# 	root * /opt/livebooth/rtmp-server/recordings
+# 	file_server browse
+# 	header Access-Control-Allow-Origin *
+# }
 
 # RTMP ingest stays on port 1935 (OBS) — no Caddy needed for rtmp://
