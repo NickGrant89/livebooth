@@ -3,7 +3,7 @@
 import { useConnectModal, useWallet } from "@vechain/vechain-kit";
 import { Sparkles, Wallet, Unlink } from "lucide-react";
 import { useAuth, formatAddress } from "@/context/AuthContext";
-import { useWeb3Ready } from "@/components/Web3Provider";
+import { useWeb3Ready } from "@/components/WalletKitScope";
 import { privyConfigured } from "@/lib/vechain-kit-config";
 import { apiFetch } from "@/lib/fetch-client";
 import { useState } from "react";
