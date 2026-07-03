@@ -6,16 +6,35 @@ import { sponsoredDelegatorUrl } from "@/lib/vechain-delegator";
 const NODE_URL =
   process.env.NEXT_PUBLIC_VECHAIN_NODE_URL ?? "https://testnet.vechain.org";
 
+/** Reject empty strings, placeholders, and other non-Privy values in Vercel env. */
+function isValidPrivyAppId(value: string | undefined): value is string {
+  const id = value?.trim();
+  if (!id || id.length < 10) return false;
+  if (!/^cl[a-z0-9]+$/i.test(id)) return false;
+  if (/your|placeholder|example|changeme|xxx|todo/i.test(id)) return false;
+  return true;
+}
+
+function isValidPrivyClientId(value: string | undefined): value is string {
+  const id = value?.trim();
+  if (!id || id.length < 8) return false;
+  if (/your|placeholder|example|changeme|xxx|todo/i.test(id)) return false;
+  return true;
+}
+
 export function privyConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() &&
-      process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID?.trim(),
+  return (
+    isValidPrivyAppId(process.env.NEXT_PUBLIC_PRIVY_APP_ID) &&
+    isValidPrivyClientId(process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID)
   );
 }
 
 export function buildVeChainKitProviderProps(): Omit<VechainKitProviderProps, "children"> {
-  const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim();
-  const privyClientId = process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID?.trim();
+  const privyEnabled = privyConfigured();
+  const privyAppId = privyEnabled ? process.env.NEXT_PUBLIC_PRIVY_APP_ID!.trim() : undefined;
+  const privyClientId = privyEnabled
+    ? process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID!.trim()
+    : undefined;
   const wcProjectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID?.trim();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3008";
 
@@ -49,7 +68,7 @@ export function buildVeChainKitProviderProps(): Omit<VechainKitProviderProps, "c
           }
         : {}),
     },
-    loginMethods: privyAppId
+    loginMethods: privyEnabled
       ? [
           { method: "email", gridColumn: 4 },
           { method: "veworld", gridColumn: 4 },
@@ -70,7 +89,7 @@ export function buildVeChainKitProviderProps(): Omit<VechainKitProviderProps, "c
     },
   };
 
-  if (privyAppId && privyClientId) {
+  if (privyEnabled && privyAppId && privyClientId) {
     props.privy = {
       appId: privyAppId,
       clientId: privyClientId,
