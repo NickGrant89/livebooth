@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { evaluateAchievements } from "@/lib/achievements";
-import { broadcastChatMessage } from "@/lib/chat-hub";
+import { broadcastChatMessageWithProfile } from "@/lib/chat-profiles";
 import { creditUser } from "@/lib/ledger";
 import { PLATFORM_FEE_TIP } from "@/lib/constants";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         tipAmount: body.amount,
       },
     });
-    broadcastChatMessage(stream.id, chatMsg);
+    await broadcastChatMessageWithProfile(stream.id, chatMsg);
 
     await evaluateAchievements(auth.id);
     await evaluateAchievements(stream.djId);

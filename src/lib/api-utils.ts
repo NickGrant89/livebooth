@@ -40,6 +40,8 @@ export function serializeUser(user: {
   displayName: string;
   bio: string;
   avatar: string;
+  avatarUrl?: string;
+  bannerUrl?: string;
   role: string;
   creatorType?: string;
   genres: string;
@@ -53,6 +55,8 @@ export function serializeUser(user: {
     displayName: user.displayName,
     bio: user.bio,
     avatar: user.avatar,
+    avatarUrl: user.avatarUrl ?? "",
+    bannerUrl: user.bannerUrl ?? "",
     role: user.role,
     creatorType: user.creatorType ?? "dj",
     genres: parseGenres(user.genres),

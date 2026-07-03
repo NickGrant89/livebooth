@@ -14,6 +14,8 @@ model User {
   displayName   String
   bio           String   @default("")
   avatar        String   @default("")
+  avatarUrl     String   @default("")
+  bannerUrl     String   @default("")
   role          String   @default("fan")
   creatorType   String   @default("dj")
   walletAddress String?  @unique

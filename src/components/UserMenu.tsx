@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import type { AuthUser } from "@/context/AuthContext";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 
 export function UserMenu({ user }: { user: AuthUser }) {
   const [open, setOpen] = useState(false);
@@ -43,9 +44,12 @@ export function UserMenu({ user }: { user: AuthUser }) {
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#53fc18] to-[#15CFF4] flex items-center justify-center text-[10px] font-bold text-black">
-          {user.avatar || user.displayName.slice(0, 2)}
-        </div>
+        <ProfileAvatar
+          displayName={user.displayName}
+          avatar={user.avatar}
+          avatarUrl={user.avatarUrl}
+          size="xs"
+        />
         <span className="text-sm font-medium hidden md:block max-w-[72px] truncate">
           {user.displayName}
         </span>

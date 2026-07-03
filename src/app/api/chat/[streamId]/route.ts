@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { bumpQuestProgress } from "@/lib/quests";
-import { broadcastChatMessage, serializeChatMessage } from "@/lib/chat-hub";
+import { serializeChatMessage } from "@/lib/chat-hub";
+import { broadcastChatMessageWithProfile } from "@/lib/chat-profiles";
 import { isUserBannedFromStream } from "@/lib/chat-moderation";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enrichChatPayloads, getStakerBadgeForStream } from "@/lib/staker-perks";
@@ -75,10 +76,11 @@ export async function POST(
     });
 
     const stakerBadge = await getStakerBadgeForStream(auth.id, stream);
-    broadcastChatMessage(streamId, msg, stakerBadge);
+    await broadcastChatMessageWithProfile(streamId, msg, stakerBadge);
     await bumpQuestProgress(auth.id, "chat", 1);
 
-    return json({ message: serializeChatMessage(msg, stakerBadge) });
+    const [enriched] = await enrichChatPayloads(stream, [serializeChatMessage(msg, stakerBadge)]);
+    return json({ message: enriched });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid message");
     return error("Failed to send message", 500);

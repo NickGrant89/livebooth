@@ -32,6 +32,7 @@ export async function getAuthUserForClient(): Promise<AuthUser | null> {
     email: user.email,
     role: user.role,
     avatar: user.avatar,
+    avatarUrl: user.avatarUrl,
     balance: user.balance?.balance ?? 500,
     totalEarned: user.balance?.totalEarned ?? 0,
     walletAddress: user.walletAddress,

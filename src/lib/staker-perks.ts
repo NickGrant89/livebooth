@@ -11,6 +11,7 @@ import {
   REQUEST_COST,
 } from "./constants";
 import type { ChatMessagePayload } from "./chat-hub";
+import { attachChatProfiles } from "./chat-profiles";
 
 export type StakerTier = "member" | "core" | "legend";
 
@@ -95,8 +96,9 @@ export async function enrichChatPayloads(
   stream: { djId: string; stationId: string | null },
   messages: ChatMessagePayload[],
 ): Promise<ChatMessagePayload[]> {
-  const userIds = [...new Set(messages.map((m) => m.userId).filter(Boolean))] as string[];
-  if (userIds.length === 0) return messages;
+  const withProfiles = await attachChatProfiles(messages);
+  const userIds = [...new Set(withProfiles.map((m) => m.userId).filter(Boolean))] as string[];
+  if (userIds.length === 0) return withProfiles;
 
   const [stationStakes, djStakes] = await Promise.all([
     stream.stationId
@@ -112,7 +114,7 @@ export async function enrichChatPayloads(
   const stationMap = new Map(stationStakes.map((s) => [s.fanId, s.amount]));
   const djMap = new Map(djStakes.map((s) => [s.fanId, s.amount]));
 
-  return messages.map((msg) => {
+  return withProfiles.map((msg) => {
     if (!msg.userId) return msg;
     const stationAmt = stream.stationId ? (stationMap.get(msg.userId) ?? 0) : 0;
     const djAmt = djMap.get(msg.userId) ?? 0;

@@ -3,11 +3,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { GENRES, CREATOR_TYPES, type CreatorType } from "@/lib/constants";
 import { json, error, requireApiUser, isApiError, serializeUser } from "@/lib/api-utils";
+import { sanitizeProfileImageUrl } from "@/lib/profile-images";
 
 const updateSchema = z.object({
   displayName: z.string().min(1).max(50).optional(),
   bio: z.string().max(500).optional(),
   avatar: z.string().min(1).max(8).optional(),
+  avatarUrl: z.string().max(600_000).optional(),
+  bannerUrl: z.string().max(600_000).optional(),
   genres: z.array(z.enum(GENRES)).max(5).optional(),
   creatorType: z.enum(CREATOR_TYPES).optional(),
   currentPassword: z.string().min(6).optional(),
@@ -58,6 +61,8 @@ export async function PATCH(request: Request) {
       displayName?: string;
       bio?: string;
       avatar?: string;
+      avatarUrl?: string;
+      bannerUrl?: string;
       genres?: string;
       creatorType?: string;
       passwordHash?: string;
@@ -66,6 +71,20 @@ export async function PATCH(request: Request) {
     if (body.displayName !== undefined) data.displayName = body.displayName.trim();
     if (body.bio !== undefined) data.bio = body.bio.trim();
     if (body.avatar !== undefined) data.avatar = body.avatar.trim();
+    if (body.avatarUrl !== undefined) {
+      try {
+        data.avatarUrl = sanitizeProfileImageUrl(body.avatarUrl, 400_000);
+      } catch (e) {
+        return error(e instanceof Error ? e.message : "Invalid profile photo");
+      }
+    }
+    if (body.bannerUrl !== undefined) {
+      try {
+        data.bannerUrl = sanitizeProfileImageUrl(body.bannerUrl, 600_000);
+      } catch (e) {
+        return error(e instanceof Error ? e.message : "Invalid banner image");
+      }
+    }
     if (body.genres !== undefined) {
       if (user.role !== "dj" && user.role !== "admin") {
         return error("Only creators can set genres");

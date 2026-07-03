@@ -11,6 +11,8 @@ import { getSessionUser } from "@/lib/auth";
 import { genreLabels, DROP_TOKEN_SYMBOL, DAY_LABELS, getCreatorTypeLabel } from "@/lib/constants";
 import { ShareProfileButton } from "@/components/ShareLiveButton";
 import { djProfileMetadata } from "@/lib/metadata-share";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { profileImageSrc } from "@/lib/profile-images";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +74,8 @@ export default async function DJProfilePage({
   const isOwnProfile = session?.id === dj.id;
   const isDj = dj.role === "dj" || dj.role === "admin";
 
+  const bannerSrc = profileImageSrc(dj.bannerUrl);
+
   const fanCrate =
     dj.role === "fan"
       ? await prisma.trackUnlock.findMany({
@@ -85,12 +89,21 @@ export default async function DJProfilePage({
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="rounded-2xl border border-white/5 bg-[#141416] overflow-hidden">
-        <div className="h-32 bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20" />
+        <div className="relative h-32 overflow-hidden bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20">
+          {bannerSrc && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={bannerSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          )}
+        </div>
         <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#53fc18] to-[#00d4aa] text-2xl font-bold text-black border-4 border-[#141416]">
-              {dj.avatar}
-            </div>
+            <ProfileAvatar
+              displayName={dj.displayName}
+              avatar={dj.avatar}
+              avatarUrl={dj.avatarUrl}
+              size="lg"
+              borderClassName="border-4 border-[#141416]"
+            />
             <div className="flex-1">
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold">{dj.displayName}</h1>

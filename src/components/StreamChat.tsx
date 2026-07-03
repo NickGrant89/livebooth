@@ -9,6 +9,7 @@ import { useStreamChat } from "@/hooks/useStreamChat";
 import { TRACK_UNLOCK_COST, REQUEST_COST, HIGHLIGHT_TIP_MIN } from "@/lib/constants";
 import { AchievementToasts, useAchievementUnlocks } from "@/components/AchievementToasts";
 import { StakerBadge, tierFromBadgeLabel } from "@/components/StakerBadge";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 
 interface StreamChatProps {
   streamId: string;
@@ -339,14 +340,22 @@ export function StreamChat({
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
         {messages.map((msg) => (
-          <div key={msg.id} className="text-sm group">
+          <div key={msg.id} className="text-sm group flex gap-2.5">
+            <ProfileAvatar
+              displayName={msg.displayName ?? msg.username}
+              avatar={msg.avatar ?? msg.username.slice(0, 2).toUpperCase()}
+              avatarUrl={msg.avatarUrl}
+              size="xs"
+              className="mt-0.5 shrink-0"
+            />
+            <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <span
                 className={`font-semibold ${
                   msg.isTip ? "text-[#53fc18]" : "text-purple-400"
                 }`}
               >
-                {msg.username}
+                {msg.displayName ?? msg.username}
                 {msg.stakerBadge && (
                   <StakerBadge label={msg.stakerBadge} tier={tierFromBadgeLabel(msg.stakerBadge)} />
                 )}
@@ -389,6 +398,7 @@ export function StreamChat({
             <p className={`mt-0.5 ${msg.isTip ? "text-[#53fc18]/90" : "text-zinc-300"}`}>
               {msg.message}
             </p>
+            </div>
           </div>
         ))}
         <div ref={bottomRef} />

@@ -12,11 +12,14 @@ import { WebPushToggle } from "@/components/WebPushToggle";
 import { StationOwnerSection } from "@/components/StationOwnerSection";
 import { SettingsGuide } from "@/components/SettingsGuide";
 import { ResetGuidesButton } from "@/components/ResetGuidesButton";
+import { ProfileImageField } from "@/components/ProfileImageField";
 
 interface ProfileData {
   displayName: string;
   bio: string;
   avatar: string;
+  avatarUrl: string;
+  bannerUrl: string;
   username: string;
   email: string;
   role: string;
@@ -50,6 +53,8 @@ export default function SettingsPage() {
           displayName: data.user.displayName,
           bio: data.user.bio ?? "",
           avatar: data.user.avatar ?? "",
+          avatarUrl: data.user.avatarUrl ?? "",
+          bannerUrl: data.user.bannerUrl ?? "",
           username: data.user.username,
           email: data.user.email,
           role: data.user.role,
@@ -90,6 +95,8 @@ export default function SettingsPage() {
       displayName: profile.displayName,
       bio: profile.bio,
       avatar: profile.avatar,
+      avatarUrl: profile.avatarUrl,
+      bannerUrl: profile.bannerUrl,
     };
     if (profile.role === "dj" || profile.role === "admin") {
       payload.genres = profile.genres;
@@ -185,20 +192,31 @@ export default function SettingsPage() {
         <section className="rounded-xl border border-white/5 bg-[#141416] p-6 space-y-4">
           <h2 className="font-semibold text-sm text-zinc-400 uppercase tracking-wide">Public profile</h2>
 
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#53fc18] to-[#00d4aa] text-xl font-bold text-black">
-              {profile.avatar || profile.displayName.slice(0, 2).toUpperCase()}
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs text-zinc-500 mb-1">Avatar (emoji or initials)</label>
-              <input
-                value={profile.avatar}
-                onChange={(e) => setProfile({ ...profile, avatar: e.target.value })}
-                maxLength={8}
-                placeholder="NP or 🎧"
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white"
-              />
-            </div>
+          <ProfileImageField
+            label="Banner image"
+            hint="Wide cover shown at the top of your public profile (1600×400 recommended)."
+            value={profile.bannerUrl}
+            onChange={(bannerUrl) => setProfile({ ...profile, bannerUrl })}
+            variant="banner"
+          />
+
+          <ProfileImageField
+            label="Profile photo"
+            hint="Upload a photo or paste an https:// image URL. Shown on your profile and across LiveBooth."
+            value={profile.avatarUrl}
+            onChange={(avatarUrl) => setProfile({ ...profile, avatarUrl })}
+            variant="avatar"
+          />
+
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Fallback initials (when no photo)</label>
+            <input
+              value={profile.avatar}
+              onChange={(e) => setProfile({ ...profile, avatar: e.target.value })}
+              maxLength={8}
+              placeholder="NP or 🎧"
+              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white"
+            />
           </div>
 
           <div>

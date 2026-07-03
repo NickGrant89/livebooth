@@ -19,6 +19,7 @@ export interface AuthUser {
   email?: string;
   role: string;
   avatar: string;
+  avatarUrl?: string;
   balance: number;
   totalEarned: number;
   walletAddress?: string | null;

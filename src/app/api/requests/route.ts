@@ -3,7 +3,7 @@ import {
   resolveCrowdRequest,
 } from "@/lib/ledger";
 import { evaluateAchievements } from "@/lib/achievements";
-import { broadcastChatMessage } from "@/lib/chat-hub";
+import { broadcastChatMessageWithProfile } from "@/lib/chat-profiles";
 import { isVipSubscriber, getFanStreamPricing } from "@/lib/subscriptions";
 import { REQUEST_COST } from "@/lib/constants";
 import { prisma } from "@/lib/db";
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
         message: `🎵 requested: ${label} (${body.amount} DROP)`,
       },
     });
-    broadcastChatMessage(body.streamId, chatMsg);
+    await broadcastChatMessageWithProfile(body.streamId, chatMsg);
 
     return json({ request: { id: req.id, status: req.status, trackTitle, trackArtist } });
   } catch (e) {

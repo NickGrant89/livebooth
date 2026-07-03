@@ -2,6 +2,9 @@ export interface ChatMessagePayload {
   id: string;
   userId?: string | null;
   username: string;
+  displayName?: string;
+  avatar?: string;
+  avatarUrl?: string;
   message: string;
   isTip?: boolean;
   tipAmount?: number;

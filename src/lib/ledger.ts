@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { broadcastChatMessage } from "./chat-hub";
+import { broadcastChatMessageWithProfile } from "./chat-profiles";
 import {
   PLATFORM_FEE_TIP,
   PLATFORM_FEE_UNLOCK,
@@ -199,7 +199,7 @@ export async function processTip(
     djId: toUserId,
     stationId: stream?.stationId ?? null,
   });
-  broadcastChatMessage(streamId, chatMsg, stakerBadge);
+  await broadcastChatMessageWithProfile(streamId, chatMsg, stakerBadge);
 
   return tip;
 }
