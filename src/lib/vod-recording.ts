@@ -103,29 +103,37 @@ export function findLatestRecordingFile(ingestKey: string): string | null {
 
 export function getRecordingPublicUrl(ingestKey: string, filename: string): string {
   const relativePath = `live/${ingestKey}/${filename}`;
+  if (isRemoteRecordingEnabled()) {
+    const direct = getRemoteRecordingFileUrl(relativePath);
+    if (direct) return direct;
+  }
   return `/api/vod/file/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-/** Rewrite legacy direct VPS recording URLs to the same-origin proxy. */
+/** Keep direct VPS URLs — only rewrite legacy paths missing the /recordings/ base. */
 export function normalizeVodPlaybackUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  if (url.includes("/api/vod/file/")) return url;
-
-  const recordingsMatch = url.match(/\/recordings\/(live\/[^?#]+\.(?:mp4|fmp4))/i);
-  if (recordingsMatch?.[1]) {
-    return getRecordingPublicUrl(
-      recordingsMatch[1].split("/")[1]!,
-      recordingsMatch[1].split("/").pop()!,
-    );
-  }
-
-  const bareMatch = url.match(/(live\/lb_[^/]+\/[^/?#]+\.(?:mp4|fmp4))/i);
-  if (bareMatch?.[1]) {
-    const parts = bareMatch[1].split("/");
-    return getRecordingPublicUrl(parts[1]!, parts[2]!);
-  }
-
   return url;
+}
+
+/** Resolve the best playback URL for an ended stream (always checks VPS for latest file). */
+export async function resolveEndedStreamPlaybackUrl(
+  ingestKey: string | null | undefined,
+  storedUrl: string | null | undefined,
+): Promise<string | null> {
+  if (!ingestKey || !isLocalRecordingEnabled()) {
+    return storedUrl ?? null;
+  }
+
+  const localFile = findLatestRecordingFile(ingestKey);
+  if (localFile) return getRecordingPublicUrl(ingestKey, localFile);
+
+  if (isRemoteRecordingEnabled()) {
+    const filename = await findLatestRemoteRecordingFilename(ingestKey);
+    if (filename) return getRecordingPublicUrl(ingestKey, filename);
+  }
+
+  return normalizeVodPlaybackUrl(storedUrl);
 }
 
 export function resolveRecordingVodUrl(ingestKey: string | null | undefined): string | null {

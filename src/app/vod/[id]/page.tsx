@@ -7,11 +7,7 @@ import { getSessionUser } from "@/lib/auth";
 import { getVodAccess } from "@/lib/staker-perks";
 import { isDemoPlayback, isFilePlaybackUrl } from "@/lib/streaming";
 import {
-  findLatestRemoteRecordingFilename,
-  getRecordingPublicUrl,
-  isRemoteRecordingEnabled,
-  normalizeVodPlaybackUrl,
-  resolveRecordingVodUrl,
+  resolveEndedStreamPlaybackUrl,
 } from "@/lib/vod-recording";
 import { computeSetScore } from "@/lib/set-score";
 import { vodMetadata } from "@/lib/metadata-share";
@@ -77,19 +73,15 @@ export default async function VODPage({
   let vodUrl = stream.vodUrl;
   let playbackUrl: string | null = vodUrl ?? stream.playbackUrl;
 
-  if (stream.ingestKey && !isFilePlaybackUrl(playbackUrl)) {
-    let repaired = await resolveRecordingVodUrl(stream.ingestKey);
-    if (!repaired && isRemoteRecordingEnabled()) {
-      const filename = await findLatestRemoteRecordingFilename(stream.ingestKey);
-      if (filename) repaired = getRecordingPublicUrl(stream.ingestKey, filename);
-    }
-    if (repaired) {
-      vodUrl = repaired;
-      playbackUrl = repaired;
-      if (stream.vodUrl !== repaired) {
+  if (stream.ingestKey) {
+    const resolved = await resolveEndedStreamPlaybackUrl(stream.ingestKey, playbackUrl);
+    if (resolved) {
+      vodUrl = resolved;
+      playbackUrl = resolved;
+      if (stream.vodUrl !== resolved) {
         await prisma.stream.update({
           where: { id: stream.id },
-          data: { vodUrl: repaired },
+          data: { vodUrl: resolved },
         });
       }
     }
@@ -98,8 +90,6 @@ export default async function VODPage({
   if (playbackUrl && !isFilePlaybackUrl(playbackUrl) && !isDemoPlayback(playbackUrl)) {
     playbackUrl = null;
   }
-
-  playbackUrl = normalizeVodPlaybackUrl(playbackUrl);
 
   const demoPlayback = Boolean(playbackUrl && isDemoPlayback(playbackUrl) && !isFilePlaybackUrl(playbackUrl));
   const recordingUnavailable = !playbackUrl && !demoPlayback;

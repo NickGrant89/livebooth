@@ -65,6 +65,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsManifestReadyRef = useRef(false);
   const vodReadyRef = useRef(false);
+  const vodFallbackTriedRef = useRef(false);
   const [volume, setVolume] = useState(80);
   const [muted, setMuted] = useState(true);
   const [elapsed, setElapsed] = useState(0);
@@ -112,6 +113,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
     hlsManifestReadyRef.current = false;
     vodReadyRef.current = false;
+    vodFallbackTriedRef.current = false;
     setPlaybackError(false);
     setIsLoading(!isLive && !previewMode);
 
@@ -130,6 +132,32 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       };
 
       const onError = () => {
+        if (vodReadyRef.current) return;
+
+        const proxyFallback = src.includes("hls.livebooth.uk/recordings/")
+          ? `${window.location.origin}${src.replace(/^https:\/\/hls\.livebooth\.uk\/recordings/, "/api/vod/file")}`
+          : src.includes("/api/vod/file/") && playbackUrl.includes("hls.livebooth.uk/recordings/")
+            ? resolvePlaybackUrl(playbackUrl)
+            : null;
+
+        if (proxyFallback && !vodFallbackTriedRef.current && video.src !== proxyFallback) {
+          vodFallbackTriedRef.current = true;
+          video.src = proxyFallback;
+          video.load();
+          return;
+        }
+
+        if (
+          src.includes("/api/vod/file/") &&
+          !vodFallbackTriedRef.current &&
+          playbackUrl.includes("hls.livebooth.uk")
+        ) {
+          vodFallbackTriedRef.current = true;
+          video.src = resolvePlaybackUrl(playbackUrl);
+          video.load();
+          return;
+        }
+
         setPlaybackError(true);
         setIsLoading(false);
       };
@@ -156,10 +184,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
       const loadTimeout = window.setTimeout(() => {
         if (!vodReadyRef.current && video.readyState < 2) {
-          setPlaybackError(true);
           setIsLoading(false);
         }
-      }, 25000);
+      }, 45000);
 
       return () => {
         window.clearTimeout(loadTimeout);
