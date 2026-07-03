@@ -486,7 +486,7 @@ export function StreamChat({
             </div>
             <p className="text-[10px] text-zinc-500">
               {tipOnChainMode && canUseOnChain
-                ? `On-chain via VeWorld${onChainDropBal != null ? ` · ${onChainDropBal} DROP in wallet` : ""}`
+                ? `On-chain via LiveBooth wallet${onChainDropBal != null ? ` · ${onChainDropBal} DROP on-chain` : ""}`
                 : `In-app balance · you have ${user?.balance ?? "—"} DROP`}
             </p>
             {canUseOnChain && (
@@ -497,14 +497,14 @@ export function StreamChat({
                   onChange={(e) => setTipOnChainMode(e.target.checked)}
                   className="rounded"
                 />
-                Tip on-chain via VeWorld (verified on VeChain testnet)
+                Tip on-chain via your LiveBooth wallet (VeChain testnet)
               </label>
             )}
             {contractsReady && showTip && (!fanWalletReady || !djWalletReady) && (
               <p className="text-[10px] text-purple-300/80 leading-relaxed">
                 {!fanWalletReady && (
                   <>
-                    On-chain tips: connect VeWorld on{" "}
+                    Enable your on-chain wallet on{" "}
                     <a href="/wallet" className="underline">
                       /wallet
                     </a>{" "}
@@ -514,7 +514,7 @@ export function StreamChat({
                 {!fanWalletReady && !djWalletReady && " "}
                 {!djWalletReady && (
                   <>
-                    DJ must link VeWorld on{" "}
+                    DJ must enable an on-chain wallet on{" "}
                     <a href="/wallet" className="underline">
                       /wallet
                     </a>{" "}
