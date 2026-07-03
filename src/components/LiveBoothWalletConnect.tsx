@@ -3,24 +3,32 @@
 import { useConnectModal, useWallet } from "@vechain/vechain-kit";
 import { Sparkles, Wallet, Unlink } from "lucide-react";
 import { useAuth, formatAddress } from "@/context/AuthContext";
-import { useLiveBoothWalletLink } from "@/hooks/useLiveBoothWalletLink";
+import { useWeb3Ready } from "@/components/Web3Provider";
 import { privyConfigured } from "@/lib/vechain-kit-config";
 import { apiFetch } from "@/lib/fetch-client";
 import { useState } from "react";
 
 interface LiveBoothWalletConnectProps {
   className?: string;
-  linkToAccount?: boolean;
 }
 
-export function LiveBoothWalletConnect({
-  className,
-  linkToAccount = true,
-}: LiveBoothWalletConnectProps) {
+export function LiveBoothWalletConnect({ className }: LiveBoothWalletConnectProps) {
+  const ready = useWeb3Ready();
+  if (!ready) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-500">
+        Loading on-chain wallet…
+      </div>
+    );
+  }
+
+  return <LiveBoothWalletConnectInner className={className} />;
+}
+
+function LiveBoothWalletConnectInner({ className }: LiveBoothWalletConnectProps) {
   const { open } = useConnectModal();
   const { account, connection, disconnect } = useWallet();
   const { user, refresh } = useAuth();
-  useLiveBoothWalletLink(linkToAccount);
 
   const [unlinking, setUnlinking] = useState(false);
   const [msg, setMsg] = useState("");
@@ -57,9 +65,9 @@ export function LiveBoothWalletConnect({
           <span className="font-mono text-xs text-zinc-500">{formatAddress(address)}</span>
           {isLinked ? (
             <span className="text-[10px] font-bold uppercase text-[#53fc18]">Linked</span>
-          ) : linkToAccount ? (
+          ) : (
             <span className="text-[10px] text-zinc-500">Linking…</span>
-          ) : null}
+          )}
           <button
             type="button"
             onClick={() => void disconnect()}

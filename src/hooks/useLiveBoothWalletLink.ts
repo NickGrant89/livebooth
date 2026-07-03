@@ -38,3 +38,9 @@ export function useLiveBoothWalletLink(enabled = true) {
     user?.walletAddress,
   ]);
 }
+
+/** Mounted inside VeChainKitProvider — links wallet globally. */
+export function LiveBoothWalletLinkEffect() {
+  useLiveBoothWalletLink();
+  return null;
+}

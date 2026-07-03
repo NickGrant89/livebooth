@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   encodeFunctionData,
   createPublicClient,
@@ -9,19 +18,59 @@ import {
   toBytes,
   type Abi,
 } from "viem";
-import {
-  useWallet,
-  useSendTransaction,
-} from "@vechain/vechain-kit";
-import { sponsoredDelegatorUrl } from "@/lib/vechain-delegator";
+import { useWallet, useSendTransaction } from "@vechain/vechain-kit";
 import type { TransactionClause } from "@vechain/sdk-core";
 import type { TransactionReceipt } from "@vechain/sdk-network";
 import { vechainTestnet } from "@/lib/web3/chains";
 import { ABIS, CONTRACTS, contractsConfigured, parseDrop } from "@/lib/web3/contracts";
+import { sponsoredDelegatorUrl } from "@/lib/vechain-delegator";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_VECHAIN_RPC_URL ?? "https://rpc-testnet.vechain.energy";
 const DELEGATOR_URL = sponsoredDelegatorUrl();
+
+export type OnChainDropApi = {
+  isConnected: boolean;
+  address?: `0x${string}`;
+  balanceWei?: bigint;
+  contractsReady: boolean;
+  isPending: boolean;
+  isEmbeddedWallet: boolean;
+  walletSource: string | null;
+  faucet: (amount?: number) => Promise<`0x${string}`>;
+  approveTipRouter: (amount: number) => Promise<`0x${string}`>;
+  tipOnChain: (djAddress: `0x${string}`, amount: number, streamId: string) => Promise<`0x${string}`>;
+  claimAchievementOnChain: (
+    claimId: `0x${string}`,
+    amount: number,
+    deadline: bigint,
+    signature: `0x${string}`,
+  ) => Promise<`0x${string}`>;
+  refetchBalance: () => Promise<void>;
+};
+
+const emptyOnChainDrop: OnChainDropApi = {
+  isConnected: false,
+  contractsReady: contractsConfigured(),
+  isPending: false,
+  isEmbeddedWallet: false,
+  walletSource: null,
+  faucet: async () => {
+    throw new Error("On-chain wallet is still loading");
+  },
+  approveTipRouter: async () => {
+    throw new Error("On-chain wallet is still loading");
+  },
+  tipOnChain: async () => {
+    throw new Error("On-chain wallet is still loading");
+  },
+  claimAchievementOnChain: async () => {
+    throw new Error("On-chain wallet is still loading");
+  },
+  refetchBalance: async () => {},
+};
+
+const OnChainDropContext = createContext<OnChainDropApi>(emptyOnChainDrop);
 
 function contractClause(
   to: `0x${string}`,
@@ -36,11 +85,10 @@ function txIdFromReceipt(receipt: TransactionReceipt | null): `0x${string}` | nu
   const meta = receipt as TransactionReceipt & { meta?: { txID?: string } };
   const raw = meta.meta?.txID ?? (receipt as { id?: string }).id;
   if (!raw) return null;
-  const hex = raw.startsWith("0x") ? raw : `0x${raw}`;
-  return hex as `0x${string}`;
+  return (raw.startsWith("0x") ? raw : `0x${raw}`) as `0x${string}`;
 }
 
-export function useOnChainDrop() {
+function useOnChainDropKit(): OnChainDropApi {
   const { account, connection } = useWallet();
   const address = account?.address as `0x${string}` | undefined;
   const isConnected = connection.isConnected;
@@ -117,52 +165,62 @@ export function useOnChainDrop() {
     [sendClauses],
   );
 
-  async function faucet(amount = 100) {
-    if (!contractsConfigured()) throw new Error("Contracts not configured");
-    return sendContract(
-      CONTRACTS.dropToken,
-      ABIS.dropToken as Abi,
-      "faucet",
-      [parseDrop(amount)],
-      `Mint ${amount} DROP from testnet faucet`,
-    );
-  }
+  const faucet = useCallback(
+    async (amount = 100) => {
+      if (!contractsConfigured()) throw new Error("Contracts not configured");
+      return sendContract(
+        CONTRACTS.dropToken,
+        ABIS.dropToken as Abi,
+        "faucet",
+        [parseDrop(amount)],
+        `Mint ${amount} DROP from testnet faucet`,
+      );
+    },
+    [sendContract],
+  );
 
-  async function approveTipRouter(amount: number) {
-    return sendContract(
-      CONTRACTS.dropToken,
-      ABIS.dropToken as Abi,
-      "approve",
-      [CONTRACTS.tipRouter, parseDrop(amount)],
-      `Approve ${amount} DROP for tipping`,
-    );
-  }
+  const approveTipRouter = useCallback(
+    async (amount: number) =>
+      sendContract(
+        CONTRACTS.dropToken,
+        ABIS.dropToken as Abi,
+        "approve",
+        [CONTRACTS.tipRouter, parseDrop(amount)],
+        `Approve ${amount} DROP for tipping`,
+      ),
+    [sendContract],
+  );
 
-  async function tipOnChain(djAddress: `0x${string}`, amount: number, streamId: string) {
-    const streamBytes = keccak256(toBytes(streamId));
-    return sendContract(
-      CONTRACTS.tipRouter,
-      ABIS.tipRouter as Abi,
-      "tip",
-      [djAddress, parseDrop(amount), streamBytes],
-      `Tip ${amount} DROP on-chain`,
-    );
-  }
+  const tipOnChain = useCallback(
+    async (djAddress: `0x${string}`, amount: number, streamId: string) => {
+      const streamBytes = keccak256(toBytes(streamId));
+      return sendContract(
+        CONTRACTS.tipRouter,
+        ABIS.tipRouter as Abi,
+        "tip",
+        [djAddress, parseDrop(amount), streamBytes],
+        `Tip ${amount} DROP on-chain`,
+      );
+    },
+    [sendContract],
+  );
 
-  async function claimAchievementOnChain(
-    claimId: `0x${string}`,
-    amount: number,
-    deadline: bigint,
-    signature: `0x${string}`,
-  ) {
-    return sendContract(
-      CONTRACTS.achievementVault,
-      ABIS.achievementVault as Abi,
-      "claim",
-      [claimId, parseDrop(amount), deadline, signature],
-      "Claim achievement DROP reward",
-    );
-  }
+  const claimAchievementOnChain = useCallback(
+    async (
+      claimId: `0x${string}`,
+      amount: number,
+      deadline: bigint,
+      signature: `0x${string}`,
+    ) =>
+      sendContract(
+        CONTRACTS.achievementVault,
+        ABIS.achievementVault as Abi,
+        "claim",
+        [claimId, parseDrop(amount), deadline, signature],
+        "Claim achievement DROP reward",
+      ),
+    [sendContract],
+  );
 
   return {
     isConnected,
@@ -179,6 +237,15 @@ export function useOnChainDrop() {
     claimAchievementOnChain,
     refetchBalance,
   };
+}
+
+export function OnChainDropProvider({ children }: { children: ReactNode }) {
+  const value = useOnChainDropKit();
+  return <OnChainDropContext.Provider value={value}>{children}</OnChainDropContext.Provider>;
+}
+
+export function useOnChainDrop(): OnChainDropApi {
+  return useContext(OnChainDropContext);
 }
 
 /** @deprecated use useOnChainDrop */

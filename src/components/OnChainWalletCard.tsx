@@ -3,14 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Link2, Sparkles } from "lucide-react";
-import { useWallet } from "@vechain/vechain-kit";
 import { useAuth, formatAddress } from "@/context/AuthContext";
 import { LiveBoothWalletConnect } from "@/components/LiveBoothWalletConnect";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
-import { useLiveBoothWalletLink } from "@/hooks/useLiveBoothWalletLink";
+import { privyConfigured } from "@/lib/vechain-kit-config";
 import { apiFetch } from "@/lib/fetch-client";
 import { contractsConfigured, CONTRACTS } from "@/lib/web3/contracts";
-import { privyConfigured } from "@/lib/vechain-kit-config";
 
 type OnChainStatus = {
   contractsConfigured: boolean;
@@ -20,16 +18,13 @@ type OnChainStatus = {
 };
 
 export function OnChainWalletCard() {
-  const { user, refresh } = useAuth();
-  const { account, connection } = useWallet();
-  useLiveBoothWalletLink();
-  const { balanceWei, isConnected, refetchBalance, isEmbeddedWallet } = useOnChainDrop();
+  const { user } = useAuth();
+  const { address, balanceWei, isConnected, refetchBalance, isEmbeddedWallet } = useOnChainDrop();
   const [status, setStatus] = useState<OnChainStatus | null>(null);
 
-  const connectedAddress = account?.address;
   const linked = user?.walletAddress?.startsWith("0x") ? user.walletAddress : null;
   const mismatch =
-    Boolean(linked && connectedAddress && linked.toLowerCase() !== connectedAddress.toLowerCase());
+    Boolean(linked && address && linked.toLowerCase() !== address.toLowerCase());
 
   useEffect(() => {
     apiFetch("/api/wallet/on-chain")
@@ -97,12 +92,12 @@ export function OnChainWalletCard() {
         </div>
       )}
 
-      {mismatch && (
+      {mismatch && address && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <p>
-            Connected wallet ({formatAddress(connectedAddress!)}) doesn&apos;t match your linked
-            address. Reconnect or unlink in settings.
+            Connected wallet ({formatAddress(address)}) doesn&apos;t match your linked address.
+            Reconnect or unlink in settings.
           </p>
         </div>
       )}
