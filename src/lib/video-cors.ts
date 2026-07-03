@@ -5,14 +5,19 @@ export function resolvePlaybackUrl(url: string): string {
   return url.startsWith("/") ? `${window.location.origin}${url}` : url;
 }
 
-/** True when the browser must fetch with CORS for canvas export to work. */
+/** True when clip export must reload the video with CORS (cross-origin file URLs only). */
 export function playbackNeedsCrossOrigin(url: string): boolean {
   if (!url) return false;
-  if (url.includes("/api/vod/file/")) return true;
-  if (/\.(mp4|fmp4|webm)(\?|$)/i.test(url)) return true;
-  if (typeof window === "undefined") return false;
+  if (url.includes("/api/vod/file/")) return false;
+  if (typeof window === "undefined") {
+    return /\.(mp4|fmp4|webm)(\?|$)/i.test(url);
+  }
   try {
-    return new URL(resolvePlaybackUrl(url)).origin !== window.location.origin;
+    const resolved = resolvePlaybackUrl(url);
+    if (/\.(mp4|fmp4|webm)(\?|$)/i.test(resolved)) {
+      return new URL(resolved).origin !== window.location.origin;
+    }
+    return false;
   } catch {
     return false;
   }

@@ -10,6 +10,7 @@ import {
   findLatestRemoteRecordingFilename,
   getRecordingPublicUrl,
   isRemoteRecordingEnabled,
+  normalizeVodPlaybackUrl,
   resolveRecordingVodUrl,
 } from "@/lib/vod-recording";
 import { computeSetScore } from "@/lib/set-score";
@@ -97,6 +98,8 @@ export default async function VODPage({
   if (playbackUrl && !isFilePlaybackUrl(playbackUrl) && !isDemoPlayback(playbackUrl)) {
     playbackUrl = null;
   }
+
+  playbackUrl = normalizeVodPlaybackUrl(playbackUrl);
 
   const demoPlayback = Boolean(playbackUrl && isDemoPlayback(playbackUrl) && !isFilePlaybackUrl(playbackUrl));
   const recordingUnavailable = !playbackUrl && !demoPlayback;

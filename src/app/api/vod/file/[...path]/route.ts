@@ -8,6 +8,18 @@ import {
   resolveRecordingFilePath,
 } from "@/lib/vod-recording";
 
+export const dynamic = "force-dynamic";
+
+function vodHeaders(name: string, extra?: Record<string, string>): Record<string, string> {
+  return {
+    "Content-Type": recordingsContentType(name),
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "public, max-age=3600",
+    Vary: "Range",
+    ...extra,
+  };
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ path: string[] }> },
@@ -17,27 +29,28 @@ export async function GET(
 
   const name = parts[parts.length - 1] ?? "recording.mp4";
   const relativePath = parts.join("/");
+  const range = request.headers.get("range");
 
   const filePath = resolveRecordingFilePath(parts);
   if (filePath) {
     const stat = fs.statSync(filePath);
-    const range = request.headers.get("range");
 
     if (range) {
       const match = /^bytes=(\d+)-(\d*)$/i.exec(range);
       if (match) {
         const start = parseInt(match[1]!, 10);
         const end = match[2] ? parseInt(match[2], 10) : stat.size - 1;
-        const chunk = fs.readFileSync(filePath).subarray(start, end + 1);
-        return new Response(chunk, {
+        const length = end - start + 1;
+        const buffer = Buffer.alloc(length);
+        const fd = fs.openSync(filePath, "r");
+        fs.readSync(fd, buffer, 0, length, start);
+        fs.closeSync(fd);
+        return new Response(buffer, {
           status: 206,
-          headers: {
-            "Content-Type": recordingsContentType(name),
-            "Content-Length": String(chunk.length),
+          headers: vodHeaders(name, {
+            "Content-Length": String(length),
             "Content-Range": `bytes ${start}-${end}/${stat.size}`,
-            "Accept-Ranges": "bytes",
-            "Cache-Control": "public, max-age=86400",
-          },
+          }),
         });
       }
     }
@@ -45,17 +58,13 @@ export async function GET(
     const data = fs.readFileSync(filePath);
     return new Response(data, {
       status: 200,
-      headers: {
-        "Content-Type": recordingsContentType(name),
+      headers: vodHeaders(name, {
         "Content-Length": String(stat.size),
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=86400",
-      },
+      }),
     });
   }
 
   if (isRemoteRecordingEnabled()) {
-    const range = request.headers.get("range");
     const bases = getRecordingsPublicBaseUrls();
 
     for (const base of bases) {
@@ -69,19 +78,16 @@ export async function GET(
         });
         if (!res.ok && res.status !== 206) continue;
 
-        const headers = new Headers();
-        headers.set("Content-Type", res.headers.get("content-type") ?? recordingsContentType(name));
-        headers.set("Accept-Ranges", "bytes");
-        headers.set("Cache-Control", "public, max-age=86400");
         const contentLength = res.headers.get("content-length");
         const contentRange = res.headers.get("content-range");
-        if (contentLength) headers.set("Content-Length", contentLength);
-        if (contentRange) headers.set("Content-Range", contentRange);
+        const status =
+          range && contentRange ? 206 : res.status === 206 ? 206 : res.status;
 
-        return new Response(res.body, {
-          status: res.status,
-          headers,
-        });
+        const headers = vodHeaders(name);
+        if (contentLength) headers["Content-Length"] = contentLength;
+        if (contentRange) headers["Content-Range"] = contentRange;
+
+        return new Response(res.body, { status, headers });
       } catch {
         // try next base URL
       }

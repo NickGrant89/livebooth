@@ -64,6 +64,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 ) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsManifestReadyRef = useRef(false);
+  const vodReadyRef = useRef(false);
   const [volume, setVolume] = useState(80);
   const [muted, setMuted] = useState(true);
   const [elapsed, setElapsed] = useState(0);
@@ -110,6 +111,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     if (!video || !playbackUrl) return;
 
     hlsManifestReadyRef.current = false;
+    vodReadyRef.current = false;
     setPlaybackError(false);
     setIsLoading(!isLive && !previewMode);
 
@@ -119,26 +121,28 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
     if (isFile) {
       const src = resolvePlaybackUrl(playbackUrl);
-      const needsCors = playbackNeedsCrossOrigin(playbackUrl);
+      video.removeAttribute("crossorigin");
 
-      if (needsCors) {
-        video.crossOrigin = "anonymous";
-      } else {
-        video.removeAttribute("crossorigin");
-      }
+      const markReady = () => {
+        vodReadyRef.current = true;
+        setIsLoading(false);
+        setPlaybackError(false);
+      };
 
       const onError = () => {
         setPlaybackError(true);
         setIsLoading(false);
       };
       const onLoaded = () => {
-        setIsLoading(false);
+        markReady();
         video.playbackRate = playbackSpeed;
         video.play().catch(() => undefined);
       };
-      const onCanPlay = () => setIsLoading(false);
-      const onWaiting = () => setIsLoading(true);
-      const onPlaying = () => setIsLoading(false);
+      const onCanPlay = () => markReady();
+      const onWaiting = () => {
+        if (!vodReadyRef.current) setIsLoading(true);
+      };
+      const onPlaying = () => markReady();
 
       video.addEventListener("error", onError);
       video.addEventListener("loadeddata", onLoaded);
@@ -146,10 +150,19 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       video.addEventListener("waiting", onWaiting);
       video.addEventListener("playing", onPlaying);
       video.preload = "auto";
+      video.playsInline = true;
       video.src = src;
       video.load();
 
+      const loadTimeout = window.setTimeout(() => {
+        if (!vodReadyRef.current && video.readyState < 2) {
+          setPlaybackError(true);
+          setIsLoading(false);
+        }
+      }, 25000);
+
       return () => {
+        window.clearTimeout(loadTimeout);
         video.removeEventListener("error", onError);
         video.removeEventListener("loadeddata", onLoaded);
         video.removeEventListener("canplay", onCanPlay);
@@ -367,7 +380,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
               Buffering preview…
             </div>
           )}
-          {muted && !playbackError && (!isLoading || previewMode) && (
+          {muted && !playbackError && (!isLive || previewMode || !isLoading) && (
             <button
               type="button"
               onClick={unmute}
@@ -375,7 +388,11 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             >
               <VolumeX className="h-10 w-10 text-white mb-2" />
               <span className="text-sm font-semibold text-white">
-                {previewMode ? "Click to preview with sound" : "Click to unmute"}
+                {previewMode
+                  ? "Click to preview with sound"
+                  : !isLive
+                    ? "Tap to play replay"
+                    : "Click to unmute"}
               </span>
             </button>
           )}

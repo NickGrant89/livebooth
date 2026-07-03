@@ -101,10 +101,31 @@ export function findLatestRecordingFile(ingestKey: string): string | null {
   return files[files.length - 1]!;
 }
 
-/** Public playback URL — same-origin proxy avoids mobile Safari CORS issues with direct VPS URLs. */
 export function getRecordingPublicUrl(ingestKey: string, filename: string): string {
   const relativePath = `live/${ingestKey}/${filename}`;
   return `/api/vod/file/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+/** Rewrite legacy direct VPS recording URLs to the same-origin proxy. */
+export function normalizeVodPlaybackUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.includes("/api/vod/file/")) return url;
+
+  const recordingsMatch = url.match(/\/recordings\/(live\/[^?#]+\.(?:mp4|fmp4))/i);
+  if (recordingsMatch?.[1]) {
+    return getRecordingPublicUrl(
+      recordingsMatch[1].split("/")[1]!,
+      recordingsMatch[1].split("/").pop()!,
+    );
+  }
+
+  const bareMatch = url.match(/(live\/lb_[^/]+\/[^/?#]+\.(?:mp4|fmp4))/i);
+  if (bareMatch?.[1]) {
+    const parts = bareMatch[1].split("/");
+    return getRecordingPublicUrl(parts[1]!, parts[2]!);
+  }
+
+  return url;
 }
 
 export function resolveRecordingVodUrl(ingestKey: string | null | undefined): string | null {
