@@ -10,10 +10,20 @@ import {
 } from "react";
 import { buildVeChainKitProviderProps } from "@/lib/vechain-kit-config";
 
-const Web3ReadyContext = createContext(false);
+export type KitLoadState =
+  | { status: "loading" }
+  | { status: "ready" }
+  | { status: "error"; message: string };
 
+const KitLoadContext = createContext<KitLoadState>({ status: "loading" });
+
+export function useKitLoadState() {
+  return useContext(KitLoadContext);
+}
+
+/** @deprecated prefer useKitLoadState */
 export function useWeb3Ready() {
-  return useContext(Web3ReadyContext);
+  return useContext(KitLoadContext).status === "ready";
 }
 
 type KitModules = {
@@ -27,7 +37,7 @@ type KitModules = {
 };
 
 class KitErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
+  { children: ReactNode; onError: (message: string) => void },
   { hasError: boolean }
 > {
   state = { hasError: false };
@@ -37,22 +47,32 @@ class KitErrorBoundary extends Component<
   }
 
   componentDidCatch(error: unknown) {
-    console.error("VeChain Kit failed to load:", error);
+    console.error("VeChain Kit failed to start:", error);
+    this.props.onError(
+      error instanceof Error ? error.message : "Wallet provider failed to start",
+    );
   }
 
   render() {
-    return this.state.hasError ? this.props.fallback : this.props.children;
+    return this.state.hasError ? null : this.props.children;
   }
 }
 
-function KitFallback({ children }: { children: ReactNode }) {
-  return <Web3ReadyContext.Provider value={false}>{children}</Web3ReadyContext.Provider>;
+function KitShell({
+  children,
+  state,
+}: {
+  children: ReactNode;
+  state: KitLoadState;
+}) {
+  return <KitLoadContext.Provider value={state}>{children}</KitLoadContext.Provider>;
 }
 
 /** Loads VeChain Kit only on routes that opt in (wallet / stream / achievements). */
 export function WalletKitScope({ children }: { children: ReactNode }) {
   const [kit, setKit] = useState<KitModules | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [loadState, setLoadState] = useState<KitLoadState>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +90,16 @@ export function WalletKitScope({ children }: { children: ReactNode }) {
           LiveBoothWalletLinkEffect: linkMod.LiveBoothWalletLinkEffect,
         });
       })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
+      .catch((error: unknown) => {
+        console.error("VeChain Kit import failed:", error);
+        if (cancelled) return;
+        setLoadState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not download the wallet library. Check your connection and refresh.",
+        });
       });
 
     return () => {
@@ -79,24 +107,34 @@ export function WalletKitScope({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  if (failed || !kit) {
-    return <KitFallback>{children}</KitFallback>;
+  useEffect(() => {
+    if (!kit) return;
+    setMounted(true);
+  }, [kit]);
+
+  if (loadState.status === "error") {
+    return <KitShell state={loadState}>{children}</KitShell>;
+  }
+
+  if (!kit || !mounted) {
+    return <KitShell state={{ status: "loading" }}>{children}</KitShell>;
   }
 
   const { VeChainKitProvider, OnChainDropProvider, LiveBoothWalletLinkEffect } = kit;
   const kitProps = buildVeChainKitProviderProps();
-  const fallback = <KitFallback>{children}</KitFallback>;
 
   return (
-    <KitErrorBoundary fallback={fallback}>
-      <Web3ReadyContext.Provider value={true}>
+    <KitShell state={{ status: "ready" }}>
+      <KitErrorBoundary
+        onError={(message) => setLoadState({ status: "error", message })}
+      >
         <VeChainKitProvider {...kitProps}>
           <OnChainDropProvider>
             <LiveBoothWalletLinkEffect />
             {children}
           </OnChainDropProvider>
         </VeChainKitProvider>
-      </Web3ReadyContext.Provider>
-    </KitErrorBoundary>
+      </KitErrorBoundary>
+    </KitShell>
   );
 }

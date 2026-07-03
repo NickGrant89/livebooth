@@ -1,114 +1,78 @@
 "use client";
 
-import { useConnectModal, useWallet } from "@vechain/vechain-kit";
-import { Sparkles, Wallet, Unlink } from "lucide-react";
-import { useAuth, formatAddress } from "@/context/AuthContext";
-import { useWeb3Ready } from "@/components/WalletKitScope";
-import { privyConfigured } from "@/lib/vechain-kit-config";
-import { apiFetch } from "@/lib/fetch-client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { RefreshCw, Sparkles } from "lucide-react";
+import { useKitLoadState } from "@/components/WalletKitScope";
 
 interface LiveBoothWalletConnectProps {
   className?: string;
 }
 
 export function LiveBoothWalletConnect({ className }: LiveBoothWalletConnectProps) {
-  const ready = useWeb3Ready();
-  if (!ready) {
-    return (
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-500">
-        Loading on-chain wallet…
-      </div>
-    );
-  }
+  const loadState = useKitLoadState();
+  const [Inner, setInner] = useState<
+    typeof import("@/components/LiveBoothWalletConnectInner").LiveBoothWalletConnectInner | null
+  >(null);
 
-  return <LiveBoothWalletConnectInner className={className} />;
-}
-
-function LiveBoothWalletConnectInner({ className }: LiveBoothWalletConnectProps) {
-  const { open } = useConnectModal();
-  const { account, connection, disconnect } = useWallet();
-  const { user, refresh } = useAuth();
-
-  const [unlinking, setUnlinking] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  const address = account?.address;
-  const isConnected = connection.isConnected;
-  const isEmbedded =
-    connection.isConnectedWithSocialLogin || connection.isConnectedWithPrivy;
-  const isLinked =
-    Boolean(address && user?.walletAddress) &&
-    user!.walletAddress!.toLowerCase() === address!.toLowerCase();
-
-  async function unlinkWallet() {
-    setUnlinking(true);
-    setMsg("");
-    const res = await apiFetch("/api/wallet", { method: "DELETE" });
-    setUnlinking(false);
-    if (!res.ok) {
-      setMsg("Could not unlink wallet from LiveBooth account");
+  useEffect(() => {
+    if (loadState.status !== "ready") {
+      setInner(null);
       return;
     }
-    await refresh();
-    setMsg("Wallet unlinked from LiveBooth");
-  }
 
-  if (isConnected && address) {
+    let cancelled = false;
+    import("@/components/LiveBoothWalletConnectInner").then((mod) => {
+      if (!cancelled) setInner(() => mod.LiveBoothWalletConnectInner);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadState.status]);
+
+  if (loadState.status === "loading") {
     return (
-      <div className={className ?? "space-y-2"}>
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/10 px-4 py-3 text-sm">
-          <Wallet className="h-4 w-4 text-[#53fc18] shrink-0" />
-          <span className="font-medium text-zinc-200">
-            {isEmbedded ? "LiveBooth wallet" : connection.source?.displayName ?? "Connected"}
-          </span>
-          <span className="font-mono text-xs text-zinc-500">{formatAddress(address)}</span>
-          {isLinked ? (
-            <span className="text-[10px] font-bold uppercase text-[#53fc18]">Linked</span>
-          ) : (
-            <span className="text-[10px] text-zinc-500">Linking…</span>
-          )}
-          <button
-            type="button"
-            onClick={() => void disconnect()}
-            className="ml-auto text-xs text-zinc-500 hover:text-white"
-          >
-            Disconnect
-          </button>
-        </div>
-        {user?.walletAddress && (
-          <button
-            type="button"
-            onClick={() => void unlinkWallet()}
-            disabled={unlinking}
-            className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 disabled:opacity-50"
-          >
-            <Unlink className="h-3.5 w-3.5" />
-            {unlinking ? "Unlinking…" : "Unlink from LiveBooth account"}
-          </button>
-        )}
-        {msg && <p className="text-xs text-zinc-400">{msg}</p>}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-500">
+        <span className="inline-flex items-center gap-2">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" />
+          Loading on-chain wallet…
+        </span>
+        <p className="mt-2 text-[11px] text-zinc-600 leading-relaxed">
+          Downloading the VeChain wallet library — usually a few seconds on first visit.
+        </p>
       </div>
     );
   }
 
-  const primaryClass =
-    className ??
-    "inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#53fc18] px-5 py-3 text-sm font-bold text-[#041018] hover:bg-[#6aff35] shadow-lg shadow-[#53fc18]/20 transition-all disabled:opacity-50";
+  if (loadState.status === "error") {
+    return (
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 space-y-2">
+        <p className="font-medium">On-chain wallet unavailable</p>
+        <p className="text-xs text-amber-200/80 leading-relaxed">
+          {loadState.message}. Your in-app DROP balance still works — only on-chain tips need this.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-100 underline hover:no-underline"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Refresh and try again
+        </button>
+      </div>
+    );
+  }
 
-  return (
-    <div className="space-y-2">
-      <button type="button" onClick={() => open()} className={primaryClass}>
-        <Sparkles className="h-5 w-5" />
-        Enable LiveBooth on-chain wallet
-      </button>
-      <p className="text-[11px] text-zinc-500 text-center leading-relaxed">
-        {privyConfigured()
-          ? "Sign in with email to get an embedded wallet — no VeWorld install needed."
-          : "Connect with Google or VeWorld. Add Privy keys for email wallets (see .env.example)."}
-        {" "}
-        Gas is sponsored on testnet.
-      </p>
-    </div>
-  );
+  if (!Inner) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-500">
+        <span className="inline-flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#53fc18]" />
+          Starting wallet…
+        </span>
+      </div>
+    );
+  }
+
+  return <Inner className={className} />;
 }
