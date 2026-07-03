@@ -57,7 +57,7 @@
     "@vechain/dapp-kit-react": "^2.3.2",
     "@vechain/vechain-kit": "^2.12.0",
     "@vechain/web3-providers-connex": "^1.1.2",
-    "@wagmi/core": "^3.5.5",
+    "@wagmi/core": "2.22.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",
@@ -73,13 +73,14 @@
     "server-only": "^0.0.1",
     "stripe": "^22.3.0",
     "tsx": "^4.22.4",
-    "viem": "^2.53.1",
-    "wagmi": "^3.6.21",
+    "viem": "2.47.12",
     "web-push": "^3.6.7",
     "zod": "^4.4.3"
   },
   "overrides": {
-    "use-sync-external-store": "^1.6.0"
+    "use-sync-external-store": "^1.6.0",
+    "viem": "2.47.12",
+    "@wagmi/core": "2.22.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
