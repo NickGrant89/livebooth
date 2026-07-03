@@ -101,13 +101,9 @@ export function findLatestRecordingFile(ingestKey: string): string | null {
   return files[files.length - 1]!;
 }
 
-/** Public playback URL — direct from VPS when configured, else same-origin proxy. */
+/** Public playback URL — same-origin proxy avoids mobile Safari CORS issues with direct VPS URLs. */
 export function getRecordingPublicUrl(ingestKey: string, filename: string): string {
   const relativePath = `live/${ingestKey}/${filename}`;
-  if (isRemoteRecordingEnabled()) {
-    const direct = getRemoteRecordingFileUrl(relativePath);
-    if (direct) return direct;
-  }
   return `/api/vod/file/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
 }
 

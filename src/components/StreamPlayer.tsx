@@ -333,12 +333,8 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const speedLabel = playbackSpeed === 1 ? "1x" : `${playbackSpeed}x`;
   const showSeekBar = !isLive && !previewMode && duration > 0;
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  /** CORS on <video> is only needed for VOD clip export — breaks some live HLS ingest paths. */
-  const useCrossOrigin =
-    Boolean(playbackUrl) &&
-    playbackNeedsCrossOrigin(playbackUrl!) &&
-    !isLive &&
-    !previewMode;
+  /** Clip export reloads with crossOrigin when needed — don't set it during normal playback (breaks iOS replay). */
+  const useCrossOrigin = false;
 
   const hours = Math.floor(elapsed / 3600);
   const minutes = Math.floor((elapsed % 3600) / 60);
