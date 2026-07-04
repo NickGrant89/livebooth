@@ -65,8 +65,12 @@ function useLocalRtmp() {
   return Boolean(HLS_SERVER_URL && !LIVEPEER_API_KEY && getEffectiveRtmpServerUrl());
 }
 
+export function isLiveBoothIngestKey(ingestKey?: string | null) {
+  return Boolean(ingestKey?.startsWith("lb_") || ingestKey?.startsWith("st_"));
+}
+
 function isLocalIngestKey(ingestKey?: string | null) {
-  return !ingestKey || ingestKey.startsWith("lb_");
+  return !ingestKey || isLiveBoothIngestKey(ingestKey);
 }
 
 /** OBS server URL — stream key is a separate field (see RtmpCredentials). */
@@ -124,6 +128,33 @@ export function getIngestModeForStream(
     return "local";
   }
   return isLocalIngestKey(ingestKey) ? getIngestMode() : "livepeer";
+}
+
+export async function createStationChannelSession(
+  ownerId: string,
+  stationId: string,
+  title: string,
+  genre: string,
+) {
+  const ingestKey = `st_${crypto.randomUUID().replace(/-/g, "")}`;
+  const playbackUrl = useLocalRtmp()
+    ? getHlsPlaybackUrl(ingestKey)
+    : process.env.NODE_ENV === "production"
+      ? getHlsPlaybackUrl(ingestKey)
+      : DEMO_HLS;
+
+  return prisma.stream.create({
+    data: {
+      djId: ownerId,
+      title,
+      genre,
+      status: "preparing",
+      ingestKey,
+      playbackUrl,
+      stationId,
+      stationChannel: true,
+    },
+  });
 }
 
 export async function createStreamSession(

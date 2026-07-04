@@ -49,12 +49,12 @@ function extractIngestKey(path?: string, user?: string, password?: string, query
       return parts[liveIdx + 1]!;
     }
     const last = parts[parts.length - 1];
-    if (last?.startsWith("lb_")) return last;
+    if (last?.startsWith("lb_") || last?.startsWith("st_")) return last;
   }
 
   for (const candidate of [user, password]) {
     const val = trim(candidate);
-    if (val.startsWith("lb_")) return val;
+    if (val.startsWith("lb_") || val.startsWith("st_")) return val;
   }
 
   // MediaMTX RTMP may pass ?user=…&pass=… or key-only in query
@@ -62,10 +62,10 @@ function extractIngestKey(path?: string, user?: string, password?: string, query
     const params = new URLSearchParams(query);
     for (const key of ["pass", "password", "key", "stream", "name"]) {
       const val = params.get(key);
-      if (val?.startsWith("lb_")) return val;
+      if (val?.startsWith("lb_") || val?.startsWith("st_")) return val;
     }
     for (const val of params.values()) {
-      if (val.startsWith("lb_")) return val;
+      if (val.startsWith("lb_") || val.startsWith("st_")) return val;
     }
   }
 

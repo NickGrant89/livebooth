@@ -57,11 +57,17 @@ export default function StationGuidePage() {
       </GuideSection>
 
       <GuideSection id="embed" title="Embed & relay">
-        <GuideStep n={1} title="Embed on your website">
+        <GuideStep n={1} title="Station video channel">
+          Settings → Station dashboard → <strong className="text-zinc-300">Station video channel</strong>.
+          Get an RTMP key, preview in OBS, then go live on{" "}
+          <code className="text-xs bg-white/10 px-1 rounded">/station/your-slug/live</code>.
+          Separate from resident DJ Go Live — use this for studio cams and branded station feeds.
+        </GuideStep>
+        <GuideStep n={2} title="Embed on your website">
           Pro+ tiers get an iframe player at <code className="text-xs bg-white/10 px-1 rounded">/embed/station/slug</code>.
           Copy the snippet from your station dashboard in Settings.
         </GuideStep>
-        <GuideStep n={2} title="FM / relay simulcast">
+        <GuideStep n={3} title="FM / relay simulcast">
           Set a relay URL in Settings to simulcast your LiveBooth feed to external radio infrastructure.
         </GuideStep>
       </GuideSection>

@@ -6,12 +6,12 @@ import { StationFollowButton } from "@/components/StationFollowButton";
 
 type StationFanCtaProps = {
   slug: string;
-  liveDjUsername?: string | null;
+  isLive?: boolean;
   liveStreamTitle?: string | null;
 };
 
-export function StationFanCta({ slug, liveDjUsername, liveStreamTitle }: StationFanCtaProps) {
-  const isLive = Boolean(liveDjUsername);
+export function StationFanCta({ slug, isLive = false, liveStreamTitle }: StationFanCtaProps) {
+  const liveHref = `/station/${slug}/live`;
 
   return (
     <section className="rounded-xl border border-[#53fc18]/20 bg-gradient-to-r from-[#53fc18]/5 to-transparent p-5">
@@ -24,7 +24,7 @@ export function StationFanCta({ slug, liveDjUsername, liveStreamTitle }: Station
             <Heart className="h-4 w-4 text-[#53fc18]" />
             1. Follow
           </div>
-          <p className="text-xs text-zinc-500 mb-3">Get alerts when residents go live.</p>
+          <p className="text-xs text-zinc-500 mb-3">Get alerts when the station or residents go live.</p>
           <StationFollowButton slug={slug} />
         </li>
         <li className="rounded-lg border border-white/10 bg-black/20 p-4">
@@ -33,11 +33,11 @@ export function StationFanCta({ slug, liveDjUsername, liveStreamTitle }: Station
             2. Watch
           </div>
           <p className="text-xs text-zinc-500 mb-3">
-            {isLive ? liveStreamTitle ?? "A show is live now." : "Tune in when a resident goes live."}
+            {isLive ? liveStreamTitle ?? "A show is live now." : "Tune in when the station goes live."}
           </p>
           {isLive ? (
             <Link
-              href={`/stream/${liveDjUsername}`}
+              href={liveHref}
               className="inline-flex rounded-lg bg-[#53fc18] px-4 py-2 text-xs font-bold text-black"
             >
               Join live booth
@@ -52,11 +52,11 @@ export function StationFanCta({ slug, liveDjUsername, liveStreamTitle }: Station
             3. Tip
           </div>
           <p className="text-xs text-zinc-500 mb-3">
-            Tips pay the DJ and station during live shows — the main way to support.
+            Tips pay the show and station during live broadcasts.
           </p>
           {isLive ? (
             <Link
-              href={`/stream/${liveDjUsername}`}
+              href={liveHref}
               className="inline-flex rounded-lg border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-2 text-xs font-semibold text-[#53fc18]"
             >
               Tip the drop

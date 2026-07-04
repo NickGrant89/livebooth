@@ -74,13 +74,14 @@ export async function sendGoLivePushToFollowers(
   djName: string,
   streamTitle: string,
   username: string,
+  watchUrl?: string,
 ) {
   if (followerIds.length === 0 || !ensureConfigured()) return 0;
 
   const payload: PushPayload = {
     title: `${djName} is live`,
     body: `${streamTitle} — the drop starts now`,
-    url: `/stream/${username}`,
+    url: watchUrl ?? `/stream/${username}`,
     tag: `go-live-${username}`,
   };
 

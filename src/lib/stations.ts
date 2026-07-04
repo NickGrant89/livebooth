@@ -62,13 +62,34 @@ export async function getStationForDj(djId: string) {
 }
 
 export async function getLiveStreamForStation(stationId: string) {
-  return prisma.stream.findFirst({
-    where: { stationId, status: "live" },
-    include: {
-      dj: { select: { username: true, displayName: true, avatar: true } },
-      nowPlaying: true,
-    },
+  const include = {
+    dj: { select: { username: true, displayName: true, avatar: true } },
+    nowPlaying: true,
+  } as const;
+
+  const channel = await prisma.stream.findFirst({
+    where: { stationId, status: "live", stationChannel: true },
+    include,
     orderBy: { startedAt: "desc" },
+  });
+  if (channel) return channel;
+
+  return prisma.stream.findFirst({
+    where: { stationId, status: "live", stationChannel: false },
+    include,
+    orderBy: { startedAt: "desc" },
+  });
+}
+
+export async function getActiveStationChannelForOwner(ownerId: string) {
+  return prisma.stream.findFirst({
+    where: {
+      djId: ownerId,
+      stationChannel: true,
+      status: { in: ["preparing", "live"] },
+    },
+    include: { station: { select: { slug: true, name: true } } },
+    orderBy: { createdAt: "desc" },
   });
 }
 

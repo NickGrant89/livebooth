@@ -59,11 +59,13 @@ export async function GET(request: Request) {
   if (isApiError(auth)) return auth;
 
   const ingestKey = new URL(request.url).searchParams.get("ingestKey")?.trim();
-  if (!ingestKey?.startsWith("lb_")) return error("Invalid ingest key", 400);
+  if (!ingestKey?.startsWith("lb_") && !ingestKey?.startsWith("st_")) {
+    return error("Invalid ingest key", 400);
+  }
 
   const stream = await prisma.stream.findFirst({
     where: { ingestKey, djId: auth.id },
-    select: { id: true, status: true, title: true },
+    select: { id: true, status: true, title: true, stationChannel: true },
   });
 
   const expectedPath = `live/${ingestKey}/index.m3u8`;

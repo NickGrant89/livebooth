@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/fetch-client";
 import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, STATION_SCHEDULE_CSV_HEADER } from "@/lib/constants";
 import { StationTierUpgrade } from "@/components/StationTierUpgrade";
 import { StationProSetup } from "@/components/StationProSetup";
+import { StationGoLivePanel } from "@/components/StationGoLivePanel";
 import { DjUserPicker, type DjSearchResult } from "@/components/DjUserPicker";
 import { STAKING_COPY, STAKING_DEEMPHASIZED } from "@/lib/staking-ui";
 
@@ -251,6 +252,12 @@ export function StationOwnerDashboard() {
       {error && (
         <p className="text-sm text-red-400 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>
       )}
+
+      <StationGoLivePanel
+        stationName={station.name}
+        stationSlug={station.slug}
+        onStatusChange={load}
+      />
 
       {station.tier === "community" && (
         <StationTierUpgrade currentTier={station.tier} onUpgraded={load} />

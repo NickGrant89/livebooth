@@ -40,7 +40,9 @@ export function resolveClientHlsPlaybackUrl(
   ingestMode?: "livepeer" | "local" | "demo",
 ): string {
   if (ingestMode === "demo" && playbackUrl) return playbackUrl;
-  if (ingestKey?.startsWith("lb_")) return localHlsPlaybackPath(ingestKey);
+  if (ingestKey?.startsWith("lb_") || ingestKey?.startsWith("st_")) {
+    return localHlsPlaybackPath(ingestKey);
+  }
   if (playbackUrl?.startsWith("/api/hls/")) return playbackUrl;
   if (playbackUrl) {
     try {

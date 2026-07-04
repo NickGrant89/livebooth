@@ -129,7 +129,7 @@ export default async function StationPage({
 
       <StationFanCta
         slug={station.slug}
-        liveDjUsername={liveStream?.dj.username}
+        isLive={Boolean(liveStream)}
         liveStreamTitle={liveStream?.title}
       />
 
@@ -138,15 +138,19 @@ export default async function StationPage({
         <section className="rounded-xl border border-red-500/30 bg-gradient-to-r from-red-500/10 to-transparent p-5">
           <div className="flex items-center gap-2 text-red-400 text-xs font-bold uppercase mb-3">
             <Radio className="h-3.5 w-3.5 animate-pulse" />
-            On air now
+            {liveStream.stationChannel ? "Station channel live" : "On air now"}
           </div>
           <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-lg font-bold text-white">{liveStream.title}</p>
               <p className="text-sm text-zinc-400 mt-0.5">
-                <Link href={`/dj/${liveStream.dj.username}`} className="hover:text-[#53fc18]">
-                  {liveStream.dj.displayName}
-                </Link>
+                {liveStream.stationChannel ? (
+                  <span>{station.name} studio feed</span>
+                ) : (
+                  <Link href={`/dj/${liveStream.dj.username}`} className="hover:text-[#53fc18]">
+                    {liveStream.dj.displayName}
+                  </Link>
+                )}
                 {liveStream.nowPlaying && (
                   <span className="text-zinc-500">
                     {" "}
@@ -163,10 +167,10 @@ export default async function StationPage({
               </div>
             </div>
             <Link
-              href={`/stream/${liveStream.dj.username}`}
+              href={`/station/${station.slug}/live`}
               className="btn-primary rounded-xl px-5 py-2.5 text-sm font-semibold shrink-0 w-full sm:w-auto text-center"
             >
-              Join booth
+              {liveStream.stationChannel ? "Watch station channel" : "Join booth"}
             </Link>
           </div>
         </section>

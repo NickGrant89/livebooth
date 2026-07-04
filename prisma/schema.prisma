@@ -144,6 +144,7 @@ model Stream {
   presence            StreamPresence[]
   highlights          StreamHighlight[]
   stationId           String?
+  stationChannel      Boolean   @default(false)
   station             RadioStation? @relation(fields: [stationId], references: [id], onDelete: SetNull)
   moderationStatus    String    @default("ok")
   moderationReason    String?

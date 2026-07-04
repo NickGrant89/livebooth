@@ -84,6 +84,49 @@ export async function notifyStationFollowersResidentGoLive(
   return followers.length;
 }
 
+/** Notify station followers when the station video channel goes live. */
+export async function notifyStationFollowersChannelGoLive(
+  stationId: string,
+  streamTitle: string,
+) {
+  const station = await prisma.radioStation.findUnique({
+    where: { id: stationId },
+    select: { slug: true, name: true },
+  });
+  if (!station) return 0;
+
+  const followers = await prisma.stationFollow.findMany({
+    where: { stationId },
+    select: { followerId: true },
+  });
+  if (followers.length === 0) return 0;
+
+  const title = `${station.name} is live`;
+  const body = streamTitle;
+  const href = `/station/${station.slug}/live`;
+
+  await prisma.notification.createMany({
+    data: followers.map((f) => ({
+      userId: f.followerId,
+      type: "station_channel_go_live",
+      title,
+      body,
+      href,
+    })),
+  });
+
+  const followerIds = followers.map((f) => f.followerId);
+  sendGoLivePushToFollowers(
+    followerIds,
+    station.name,
+    streamTitle,
+    station.slug,
+    `/station/${station.slug}/live`,
+  ).catch((err) => console.error("web push station channel go-live:", err));
+
+  return followers.length;
+}
+
 /** Remind DJ to share their booth link when they go live. */
 export async function notifyDjShareReminder(
   djId: string,

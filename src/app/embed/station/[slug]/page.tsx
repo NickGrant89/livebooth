@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { EmbedPlayer } from "@/components/EmbedPlayer";
 import { getStationBySlug, getLiveStreamForStation, getTierMeta } from "@/lib/stations";
 import { stationAllowsEmbed } from "@/lib/schedule-import";
+import { resolveLivePlaybackUrl } from "@/lib/streaming";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +25,14 @@ export default async function EmbedStationPage({
       avatar={station.avatar}
       primaryColor={station.embedPrimaryColor}
       hideBranding={station.embedHideBranding && tierMeta.whiteLabel}
-      playbackUrl={liveStream?.playbackUrl}
+      playbackUrl={
+        liveStream
+          ? resolveLivePlaybackUrl(liveStream.status, liveStream.ingestKey, liveStream.playbackUrl)
+          : null
+      }
       streamTitle={liveStream?.title}
-      djName={liveStream?.dj.displayName}
-      djUsername={liveStream?.dj.username}
+      djName={liveStream?.stationChannel ? station.name : liveStream?.dj.displayName}
+      djUsername={liveStream?.stationChannel ? station.slug : liveStream?.dj.username}
       isLive={Boolean(liveStream)}
       relayUrl={station.relayUrl}
     />

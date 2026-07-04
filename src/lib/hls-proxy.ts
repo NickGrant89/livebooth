@@ -37,8 +37,9 @@ export function parseHlsSessionCookie(cookieHeader: string | null | undefined): 
 }
 
 function liveStreamSessionKey(pathParts: string[]): string | null {
-  if (pathParts[0] === "live" && pathParts[1]?.startsWith("lb_")) {
-    return `${pathParts[0]}/${pathParts[1]}`;
+  const key = pathParts[1];
+  if (pathParts[0] === "live" && (key?.startsWith("lb_") || key?.startsWith("st_"))) {
+    return `${pathParts[0]}/${key}`;
   }
   return null;
 }
