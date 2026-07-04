@@ -1,3 +1,5 @@
+import { localHlsPlaybackPath } from "./hls-playback";
+
 const HLS_SERVER_URL = process.env.HLS_SERVER_URL?.replace(/\/$/, "");
 
 export function hlsProxyEnabled(): boolean {

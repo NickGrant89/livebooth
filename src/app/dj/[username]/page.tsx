@@ -12,6 +12,7 @@ import { genreLabels, DROP_TOKEN_SYMBOL, DAY_LABELS, getCreatorTypeLabel } from 
 import { ShareProfileButton } from "@/components/ShareLiveButton";
 import { djProfileMetadata } from "@/lib/metadata-share";
 import { ProfileOnChainStrip } from "@/components/ProfileOnChainStrip";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { profileImageSrc } from "@/lib/profile-images";
 
 export const dynamic = "force-dynamic";

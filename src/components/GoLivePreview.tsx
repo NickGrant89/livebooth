@@ -160,7 +160,7 @@ export function GoLivePreview({
         {publishing ? "Publishing…" : obsConnected ? "Looks good — go live" : "Waiting for OBS signal…"}
       </button>
 
-      {!canPublish && ingestMode !== "demo" && (
+      {!canPublish && (
         <p className="text-[11px] text-center text-zinc-600">
           Preview must detect your OBS feed before going live. Cancel setup above to discard without publishing.
         </p>
