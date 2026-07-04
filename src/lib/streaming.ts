@@ -208,6 +208,14 @@ export async function publishStreamSession(streamId: string, djId: string) {
   });
 }
 
+export async function cancelStreamPreview(streamId: string, djId: string) {
+  const stream = await prisma.stream.findFirst({
+    where: { id: streamId, djId, status: "preparing" },
+  });
+  if (!stream) return null;
+  return prisma.stream.delete({ where: { id: streamId } });
+}
+
 export async function endStreamSession(streamId: string, djId: string) {
   const stream = await prisma.stream.findFirst({
     where: { id: streamId, djId },

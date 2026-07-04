@@ -56,6 +56,8 @@ export default function PrivacyPage() {
         </p>
 
         <p className="pt-4">
+          <Link href="/policies" className="text-[#53fc18] hover:underline">Policies &amp; procedures</Link>
+          {" · "}
           <Link href="/terms" className="text-[#53fc18] hover:underline">Terms of Service</Link>
           {" · "}
           <Link href="/support" className="text-[#53fc18] hover:underline">Support</Link>

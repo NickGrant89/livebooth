@@ -1,5 +1,5 @@
 import { getSessionUser } from "@/lib/auth";
-import { createStreamSession, endStreamSession, getRtmpIngestUrl, getIngestModeForStream, resolveLivePlaybackUrl } from "@/lib/streaming";
+import { createStreamSession, endStreamSession, cancelStreamPreview, getRtmpIngestUrl, getIngestModeForStream, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { evaluateAchievements } from "@/lib/achievements";
 import { updateDjStreak, buildStreamRecap } from "@/lib/retention";
 import { computeSetScore } from "@/lib/set-score";
@@ -80,6 +80,11 @@ export async function DELETE() {
     where: { djId: user.id, status: { in: ["preparing", "live"] } },
   });
   if (!stream) return error("No live stream", 404);
+
+  if (stream.status === "preparing") {
+    await cancelStreamPreview(stream.id, user.id);
+    return json({ ok: true, cancelled: true });
+  }
 
   await endStreamSession(stream.id, user.id);
   await updateDjStreak(user.id);

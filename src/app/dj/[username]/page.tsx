@@ -11,7 +11,7 @@ import { getSessionUser } from "@/lib/auth";
 import { genreLabels, DROP_TOKEN_SYMBOL, DAY_LABELS, getCreatorTypeLabel } from "@/lib/constants";
 import { ShareProfileButton } from "@/components/ShareLiveButton";
 import { djProfileMetadata } from "@/lib/metadata-share";
-import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { ProfileOnChainStrip } from "@/components/ProfileOnChainStrip";
 import { profileImageSrc } from "@/lib/profile-images";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +63,7 @@ export default async function DJProfilePage({
       where: { djId: dj.id, status: "live" },
     }),
     prisma.stream.findMany({
-      where: { djId: dj.id, status: "ended" },
+      where: { djId: dj.id, status: "ended", startedAt: { not: null } },
       orderBy: { endedAt: "desc" },
       take: 50,
     }),
@@ -95,8 +95,8 @@ export default async function DJProfilePage({
             <img src={bannerSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
           )}
         </div>
-        <div className="relative z-10 px-6 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12 sm:-mt-14">
+        <div className="relative z-10 px-4 sm:px-6 pb-6">
+          <div className="flex items-end justify-between gap-3 -mt-10 sm:-mt-12 mb-4">
             <div className="relative z-10 shrink-0">
               <ProfileAvatar
                 displayName={dj.displayName}
@@ -106,9 +106,35 @@ export default async function DJProfilePage({
                 borderClassName="border-4 border-[#141416]"
               />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold">{dj.displayName}</h1>
+            <div className="flex gap-2 flex-wrap justify-end pb-0.5 min-w-0">
+              {isOwnProfile && (
+                <Link
+                  href="/settings"
+                  className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416]/90 px-3 sm:px-4 py-2 text-sm text-zinc-200 hover:bg-white/10 backdrop-blur-sm"
+                >
+                  <Settings className="h-4 w-4 shrink-0" />
+                  Edit profile
+                </Link>
+              )}
+              <ShareProfileButton
+                username={dj.username}
+                djName={dj.displayName}
+                isLive={Boolean(liveStream)}
+              />
+              {liveStream && (
+                <Link href={`/stream/${dj.username}`} className="rounded-lg bg-red-500 px-3 sm:px-4 py-2 text-sm font-bold text-white whitespace-nowrap">
+                  Watch Live
+                </Link>
+              )}
+              {!isOwnProfile && <FollowButton username={dj.username} />}
+              {!liveStream && isDj && !isOwnProfile && (
+                <SubscribeButton djUsername={dj.username} />
+              )}
+            </div>
+          </div>
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-white">{dj.displayName}</h1>
                 {isDj && (
                   <span className="rounded-full bg-[#53fc18]/10 border border-[#53fc18]/30 px-2.5 py-0.5 text-[10px] font-bold uppercase text-[#53fc18]">
                     {getCreatorTypeLabel(dj.creatorType)}
@@ -121,7 +147,7 @@ export default async function DJProfilePage({
                   </Link>
                 )}
               </div>
-              <p className="text-zinc-400">@{dj.username}</p>
+              <p className="text-sm text-zinc-300">@{dj.username}</p>
               {lastSet?.setGrade && !liveStream && (
                 <p className="text-xs text-[#15CFF4] mt-1">
                   Last set: Grade {lastSet.setGrade}
@@ -137,33 +163,7 @@ export default async function DJProfilePage({
                 </p>
               )}
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {isOwnProfile && (
-                <Link
-                  href="/settings"
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5"
-                >
-                  <Settings className="h-4 w-4" />
-                  Edit profile
-                </Link>
-              )}
-              <ShareProfileButton
-                username={dj.username}
-                djName={dj.displayName}
-                isLive={Boolean(liveStream)}
-              />
-              {liveStream && (
-                <Link href={`/stream/${dj.username}`} className="rounded-lg bg-red-500 px-4 py-2 text-sm font-bold text-white">
-                  Watch Live
-                </Link>
-              )}
-              {!isOwnProfile && <FollowButton username={dj.username} />}
-              {!liveStream && isDj && !isOwnProfile && (
-                <SubscribeButton djUsername={dj.username} />
-              )}
-            </div>
-          </div>
-          <p className="mt-4 text-zinc-300">{dj.bio || (isOwnProfile ? "Add a bio in settings →" : "")}</p>
+          <p className="mt-3 text-zinc-300">{dj.bio || (isOwnProfile ? "Add a bio in settings →" : "")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {genres.map((g: string) => (
               <span key={g} className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs">
@@ -171,6 +171,13 @@ export default async function DJProfilePage({
               </span>
             ))}
           </div>
+          {isDj && (
+            <ProfileOnChainStrip
+              walletAddress={dj.walletAddress}
+              isOwnProfile={isOwnProfile}
+              isDj={isDj}
+            />
+          )}
           <div className="mt-6 grid grid-cols-3 gap-4">
             <div className="rounded-xl bg-white/5 p-4 text-center">
               <Users className="h-5 w-5 text-[#53fc18] mx-auto mb-1" />

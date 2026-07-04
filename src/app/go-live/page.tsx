@@ -60,7 +60,24 @@ export default function GoLivePage() {
     setStep(existingLive.status === "live" ? 5 : 4);
   }
 
+  async function cancelPreview() {
+    const isPreview = step === 4 || streamInfo?.status === "preparing";
+    if (
+      isPreview &&
+      !window.confirm("Discard this preview? Fans have not been notified and nothing will be published.")
+    ) {
+      return;
+    }
+    await endAndRestart();
+  }
+
   async function endAndRestart() {
+    if (
+      streamInfo?.status === "live" &&
+      !window.confirm("End your live stream? Followers will no longer see you on air.")
+    ) {
+      return;
+    }
     setSubmitting(true);
     setError("");
     const res = await apiFetch("/api/streams/go-live", { method: "DELETE" });
@@ -310,11 +327,11 @@ export default function GoLivePage() {
             />
             <button
               type="button"
-              onClick={endAndRestart}
+              onClick={cancelPreview}
               disabled={submitting}
               className="w-full rounded-lg bg-white/5 py-2.5 text-sm text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-50"
             >
-              Cancel setup
+              {submitting ? "Discarding…" : "Cancel setup — don\u2019t publish"}
             </button>
           </div>
         )}
