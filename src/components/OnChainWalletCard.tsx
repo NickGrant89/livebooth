@@ -55,11 +55,10 @@ export function OnChainWalletCard() {
         </p>
       )}
 
-      {!privyConfigured() && (
+      {process.env.NODE_ENV === "development" && !privyConfigured() && !isConnected && (
         <p className="text-xs text-zinc-500 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-          Tip: set <code className="text-zinc-400">NEXT_PUBLIC_PRIVY_APP_ID</code> and{" "}
-          <code className="text-zinc-400">NEXT_PUBLIC_PRIVY_CLIENT_ID</code> for email embedded wallets.
-          Without Privy, use Google or VeWorld via the connect modal.
+          Dev: set <code className="text-zinc-400">NEXT_PUBLIC_PRIVY_APP_ID</code> and{" "}
+          <code className="text-zinc-400">NEXT_PUBLIC_PRIVY_CLIENT_ID</code> in env for email wallets.
         </p>
       )}
 
