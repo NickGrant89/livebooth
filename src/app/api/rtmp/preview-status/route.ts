@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError, requireApiUser } from "@/lib/api-utils";
-import { isRtmpAuthEnabled } from "@/lib/rtmp-auth";
+import { isRtmpAuthEnabled, validateRtmpPublish } from "@/lib/rtmp-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -82,10 +82,15 @@ export async function GET(request: Request) {
 
   const expectedPath = `live/${ingestKey}/index.m3u8`;
 
-  const [upstream, feedReady, altLiveOnly] = await Promise.all([
+  const [upstream, feedReady, altLiveOnly, rtmpAuthAllowed] = await Promise.all([
     probeUpstreamHls(expectedPath),
     upstreamManifestReady(expectedPath),
     probeUpstreamHls("live/index.m3u8"),
+    validateRtmpPublish({
+      action: "publish",
+      path: `live/${ingestKey}`,
+      protocol: "rtmp",
+    }),
   ]);
 
   let suggestion: string | null = null;
@@ -98,6 +103,12 @@ export async function GET(request: Request) {
         "This stream key is not active in LiveBooth. Cancel setup and create a new stream, then update OBS with the new key.";
     } else if (stream.status !== "preparing" && stream.status !== "live") {
       suggestion = "This stream session has ended. Start a new Go Live session and update OBS.";
+    } else if (rtmpAuthAllowed) {
+      suggestion =
+        "LiveBooth recognizes this key, but our ingest server has no video on it yet. In OBS → Settings → Stream: Server must be exactly rtmp://rtmp.livebooth.uk:1935/live (nothing after /live), Stream key = your lb_… key only. Stop Streaming, re-paste the key, Start Streaming. If OBS shows “Encoding overloaded”, lower resolution or use a faster x264 preset.";
+    } else if (isRtmpAuthEnabled()) {
+      suggestion =
+        "RTMP auth would reject this key. Cancel setup, start a new Go Live session, and paste the new stream key into OBS.";
     } else {
       suggestion =
         "OBS may show connected but MediaMTX has no feed on this key. Click Stop Streaming in OBS, confirm the stream key matches exactly, then Start Streaming again.";
@@ -111,6 +122,7 @@ export async function GET(request: Request) {
     proxyReady: feedReady,
     upstream,
     rtmpAuthEnabled: isRtmpAuthEnabled(),
+    rtmpAuthAllowed,
     dbStream: stream
       ? { id: stream.id, status: stream.status, title: stream.title }
       : null,

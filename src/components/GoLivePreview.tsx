@@ -13,6 +13,7 @@ type PreviewDiagnostics = {
   suggestion?: string | null;
   upstream?: { hint?: string; status: number };
   dbStream?: { status: string } | null;
+  rtmpAuthAllowed?: boolean;
 };
 
 type GoLivePreviewProps = {
@@ -58,6 +59,7 @@ export function GoLivePreview({
         suggestion: statusRes.suggestion,
         upstream: statusRes.upstream,
         dbStream: statusRes.dbStream,
+        rtmpAuthAllowed: statusRes.rtmpAuthAllowed,
       });
     }
     setChecks((n) => n + 1);
@@ -120,6 +122,11 @@ export function GoLivePreview({
           </li>
           <li className={obsConnected ? "text-[#53fc18]" : ""}>
             {obsConnected ? "✓" : "○"} OBS stream detected (HLS manifest)
+            {!obsConnected && diagnostics?.rtmpAuthAllowed === true && (
+              <span className="block text-[10px] text-amber-200/70 mt-0.5">
+                Key is active in LiveBooth — ingest server still waiting for OBS on this key
+              </span>
+            )}
           </li>
           <li className={showPlayer ? "text-zinc-300" : ""}>
             {showPlayer ? "✓" : "○"} Preview player {showPlayer ? "ready" : "waiting for signal"}
