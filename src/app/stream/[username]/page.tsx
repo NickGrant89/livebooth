@@ -133,13 +133,14 @@ export default async function StreamPage({
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto sm:shrink-0 flex-wrap">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:shrink-0">
                 <ShareLiveButton
                   username={dj.username}
                   djName={dj.displayName}
                   setTitle={stream.title}
                   variant="primary"
                   label="Share"
+                  className="w-full sm:w-auto"
                 />
                 <FollowButton username={dj.username} />
                 <SubscribeButton djUsername={dj.username} />

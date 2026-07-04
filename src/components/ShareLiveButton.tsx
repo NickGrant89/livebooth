@@ -8,12 +8,14 @@ export function ShareLiveButton({
   setTitle,
   variant = "secondary",
   label = "Share",
+  className = "",
 }: {
   username: string;
   djName: string;
   setTitle: string;
   variant?: "primary" | "secondary" | "ghost";
   label?: string;
+  className?: string;
 }) {
   return (
     <ShareMenu
@@ -24,6 +26,7 @@ export function ShareLiveButton({
       username={username}
       label={label}
       variant={variant}
+      className={className}
     />
   );
 }

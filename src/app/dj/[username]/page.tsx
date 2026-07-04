@@ -89,21 +89,23 @@ export default async function DJProfilePage({
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="rounded-2xl border border-white/5 bg-[#141416] overflow-hidden">
-        <div className="relative h-32 overflow-hidden bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20">
+        <div className="relative z-0 h-32 shrink-0 overflow-hidden bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20">
           {bannerSrc && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={bannerSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
           )}
         </div>
-        <div className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10">
-            <ProfileAvatar
-              displayName={dj.displayName}
-              avatar={dj.avatar}
-              avatarUrl={dj.avatarUrl}
-              size="lg"
-              borderClassName="border-4 border-[#141416]"
-            />
+        <div className="relative z-10 px-6 pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12 sm:-mt-14">
+            <div className="relative z-10 shrink-0">
+              <ProfileAvatar
+                displayName={dj.displayName}
+                avatar={dj.avatar}
+                avatarUrl={dj.avatarUrl}
+                size="lg"
+                borderClassName="border-4 border-[#141416]"
+              />
+            </div>
             <div className="flex-1">
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold">{dj.displayName}</h1>

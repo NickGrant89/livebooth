@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Share2, Link2, Check, ChevronDown } from "lucide-react";
 import {
   type ShareKind,
@@ -45,6 +45,7 @@ export function ShareMenu({
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<"link" | "text" | null>(null);
   const [canNativeShare, setCanNativeShare] = useState(false);
+  const [menuSide, setMenuSide] = useState<"left" | "right">("right");
   const ref = useRef<HTMLDivElement>(null);
 
   const share = getShareContent(kind, path, {
@@ -69,6 +70,20 @@ export function ShareMenu({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return;
+
+    const rect = ref.current.getBoundingClientRect();
+    const menuWidth = 210;
+    const pad = 12;
+    const fitsRight = rect.left + menuWidth <= window.innerWidth - pad;
+    const fitsLeft = rect.right - menuWidth >= pad;
+
+    if (!fitsRight && fitsLeft) setMenuSide("right");
+    else if (fitsRight && !fitsLeft) setMenuSide("left");
+    else setMenuSide(rect.left + rect.width / 2 > window.innerWidth / 2 ? "right" : "left");
+  }, [open]);
+
   async function copyLink() {
     await navigator.clipboard.writeText(share.url);
     setCopied("link");
@@ -89,10 +104,10 @@ export function ShareMenu({
 
   const btnClass =
     variant === "primary"
-      ? "btn-primary rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-2"
+      ? "btn-primary rounded-xl px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 w-full sm:w-auto"
       : variant === "ghost"
         ? "text-zinc-400 hover:text-white p-2 rounded-lg hover:bg-white/5 flex items-center gap-1.5 text-sm"
-        : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-white/10 flex items-center gap-2";
+        : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-white/10 flex items-center gap-2 w-full sm:w-auto";
 
   return (
     <div className={`relative ${className}`} ref={ref}>
@@ -103,7 +118,11 @@ export function ShareMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 min-w-[210px] rounded-xl border border-white/10 bg-[#141416] py-1 shadow-xl">
+        <div
+          className={`absolute top-full mt-2 z-50 min-w-[210px] max-w-[calc(100vw-1.5rem)] rounded-xl border border-white/10 bg-[#141416] py-1 shadow-xl ${
+            menuSide === "right" ? "right-0 left-auto" : "left-0 right-auto"
+          }`}
+        >
           {canNativeShare && (
             <MenuRow label="Share…" onClick={() => { void handleNativeShare(); }} />
           )}
