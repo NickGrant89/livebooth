@@ -40,8 +40,10 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
 }
 
 function extractIngestKey(path?: string, user?: string, password?: string, query?: string): string | null {
+  const trim = (s?: string) => s?.trim() ?? "";
+
   if (path) {
-    const parts = path.split("/").filter(Boolean);
+    const parts = trim(path).split("/").filter(Boolean);
     const liveIdx = parts.indexOf("live");
     if (liveIdx >= 0 && parts[liveIdx + 1]) {
       return parts[liveIdx + 1]!;
@@ -51,7 +53,8 @@ function extractIngestKey(path?: string, user?: string, password?: string, query
   }
 
   for (const candidate of [user, password]) {
-    if (candidate?.startsWith("lb_")) return candidate;
+    const val = trim(candidate);
+    if (val.startsWith("lb_")) return val;
   }
 
   // MediaMTX RTMP may pass ?user=…&pass=… or key-only in query

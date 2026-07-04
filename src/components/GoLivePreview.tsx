@@ -5,8 +5,15 @@ import { CheckCircle2, Loader2, MonitorPlay, Radio, WifiOff } from "lucide-react
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { RtmpCredentials } from "@/components/RtmpCredentials";
 import { hlsManifestReady, resolveClientHlsPlaybackUrl } from "@/lib/hls-playback";
+import { apiFetch } from "@/lib/fetch-client";
 
 type PreviewStatus = "waiting" | "checking" | "ready" | "error";
+
+type PreviewDiagnostics = {
+  suggestion?: string | null;
+  upstream?: { hint?: string; status: number };
+  dbStream?: { status: string } | null;
+};
 
 type GoLivePreviewProps = {
   title: string;
@@ -33,16 +40,29 @@ export function GoLivePreview({
 }: GoLivePreviewProps) {
   const [status, setStatus] = useState<PreviewStatus>("waiting");
   const [checks, setChecks] = useState(0);
+  const [diagnostics, setDiagnostics] = useState<PreviewDiagnostics | null>(null);
   const previewPlaybackUrl = resolveClientHlsPlaybackUrl(ingestKey, playbackUrl, ingestMode);
   const isDemo = ingestMode === "demo";
 
   const pollPreview = useCallback(async () => {
     if (!previewPlaybackUrl || isDemo) return;
     setStatus((s) => (s === "ready" ? s : "checking"));
-    const ready = await hlsManifestReady(previewPlaybackUrl);
+    const [ready, statusRes] = await Promise.all([
+      hlsManifestReady(previewPlaybackUrl),
+      apiFetch(`/api/rtmp/preview-status?ingestKey=${encodeURIComponent(ingestKey)}`).then((r) =>
+        r.ok ? (r.json() as Promise<PreviewDiagnostics & { proxyReady?: boolean }>) : null,
+      ),
+    ]);
+    if (statusRes) {
+      setDiagnostics({
+        suggestion: statusRes.suggestion,
+        upstream: statusRes.upstream,
+        dbStream: statusRes.dbStream,
+      });
+    }
     setChecks((n) => n + 1);
-    setStatus(ready ? "ready" : "waiting");
-  }, [previewPlaybackUrl, isDemo]);
+    setStatus(ready || statusRes?.proxyReady ? "ready" : "waiting");
+  }, [previewPlaybackUrl, isDemo, ingestKey]);
 
   useEffect(() => {
     if (!previewPlaybackUrl || isDemo) return;
@@ -114,16 +134,32 @@ export function GoLivePreview({
 
         {!obsConnected && !isDemo && (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-3 text-xs text-amber-100/90 space-y-2">
-            <p className="font-semibold text-amber-200">OBS not connected yet</p>
-            <ol className="list-decimal list-inside space-y-1 text-amber-100/80">
-              <li>In OBS, click <strong>Start Streaming</strong> (not Preview / Virtual Cam only)</li>
-              <li>Server: <code className="text-amber-200/90">{rtmpUrl}</code></li>
-              <li>Stream key must match: <code className="font-mono text-amber-200/90">{ingestKey}</code></li>
-              <li>OBS status bar should show green bitrate — not &quot;Reconnecting&quot;</li>
-            </ol>
-            <p className="text-[10px] text-amber-200/60">
-              A 404 on the manifest means the server has not received your RTMP feed yet.
+            <p className="font-semibold text-amber-200">
+              OBS shows connected but LiveBooth can&apos;t see your feed yet
             </p>
+            <ol className="list-decimal list-inside space-y-1 text-amber-100/80">
+              <li>
+                Click <strong>Stop Streaming</strong> in OBS, then paste the stream key again and{" "}
+                <strong>Start Streaming</strong>
+              </li>
+              <li>
+                Server must be exactly: <code className="text-amber-200/90">{rtmpUrl}</code>
+              </li>
+              <li>
+                Stream key (only in the key field):{" "}
+                <code className="font-mono text-amber-200/90">{ingestKey}</code>
+              </li>
+              <li>Do not put the stream key in the server URL</li>
+              <li>Check OBS shows a bitrate number (e.g. 2500 kbps), not just &quot;Connected&quot;</li>
+            </ol>
+            {diagnostics?.suggestion && (
+              <p className="rounded-md bg-black/30 border border-amber-500/20 px-2.5 py-2 text-amber-100">
+                {diagnostics.suggestion}
+              </p>
+            )}
+            {diagnostics?.upstream?.hint && (
+              <p className="text-[10px] text-amber-200/60 font-mono">{diagnostics.upstream.hint}</p>
+            )}
           </div>
         )}
 
