@@ -28,9 +28,14 @@ export async function GET(
 
     const manifestPath = parts.join("/");
     const isManifest = manifestPath.endsWith(".m3u8");
+    const isMp4 = /\.(mp4|m4s)(\?|$)/i.test(manifestPath);
     const contentType =
       res.headers.get("content-type") ??
-      (isManifest ? "application/vnd.apple.mpegurl" : "application/octet-stream");
+      (isManifest
+        ? "application/vnd.apple.mpegurl"
+        : isMp4
+          ? "video/mp4"
+          : "application/octet-stream");
 
     if (isManifest) {
       const text = await res.text();

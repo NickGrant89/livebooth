@@ -3,6 +3,37 @@ export function localHlsPlaybackPath(ingestKey: string): string {
   return `/api/hls/live/${encodeURIComponent(ingestKey)}/index.m3u8`;
 }
 
+/** LiveBooth ingest via MediaMTX (LL-HLS fMP4 through /api/hls proxy). */
+export function isProxiedMediaMtxHls(url: string): boolean {
+  return url.includes("/api/hls/live/") || /hls\.livebooth\.uk\/live\//.test(url);
+}
+
+/** hls.js settings for MediaMTX default lowLatency fMP4 HLS. */
+export function createMediaMtxHlsConfig() {
+  return {
+    enableWorker: true,
+    lowLatencyMode: true,
+    backBufferLength: 30,
+    liveSyncDurationCount: 2,
+    liveMaxLatencyDurationCount: 5,
+    maxLiveSyncPlaybackRate: 1.2,
+    liveDurationInfinity: true,
+    manifestLoadingTimeOut: 15000,
+    manifestLoadingMaxRetry: 8,
+    fragLoadingTimeOut: 20000,
+    fragLoadingMaxRetry: 8,
+  } as const;
+}
+
+/** Safari plays MediaMTX HLS natively; hls.js LL-HLS mode is for Chrome/Firefox. */
+export function preferNativeMediaMtxHls(): boolean {
+  if (typeof window === "undefined") return false;
+  const video = document.createElement("video");
+  if (!video.canPlayType("application/vnd.apple.mpegurl")) return false;
+  const ua = navigator.userAgent;
+  return /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox/i.test(ua);
+}
+
 export function resolveClientHlsPlaybackUrl(
   ingestKey: string | null | undefined,
   playbackUrl: string | null | undefined,

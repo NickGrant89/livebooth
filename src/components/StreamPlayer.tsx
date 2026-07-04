@@ -6,6 +6,11 @@ import Hls from "hls.js";
 import { Disc3, FastForward, Radio, Rewind, Users, Volume2, VolumeX } from "lucide-react";
 import { StreamVideoWatermark } from "@/components/StreamVideoWatermark";
 import {
+  createMediaMtxHlsConfig,
+  isProxiedMediaMtxHls,
+  preferNativeMediaMtxHls,
+} from "@/lib/hls-playback";
+import {
   ensureVideoExportReady,
   playbackNeedsCrossOrigin,
   resolvePlaybackUrl,
@@ -203,31 +208,72 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       };
     }
 
+    const liveLike = isLive || previewMode;
+    const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playbackUrl);
+
+    const markVideoReady = () => {
+      if (video.readyState >= 2 && (video.videoWidth > 0 || video.readyState >= 3)) {
+        setAwaitingVideo(false);
+        setIsLoading(false);
+        setPlaybackError(false);
+      }
+    };
+
+    const attachNativeLiveHls = () => {
+      setIsLoading(!previewMode);
+      if (liveLike) setAwaitingVideo(true);
+      const onPlaying = () => {
+        setAwaitingVideo(false);
+        setIsLoading(false);
+      };
+      video.src = playbackUrl;
+      video.addEventListener("loadeddata", markVideoReady);
+      video.addEventListener("canplay", markVideoReady);
+      video.addEventListener("playing", onPlaying);
+      video.addEventListener(
+        "error",
+        () => {
+          setPlaybackError(true);
+          setIsLoading(false);
+          setAwaitingVideo(false);
+        },
+        { once: true },
+      );
+      video.load();
+      video.play().catch(() => undefined);
+      return () => {
+        video.removeEventListener("loadeddata", markVideoReady);
+        video.removeEventListener("canplay", markVideoReady);
+        video.removeEventListener("playing", onPlaying);
+        video.removeAttribute("src");
+        video.load();
+      };
+    };
+
+    if (mediaMtxHls && preferNativeMediaMtxHls()) {
+      return attachNativeLiveHls();
+    }
+
     if (Hls.isSupported()) {
       setIsLoading(!previewMode);
-      const liveLike = isLive || previewMode;
-      const hls = new Hls({
-        enableWorker: true,
-        // MediaMTX remuxed HLS is more reliable without LL-HLS mode in browsers.
-        lowLatencyMode: false,
-        backBufferLength: liveLike ? 30 : 90,
-        liveSyncDurationCount: 3,
-        manifestLoadingTimeOut: 15000,
-        manifestLoadingMaxRetry: 8,
-      });
+      const hls = new Hls(
+        mediaMtxHls
+          ? createMediaMtxHlsConfig()
+          : {
+              enableWorker: true,
+              lowLatencyMode: false,
+              backBufferLength: liveLike ? 30 : 90,
+              liveSyncDurationCount: 3,
+              manifestLoadingTimeOut: 15000,
+              manifestLoadingMaxRetry: 8,
+            },
+      );
       hls.loadSource(playbackUrl);
       hls.attachMedia(video);
 
       const clearLoading = () => {
         setIsLoading(false);
         setPlaybackError(false);
-      };
-
-      const markVideoReady = () => {
-        if (video.readyState >= 2 && video.videoWidth > 0) {
-          setAwaitingVideo(false);
-          clearLoading();
-        }
       };
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -239,9 +285,8 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         clearLoading();
         video.play().catch(() => undefined);
       });
-      hls.on(Hls.Events.FRAG_BUFFERED, () => {
-        markVideoReady();
-      });
+      hls.on(Hls.Events.FRAG_BUFFERED, markVideoReady);
+      hls.on(Hls.Events.BUFFER_APPENDED, markVideoReady);
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
         console.error("[hls]", data.type, data.details, playbackUrl);
@@ -265,6 +310,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         }
         setPlaybackError(true);
         setIsLoading(false);
+        setAwaitingVideo(false);
       });
 
       const onPlaying = () => {
@@ -281,16 +327,14 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       video.addEventListener("canplay", onCanPlay);
       video.addEventListener("waiting", onWaiting);
 
-      const nativeFallback = window.setTimeout(() => {
-        if (previewMode && video.readyState < 2) {
-          hls.destroy();
-          video.src = playbackUrl;
-          video.play().catch(() => undefined);
+      const retryTimeout = window.setTimeout(() => {
+        if (previewMode && video.readyState < 2 && hls) {
+          hls.startLoad(-1);
         }
-      }, 10000);
+      }, 8000);
 
       return () => {
-        window.clearTimeout(nativeFallback);
+        window.clearTimeout(retryTimeout);
         video.removeEventListener("playing", onPlaying);
         video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("waiting", onWaiting);
@@ -298,6 +342,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       };
     }
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      if (liveLike) {
+        return attachNativeLiveHls();
+      }
       setIsLoading(true);
       video.src = playbackUrl;
       video.addEventListener(
