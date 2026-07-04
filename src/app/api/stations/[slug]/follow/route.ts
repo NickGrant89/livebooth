@@ -38,7 +38,8 @@ export async function POST(
   if (!station) return error("Station not found", 404);
 
   await followStation(auth.id, station.id);
-  return json({ ok: true, following: true });
+  const followerCount = await getStationFollowCount(station.id);
+  return json({ ok: true, following: true, followerCount });
 }
 
 export async function DELETE(
@@ -53,5 +54,6 @@ export async function DELETE(
   if (!station) return error("Station not found", 404);
 
   await unfollowStation(auth.id, station.id);
-  return json({ ok: true, following: false });
+  const followerCount = await getStationFollowCount(station.id);
+  return json({ ok: true, following: false, followerCount });
 }

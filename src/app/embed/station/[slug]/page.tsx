@@ -32,7 +32,6 @@ export default async function EmbedStationPage({
       }
       streamTitle={liveStream?.title}
       djName={liveStream?.stationChannel ? station.name : liveStream?.dj.displayName}
-      djUsername={liveStream?.stationChannel ? station.slug : liveStream?.dj.username}
       isLive={Boolean(liveStream)}
       relayUrl={station.relayUrl}
     />

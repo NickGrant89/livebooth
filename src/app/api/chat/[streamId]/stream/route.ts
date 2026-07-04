@@ -3,6 +3,7 @@ import { getChatHub, serializeChatMessage } from "@/lib/chat-hub";
 import { enrichChatPayloads } from "@/lib/staker-perks";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export async function GET(
   request: Request,

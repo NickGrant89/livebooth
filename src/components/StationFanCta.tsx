@@ -25,7 +25,7 @@ export function StationFanCta({ slug, isLive = false, liveStreamTitle }: Station
             1. Follow
           </div>
           <p className="text-xs text-zinc-500 mb-3">Get alerts when the station or residents go live.</p>
-          <StationFollowButton slug={slug} />
+          <StationFollowButton slug={slug} showCount={false} />
         </li>
         <li className="rounded-lg border border-white/10 bg-black/20 p-4">
           <div className="flex items-center gap-2 text-white font-semibold text-sm mb-1">

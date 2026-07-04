@@ -46,7 +46,11 @@ export function StreamMobileTabs({
 
       {/* Mobile: single panel */}
       <div className="lg:hidden flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
-        {tab === "watch" ? watch : chat}
+        {tab === "watch" ? (
+          watch
+        ) : (
+          <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">{chat}</div>
+        )}
       </div>
 
       {/* Desktop: side by side */}

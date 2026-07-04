@@ -14,7 +14,6 @@ interface EmbedPlayerProps {
   playbackUrl?: string | null;
   streamTitle?: string;
   djName?: string;
-  djUsername?: string;
   isLive: boolean;
   relayUrl?: string | null;
 }
@@ -28,7 +27,6 @@ export function EmbedPlayer({
   playbackUrl,
   streamTitle,
   djName,
-  djUsername,
   isLive,
   relayUrl,
 }: EmbedPlayerProps) {
@@ -119,14 +117,14 @@ export function EmbedPlayer({
           <button type="button" onClick={() => setMuted((m) => !m)} className="text-zinc-400">
             {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
           </button>
-          {isLive && djUsername && (
+          {isLive && (
             <Link
-              href={`/stream/${djUsername}`}
+              href={`/station/${stationSlug}/live`}
               target="_blank"
               className="ml-auto text-[11px] font-semibold hover:underline"
               style={{ color: primaryColor }}
             >
-              Open full booth →
+              Watch with chat →
             </Link>
           )}
         </div>

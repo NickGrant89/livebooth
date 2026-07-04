@@ -21,7 +21,11 @@ export async function followStation(followerId: string, stationId: string) {
     create: { followerId, stationId },
     update: {},
   });
-  await evaluateStationMilestones(stationId);
+  try {
+    await evaluateStationMilestones(stationId);
+  } catch (err) {
+    console.error("station milestones after follow:", err);
+  }
   return { ok: true as const };
 }
 

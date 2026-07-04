@@ -186,7 +186,7 @@ export default async function StreamPage({
         </div>
       }
       chat={
-        <div className="w-full lg:w-[380px] xl:w-[420px] flex flex-col border-white/[0.06] bg-[#0a0a0c] shrink-0 min-w-0 h-full overflow-hidden">
+        <div className="w-full lg:w-[380px] xl:w-[420px] flex flex-col flex-1 lg:flex-none border-white/[0.06] bg-[#0a0a0c] shrink-0 min-w-0 min-h-0 overflow-hidden">
           <StreamPageGuide isHost={isHost} />
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             <StreamChat

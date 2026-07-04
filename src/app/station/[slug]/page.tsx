@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { StationFollowButton } from "@/components/StationFollowButton";
+import { StationFollowerCount } from "@/components/StationFollowerCount";
+import { StationEmbedSection } from "@/components/StationEmbedSection";
 import { StationStakePanel } from "@/components/StationStakePanel";
 import { StationFanCta } from "@/components/StationFanCta";
 import { ShareMenu } from "@/components/ShareMenu";
@@ -26,6 +28,7 @@ import {
 } from "@/lib/stations";
 import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, genreLabels } from "@/lib/constants";
 import { stationMetadata } from "@/lib/metadata-share";
+import { stationAllowsEmbed } from "@/lib/schedule-import";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +67,8 @@ export default async function StationPage({
     station.id,
     station.residents.map((r) => r.djId),
   );
+  const canEmbed = stationAllowsEmbed(station.tier);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://livebooth.uk";
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8 space-y-6">
@@ -92,7 +97,8 @@ export default async function StationPage({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-zinc-500">
               <span className="flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" />
-                {station._count.follows.toLocaleString()} followers
+                <StationFollowerCount slug={station.slug} initialCount={station._count.follows} />{" "}
+                followers
               </span>
               <span className="flex items-center gap-1">
                 <TrendingUp className="h-3.5 w-3.5" />
@@ -132,6 +138,14 @@ export default async function StationPage({
         isLive={Boolean(liveStream)}
         liveStreamTitle={liveStream?.title}
       />
+
+      {canEmbed && (
+        <StationEmbedSection
+          slug={station.slug}
+          stationName={station.name}
+          appUrl={appUrl}
+        />
+      )}
 
       {/* Live / off-air */}
       {liveStream ? (
@@ -209,7 +223,7 @@ export default async function StationPage({
       {stats && (
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Followers", value: station._count.follows.toLocaleString(), icon: Users },
+            { label: "Followers", value: <StationFollowerCount slug={station.slug} initialCount={station._count.follows} />, icon: Users },
             { label: "Peak listeners", value: stats.totalListeners.toLocaleString(), icon: Radio },
             { label: "DROP on shows", value: stats.dropEarned.toLocaleString(), icon: Coins },
             { label: "Tracks unlocked", value: stats.tracksUnlocked.toLocaleString(), icon: Music },
