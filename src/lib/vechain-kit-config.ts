@@ -6,9 +6,32 @@ import { sponsoredDelegatorUrl } from "@/lib/vechain-delegator";
 const NODE_URL =
   process.env.NEXT_PUBLIC_VECHAIN_NODE_URL ?? "https://testnet.vechain.org";
 
-/** Reject empty strings, placeholders, and other non-Privy values in Vercel env. */
+function stripEnv(value: string | undefined): string | undefined {
+  const v = value?.trim().replace(/^["']|["']$/g, "");
+  return v || undefined;
+}
+
+/** Prefer the live browser origin so Privy/OAuth metadata match the site users are on. */
+function getAppUrl(): string {
+  if (typeof window !== "undefined") {
+    const { origin, hostname } = window.location;
+    if (
+      (origin.startsWith("https://") || origin.startsWith("http://")) &&
+      hostname !== "localhost" &&
+      !/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    ) {
+      return origin;
+    }
+  }
+  const fromEnv = stripEnv(process.env.NEXT_PUBLIC_APP_URL);
+  if (fromEnv && !fromEnv.includes("192.168.") && !fromEnv.includes("localhost")) {
+    return fromEnv.replace(/\/$/, "");
+  }
+  return "https://livebooth.uk";
+}
+
 function isValidPrivyAppId(value: string | undefined): value is string {
-  const id = value?.trim();
+  const id = stripEnv(value);
   if (!id || id.length < 10) return false;
   if (!/^cl[a-z0-9]+$/i.test(id)) return false;
   if (/your|placeholder|example|changeme|xxx|todo/i.test(id)) return false;
@@ -16,7 +39,7 @@ function isValidPrivyAppId(value: string | undefined): value is string {
 }
 
 function isValidPrivyClientId(value: string | undefined): value is string {
-  const id = value?.trim();
+  const id = stripEnv(value);
   if (!id || id.length < 8) return false;
   if (/your|placeholder|example|changeme|xxx|todo/i.test(id)) return false;
   return true;
@@ -31,12 +54,12 @@ export function privyConfigured(): boolean {
 
 export function buildVeChainKitProviderProps(): Omit<VechainKitProviderProps, "children"> {
   const privyEnabled = privyConfigured();
-  const privyAppId = privyEnabled ? process.env.NEXT_PUBLIC_PRIVY_APP_ID!.trim() : undefined;
+  const privyAppId = privyEnabled ? stripEnv(process.env.NEXT_PUBLIC_PRIVY_APP_ID)! : undefined;
   const privyClientId = privyEnabled
-    ? process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID!.trim()
+    ? stripEnv(process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID)!
     : undefined;
-  const wcProjectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID?.trim();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3008";
+  const wcProjectId = stripEnv(process.env.NEXT_PUBLIC_WC_PROJECT_ID);
+  const appUrl = getAppUrl();
 
   const props: Omit<VechainKitProviderProps, "children"> = {
     darkMode: true,
