@@ -71,6 +71,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const [elapsed, setElapsed] = useState(0);
   const [playbackError, setPlaybackError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [awaitingVideo, setAwaitingVideo] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -115,6 +116,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     vodReadyRef.current = false;
     vodFallbackTriedRef.current = false;
     setPlaybackError(false);
+    setAwaitingVideo(false);
     setIsLoading(!isLive && !previewMode);
 
     const isFile =
@@ -220,13 +222,24 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         setPlaybackError(false);
       };
 
+      const markVideoReady = () => {
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+          setAwaitingVideo(false);
+          clearLoading();
+        }
+      };
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         hlsManifestReadyRef.current = true;
+        if (liveLike) {
+          hls.startLoad(-1);
+          setAwaitingVideo(true);
+        }
         clearLoading();
         video.play().catch(() => undefined);
       });
       hls.on(Hls.Events.FRAG_BUFFERED, () => {
-        if (video.readyState >= 2) clearLoading();
+        markVideoReady();
       });
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
@@ -243,8 +256,11 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         setIsLoading(false);
       });
 
-      const onPlaying = () => clearLoading();
-      const onCanPlay = () => clearLoading();
+      const onPlaying = () => {
+        setAwaitingVideo(false);
+        clearLoading();
+      };
+      const onCanPlay = () => markVideoReady();
       const onWaiting = () => {
         if (previewMode || hlsManifestReadyRef.current) return;
         if (video.readyState < 3) setIsLoading(true);
@@ -402,12 +418,15 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
               </span>
             </div>
           )}
-          {previewMode && isLoading && !playbackError && (
-            <div className="absolute top-3 left-3 z-10 rounded-md bg-black/70 px-2 py-1 text-[10px] text-zinc-300 backdrop-blur-sm">
-              Buffering preview…
+          {previewMode && (isLoading || awaitingVideo) && !playbackError && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
+              <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
+              <span className="mt-3 text-xs font-medium text-zinc-300">
+                {awaitingVideo ? "Waiting for video frames…" : "Buffering preview…"}
+              </span>
             </div>
           )}
-          {muted && !playbackError && (!isLive || previewMode || !isLoading) && (
+          {muted && !playbackError && !awaitingVideo && (!isLive || previewMode || !isLoading) && (
             <button
               type="button"
               onClick={unmute}

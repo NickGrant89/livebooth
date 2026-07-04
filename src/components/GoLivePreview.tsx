@@ -37,6 +37,20 @@ async function hlsManifestReady(url: string, depth = 0): Promise<boolean> {
   }
 }
 
+/** Prefer same-origin HLS proxy when preview runs on the app domain. */
+function normalizePreviewPlaybackUrl(url: string): string {
+  if (!url || url.startsWith("/api/hls/")) return url;
+  try {
+    const parsed = new URL(url, typeof window !== "undefined" ? window.location.origin : undefined);
+    if (parsed.pathname.startsWith("/live/") && parsed.pathname.endsWith(".m3u8")) {
+      return `/api/hls${parsed.pathname}${parsed.search}`;
+    }
+  } catch {
+    /* keep original */
+  }
+  return url;
+}
+
 export function GoLivePreview({
   title,
   djName,
@@ -50,23 +64,24 @@ export function GoLivePreview({
 }: GoLivePreviewProps) {
   const [status, setStatus] = useState<PreviewStatus>("waiting");
   const [checks, setChecks] = useState(0);
+  const previewPlaybackUrl = normalizePreviewPlaybackUrl(playbackUrl);
 
   const pollPreview = useCallback(async () => {
-    if (!playbackUrl) return;
+    if (!previewPlaybackUrl) return;
     setStatus((s) => (s === "ready" ? s : "checking"));
-    const ready = await hlsManifestReady(playbackUrl);
+    const ready = await hlsManifestReady(previewPlaybackUrl);
     setChecks((n) => n + 1);
     setStatus(ready ? "ready" : "waiting");
-  }, [playbackUrl]);
+  }, [previewPlaybackUrl]);
 
   useEffect(() => {
-    if (!playbackUrl || ingestMode === "demo") return;
+    if (!previewPlaybackUrl || ingestMode === "demo") return;
     void pollPreview();
     const interval = setInterval(() => {
       void pollPreview();
     }, 3000);
     return () => clearInterval(interval);
-  }, [playbackUrl, ingestMode, pollPreview]);
+  }, [previewPlaybackUrl, ingestMode, pollPreview]);
 
   const obsConnected = status === "ready";
   const canPublish = obsConnected || ingestMode === "demo";
@@ -130,12 +145,12 @@ export function GoLivePreview({
           </p>
         )}
 
-        {playbackUrl ? (
+        {previewPlaybackUrl ? (
           <StreamPlayer
             djName={djName}
             streamTitle={title}
             viewers={0}
-            playbackUrl={playbackUrl}
+            playbackUrl={previewPlaybackUrl}
             isLive
             previewMode
             demoPlayback={ingestMode === "demo"}

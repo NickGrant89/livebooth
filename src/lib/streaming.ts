@@ -8,6 +8,7 @@ import {
   isFilePlaybackUrl,
   hasStreamReplay,
 } from "./playback-url";
+import { getProxiedHlsPlaybackUrl } from "./hls-proxy";
 
 export { isDemoPlayback, isFilePlaybackUrl, hasStreamReplay };
 
@@ -76,6 +77,8 @@ export function getRtmpIngestUrl(_ingestKey?: string | null): string {
 }
 
 export function getHlsPlaybackUrl(ingestKey: string): string {
+  const proxied = getProxiedHlsPlaybackUrl(ingestKey);
+  if (proxied) return proxied;
   if (HLS_SERVER_URL) {
     return `${HLS_SERVER_URL}/live/${ingestKey}/index.m3u8`;
   }
@@ -89,7 +92,7 @@ export function resolveLivePlaybackUrl(
   storedPlaybackUrl: string | null | undefined,
 ): string | null | undefined {
   if ((status !== "live" && status !== "preparing") || !ingestKey) return storedPlaybackUrl;
-  if (isLocalIngestKey(ingestKey) && isLocalRtmpMode()) {
+  if (isLocalIngestKey(ingestKey) && HLS_SERVER_URL) {
     return getHlsPlaybackUrl(ingestKey);
   }
   return storedPlaybackUrl;
@@ -114,6 +117,7 @@ export function getIngestModeForStream(
   playbackUrl: string | null,
 ): IngestMode {
   if (playbackUrl?.includes("livepeercdn.studio")) return "livepeer";
+  if (playbackUrl?.includes("/api/hls/live/")) return "local";
   if (HLS_SERVER_URL && playbackUrl?.startsWith(HLS_SERVER_URL)) return "local";
   if (playbackUrl && playbackUrl !== DEMO_HLS && !playbackUrl.includes("mux.dev")) {
     return "local";
