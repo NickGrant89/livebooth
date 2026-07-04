@@ -1,7 +1,11 @@
 import { error } from "@/lib/api-utils";
 import {
+  clientHlsSessionSetCookie,
   fetchUpstreamHls,
   hlsResponseHeaders,
+  readHlsSessionFromHeaders,
+  rememberHlsSession,
+  resolveUpstreamHlsSession,
   rewriteM3u8ForProxy,
   upstreamHlsUrl,
 } from "@/lib/hls-proxy";
@@ -20,7 +24,11 @@ export async function GET(
   if (!upstream) return error("HLS not configured", 503);
 
   try {
-    const res = await fetchUpstreamHls(upstream);
+    const hlsSession = await resolveUpstreamHlsSession(
+      parts,
+      request.headers.get("cookie"),
+    );
+    const res = await fetchUpstreamHls(upstream, { hlsSession });
 
     if (!res.ok) {
       return error("Upstream HLS error", res.status === 404 ? 404 : 502);
@@ -37,19 +45,26 @@ export async function GET(
           ? "video/mp4"
           : "application/octet-stream");
 
+    const responseSession = readHlsSessionFromHeaders(res.headers) ?? hlsSession;
+    rememberHlsSession(parts, responseSession);
+    const headers = hlsResponseHeaders(contentType);
+    if (responseSession) {
+      headers["Set-Cookie"] = clientHlsSessionSetCookie(responseSession);
+    }
+
     if (isManifest) {
       const text = await res.text();
       const rewritten = rewriteM3u8ForProxy(text, manifestPath);
       return new Response(rewritten, {
         status: 200,
-        headers: hlsResponseHeaders("application/vnd.apple.mpegurl"),
+        headers,
       });
     }
 
     const data = await res.arrayBuffer();
     return new Response(data, {
       status: 200,
-      headers: hlsResponseHeaders(contentType),
+      headers,
     });
   } catch (e) {
     console.error("[hls-proxy]", upstream, e);
