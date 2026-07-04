@@ -79,7 +79,7 @@ export default function StationGuidePage() {
         <GuideStep n={1} title="Get help">
           Station setup, embed issues, or billing — see{" "}
           <Link href="/support" className="text-[#53fc18] hover:underline">support &amp; FAQ</Link> or email{" "}
-          <a href="mailto:support@livebooth.local" className="text-[#53fc18] hover:underline">support@livebooth.local</a>.
+          <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">support@livebooth.uk</a>.
         </GuideStep>
       </GuideSection>
     </HelpGuideLayout>

@@ -75,7 +75,7 @@ export const DJ_QUICK_START: GuidanceStep[] = [
   },
   {
     title: "Go live with OBS",
-    body: "Go Live → enter title & genre → copy RTMP URL + stream key into OBS → Start Streaming.",
+    body: "Go Live → title & genre → copy RTMP server + stream key → Start Streaming in OBS → preview → go live.",
     href: "/go-live",
     hrefLabel: "Go Live wizard",
   },
@@ -90,7 +90,7 @@ export const DJ_QUICK_START: GuidanceStep[] = [
 export const DJ_LIVE_CHECKLIST: GuidanceStep[] = [
   {
     title: "OBS is streaming",
-    body: "Green bitrate in OBS. If fans see a demo loop, your encoder isn't connected — check server URL and stream key.",
+    body: "Green bitrate in OBS (e.g. 2500 kbps). If preview stays on 'Waiting for OBS', Stop Streaming, re-paste your stream key from Go Live, then Start Streaming again.",
   },
   {
     title: "Update Now Playing",
@@ -107,11 +107,11 @@ export const DJ_LIVE_CHECKLIST: GuidanceStep[] = [
 ];
 
 export const DJ_OBS_STEPS = [
-  "Open OBS → Settings → Stream",
-  "Service: Custom",
-  "Server: paste RTMP URL from LiveBooth (after you start the stream)",
-  "Stream key: paste your unique key — keep it secret",
-  "Click Start Streaming in OBS, then open Dashboard to manage the booth",
+  "Open OBS → Settings → Stream → Service: Custom",
+  "Server: rtmp://rtmp.livebooth.uk:1935/live",
+  "Stream key: paste from Go Live (key field only — not in the server URL)",
+  "Click Start Streaming — confirm bitrate shows in the OBS status bar",
+  "Return to Go Live — wait for Signal detected, then click Looks good — go live",
 ];
 
 export const GO_LIVE_STEPS = [
@@ -124,7 +124,8 @@ export const GO_LIVE_STEPS = [
 
 export const FAN_WALLET_TIPS = [
   `Your balance is in ${DROP_TOKEN_SYMBOL} — the booth currency for tips, unlocks, and requests.`,
-  "Buy more DROP from Wallet (Stripe test mode) or claim daily login bonus on the home page.",
+  "Buy more DROP from Wallet via Stripe checkout, or claim your daily login bonus on the home page.",
+  "Connect a wallet at /wallet for on-chain tips during live streams.",
   "Track unlocks and tips appear in your transaction history.",
 ];
 

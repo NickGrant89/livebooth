@@ -52,8 +52,8 @@ export default function TermsPage() {
         <h2 className="text-lg font-bold text-white pt-4">Contact</h2>
         <p>
           Questions:{" "}
-          <a href="mailto:legal@livebooth.local" className="text-[#53fc18] hover:underline">
-            legal@livebooth.local
+          <a href="mailto:legal@livebooth.uk" className="text-[#53fc18] hover:underline">
+            legal@livebooth.uk
           </a>
           {" · "}
           <Link href="/support" className="text-[#53fc18] hover:underline">Support</Link>

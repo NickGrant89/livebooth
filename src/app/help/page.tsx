@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { BookOpen, Headphones, Radio, HelpCircle, ArrowRight, Building2 } from "lucide-react";
-import { APP_NAME, APP_TAGLINE, showDemoCredentials } from "@/lib/constants";
+import { BookOpen, Headphones, Radio, HelpCircle, ArrowRight, Building2, Map, FileText } from "lucide-react";
+import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
 
 const guides = [
   {
     href: "/help/fans",
     title: "Fan guide",
-    description: "Watch live sets, tip DJs, unlock track IDs, earn achievements, and stake on your favorites.",
+    description: "Watch live sets, tip DJs, unlock track IDs, earn achievements, stake on favourites, and use your wallet.",
     icon: Headphones,
     color: "from-purple-500/20 to-pink-500/20 border-purple-500/30",
     cta: "I'm a fan",
@@ -14,7 +14,7 @@ const guides = [
   {
     href: "/help/djs",
     title: "DJ guide",
-    description: "Go live with OBS, manage your booth, earn DROP, collab with other DJs, and grow your audience.",
+    description: "Go live with OBS, preview your feed, earn DROP, manage your booth, collab, and grow your audience.",
     icon: Radio,
     color: "from-[#53fc18]/20 to-cyan-500/20 border-[#53fc18]/30",
     cta: "I'm a DJ",
@@ -30,7 +30,7 @@ const guides = [
   {
     href: "/support",
     title: "Help & support",
-    description: "FAQs, troubleshooting, and how to get help from the LiveBooth team.",
+    description: "FAQs, streaming troubleshooting, and how to contact the LiveBooth team.",
     icon: HelpCircle,
     color: "from-amber-500/20 to-orange-500/20 border-amber-500/30",
     cta: "Get support",
@@ -46,10 +46,8 @@ export default function HelpHubPage() {
           <h1 className="text-3xl font-bold text-white">Help center</h1>
         </div>
         <p className="text-zinc-400">
-          Everything you need to get started with {APP_NAME} — {APP_TAGLINE}.
-          Pick your role below, or open your{" "}
-          <Link href="/guide" className="text-[#53fc18] hover:underline">personalized guide</Link>{" "}
-          when signed in.
+          Everything you need on {APP_NAME} — {APP_TAGLINE}. Pick your role below, or open your{" "}
+          <Link href="/guide" className="text-[#53fc18] hover:underline">personalised guide</Link> when signed in.
         </p>
       </div>
 
@@ -96,16 +94,28 @@ export default function HelpHubPage() {
         })}
       </div>
 
-      {showDemoCredentials() && (
-        <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.02] p-5 text-sm text-zinc-500">
-          <p className="font-semibold text-zinc-300 mb-2">Demo accounts (local dev only)</p>
-          <ul className="space-y-1 font-mono text-xs">
-            <li>Fan: demo@livebooth.local / password123</li>
-            <li>DJ: neonpulse@livebooth.local / password123</li>
-            <li>Station: kxradio@livebooth.local / password123</li>
-          </ul>
-        </div>
-      )}
+      <div className="mt-10 grid sm:grid-cols-2 gap-4">
+        <Link
+          href="/roadmap"
+          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:border-[#15CFF4]/30 transition-colors"
+        >
+          <Map className="h-5 w-5 text-[#15CFF4]" />
+          <div>
+            <p className="text-sm font-semibold text-white">Product roadmap</p>
+            <p className="text-xs text-zinc-500 mt-0.5">What we&apos;ve shipped and what&apos;s next</p>
+          </div>
+        </Link>
+        <Link
+          href="/policies"
+          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/20 transition-colors"
+        >
+          <FileText className="h-5 w-5 text-zinc-400" />
+          <div>
+            <p className="text-sm font-semibold text-white">Policies & procedures</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Community rules, go-live steps, moderation</p>
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }

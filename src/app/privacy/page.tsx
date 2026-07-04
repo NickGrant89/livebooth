@@ -37,8 +37,8 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-bold text-white pt-4">Retention &amp; deletion</h2>
         <p>
           We retain account data while your account is active. You may request deletion by contacting{" "}
-          <a href="mailto:privacy@livebooth.local" className="text-[#53fc18] hover:underline">
-            privacy@livebooth.local
+          <a href="mailto:privacy@livebooth.uk" className="text-[#53fc18] hover:underline">
+            privacy@livebooth.uk
           </a>
           . Some ledger and moderation records may be kept as required for legal or safety reasons.
         </p>

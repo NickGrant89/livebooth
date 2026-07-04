@@ -282,7 +282,8 @@ export default function GoLivePage() {
             </ol>
             {rtmpOnline === false && (
               <p className="text-xs text-red-400">
-                RTMP server not detected — run <code className="bg-black/30 px-1 rounded">npm run rtmp:start</code> before OBS.
+                Streaming server unreachable — check{" "}
+                <Link href="/support" className="text-red-300 underline">Support</Link> or try again in a few minutes.
               </p>
             )}
             <div className="flex gap-3">
@@ -347,9 +348,10 @@ export default function GoLivePage() {
             </div>
             {rtmpOnline === false && streamInfo.ingestMode === "local" && (
               <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                RTMP server is offline. Run{" "}
-                <code className="rounded bg-black/30 px-1 font-mono text-xs">npm run rtmp:start</code>{" "}
-                in your project folder, then start streaming in OBS.
+                Streaming server is temporarily unreachable. Confirm OBS is set to{" "}
+                <code className="rounded bg-black/30 px-1 font-mono text-xs">rtmp://rtmp.livebooth.uk:1935/live</code>{" "}
+                and your stream key matches Go Live. See{" "}
+                <Link href="/support" className="text-red-200 underline">Support</Link> if this persists.
               </p>
             )}
             <ShareReminderBanner

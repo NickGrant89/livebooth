@@ -33,8 +33,7 @@ export default function FanGuidePage() {
       <GuideSection id="getting-started" title="Getting started">
         <GuideStep n={1} title="Create your account">
           Sign up at <Link href="/signup" className="text-[#53fc18] hover:underline">/signup</Link> with the
-          default <strong className="text-zinc-300">Fan</strong> role. Usernames are lowercase only (e.g.{" "}
-          <code className="text-xs bg-white/10 px-1 rounded">digital89</code>) — we auto-lowercase as you type.
+          default <strong className="text-zinc-300">Fan</strong> role. Usernames are lowercase only — we auto-lowercase as you type.
           You start with <strong className="text-zinc-300">{WELCOME_BONUS} {DROP_TOKEN_SYMBOL}</strong> welcome bonus.
         </GuideStep>
         <GuideStep n={2} title="Discover live DJs">
@@ -64,20 +63,20 @@ export default function FanGuidePage() {
 
       <GuideSection id="drop" title="Using DROP">
         <p className="text-sm text-zinc-400 mb-4">
-          {DROP_TOKEN_SYMBOL} is LiveBooth&apos;s tip token. Most actions spend from your wallet balance.
+          {DROP_TOKEN_SYMBOL} is LiveBooth&apos;s tip token. Most actions spend from your in-app wallet balance.
         </p>
         <GuideStep n={1} title="Wallet">
           Check balance at <Link href="/wallet" className="text-[#53fc18] hover:underline">/wallet</Link>.
-          Buy more DROP via Stripe (test mode in dev) or use the dev top-up when Stripe isn&apos;t configured.
-          Connect VeWorld for on-chain tips on VeChain testnet.
+          Buy {DROP_TOKEN_SYMBOL} packs via Stripe checkout. Connect VeWorld or sign in with email for an embedded wallet
+          to send on-chain tips during live streams.
         </GuideStep>
         <GuideStep n={2} title="Daily login bonus">
           Claim <strong className="text-zinc-300">{DAILY_LOGIN_DROP} {DROP_TOKEN_SYMBOL}</strong> once per day from the
           banner at the top of the app when signed in.
         </GuideStep>
         <GuideStep n={3} title="Tip the DJ">
-          On a live stream, choose a tip amount or enter a custom one. Optional message appears in chat.
-          Timestamp tips (during playback) can create VOD highlights on big tips.
+          On a live stream, choose a tip amount or enter a custom one. Toggle on-chain tips if your wallet is connected.
+          Optional message appears in chat. Large tips can create VOD highlights.
         </GuideStep>
         <GuideStep n={4} title="Track ID unlock">
           Pay <strong className="text-zinc-300">{TRACK_UNLOCK_COST} {DROP_TOKEN_SYMBOL}</strong> to reveal the track
@@ -96,14 +95,12 @@ export default function FanGuidePage() {
 
       <GuideSection id="staking" title="Staking & stations">
         <GuideStep n={1} title="Stake on a DJ">
-          On a DJ profile, use the stake panel (min {MIN_STAKE_AMOUNT} {DROP_TOKEN_SYMBOL}). Your DROP backs that DJ —
+          On a DJ profile, use the stake panel (min {MIN_STAKE_AMOUNT} {DROP_TOKEN_SYMBOL}). Your {DROP_TOKEN_SYMBOL} backs that DJ —
           unstake anytime from the same panel.
         </GuideStep>
         <GuideStep n={2} title="Radio stations">
-          Stations like <Link href="/station/kxradio" className="text-[#53fc18] hover:underline">/station/kxradio</Link>{" "}
-          group resident shows under one brand. Follow the station, stake DROP on it, and earn milestone rewards when
-          the station hits follower and tip goals. See the{" "}
-          <Link href="/help/stations" className="text-[#53fc18] hover:underline">station guide</Link> if you run one.
+          Browse <Link href="/residencies" className="text-[#53fc18] hover:underline">radio stations</Link> to find branded channels.
+          Follow a station, stake {DROP_TOKEN_SYMBOL} on it, and earn milestone rewards when the station hits follower and tip goals.
         </GuideStep>
       </GuideSection>
 
@@ -125,8 +122,8 @@ export default function FanGuidePage() {
           <Link href="/settings" className="text-[#53fc18] hover:underline">/settings</Link>.
         </GuideStep>
         <GuideStep n={2} title="Need help?">
-          Check <Link href="/support" className="text-[#53fc18] hover:underline">support &amp; FAQ</Link> or email{" "}
-          <a href="mailto:support@livebooth.local" className="text-[#53fc18] hover:underline">support@livebooth.local</a>.
+          Check <Link href="/support" className="text-[#53fc18] hover:underline">Support &amp; FAQ</Link> or email{" "}
+          <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">support@livebooth.uk</a>.
         </GuideStep>
       </GuideSection>
     </HelpGuideLayout>

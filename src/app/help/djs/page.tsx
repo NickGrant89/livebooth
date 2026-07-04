@@ -3,9 +3,12 @@ import { HelpGuideLayout, GuideSection, GuideStep } from "@/components/HelpGuide
 import { HelpQuickStart } from "@/components/HelpQuickStart";
 import { DROP_TOKEN_SYMBOL, STATION_TIP_DJ_SHARE, STATION_TIP_STATION_SHARE } from "@/lib/constants";
 
+const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
+
 const SECTIONS = [
   { id: "getting-started", title: "Getting started" },
   { id: "going-live", title: "Going live" },
+  { id: "obs", title: "OBS setup" },
   { id: "earning", title: "Earning DROP" },
   { id: "collab", title: "Collab & B2B" },
   { id: "growth", title: "Growth tips" },
@@ -16,7 +19,7 @@ export default function DjGuidePage() {
   return (
     <HelpGuideLayout
       title="DJ guide"
-      subtitle="Stream from the booth, earn DROP, and grow your audience."
+      subtitle="Stream from the booth, preview your feed, earn DROP, and grow your audience."
       backHref="/help"
       role="dj"
       sections={SECTIONS}
@@ -26,10 +29,8 @@ export default function DjGuidePage() {
         <GuideStep n={1} title="Sign up as a DJ">
           Choose the <strong className="text-zinc-300">DJ</strong> role at{" "}
           <Link href="/signup" className="text-[#53fc18] hover:underline">/signup</Link>.
-          Usernames must be lowercase — type <code className="text-xs bg-white/10 px-1 rounded">Digital89</code> and
-          we save it as <code className="text-xs bg-white/10 px-1 rounded">digital89</code>.
-          Complete your profile — display name, bio, avatar, and genres — in{" "}
-          <Link href="/settings" className="text-[#53fc18] hover:underline">Settings</Link>.
+          Usernames are lowercase — we save what you type in lowercase. Complete your profile (display name, bio,
+          avatar, genres) in <Link href="/settings" className="text-[#53fc18] hover:underline">Settings</Link>.
         </GuideStep>
         <GuideStep n={2} title="Your public profile">
           Fans find you at <code className="text-xs bg-white/10 px-1 rounded">/dj/yourusername</code>.
@@ -44,26 +45,47 @@ export default function DjGuidePage() {
       <GuideSection id="going-live" title="Going live">
         <GuideStep n={1} title="Start a session">
           Open <Link href="/go-live" className="text-[#53fc18] hover:underline">Go Live</Link>, enter title and genre,
-          then confirm. You&apos;ll get an RTMP URL and stream key for OBS (or your encoder).
+          then confirm. You&apos;ll get an RTMP server URL and a unique stream key for OBS.
         </GuideStep>
-        <GuideStep n={2} title="OBS setup">
-          <ul className="list-disc list-inside text-sm text-zinc-400 mt-2 space-y-1">
-            <li>Settings → Stream → Custom service</li>
-            <li>Server: copy from Go Live — production uses <code className="bg-white/10 px-1 rounded">rtmp://rtmp.livebooth.uk:1935/live</code></li>
-            <li>Stream key: copy from dashboard (keep it secret)</li>
-            <li>Start streaming in OBS, then fans see your HLS feed in the booth</li>
-          </ul>
-          <p className="text-xs text-zinc-600 mt-2">
-            Without a Livepeer key, local dev uses a demo HLS stream until OBS is connected via{" "}
-            <code className="bg-white/10 px-1 rounded">npm run rtmp:start</code>.
-          </p>
+        <GuideStep n={2} title="Preview before you publish">
+          After your stream key is created, Go Live shows a <strong className="text-zinc-300">preview step</strong>.
+          Fans are <em>not</em> notified until you click &quot;Looks good — go live&quot;. Use preview to check video
+          and audio. If you cancel setup, nothing is published and the session is discarded.
         </GuideStep>
         <GuideStep n={3} title="During your set">
-          Use the <Link href="/dashboard" className="text-[#53fc18] hover:underline">dashboard</Link> to:
-          update now playing, accept/decline crowd requests, see session goals, top tippers, and live stats.
+          Use the <Link href="/dashboard" className="text-[#53fc18] hover:underline">dashboard</Link> to update now
+          playing, accept or decline crowd requests, see session goals, top tippers, and live stats.
         </GuideStep>
         <GuideStep n={4} title="End stream">
-          End from the dashboard or Go Live page. You&apos;ll get a session recap with tips, viewers, and highlights.
+          End from the dashboard or Go Live page. Replays appear in your profile archive after the stream ends.
+        </GuideStep>
+      </GuideSection>
+
+      <GuideSection id="obs" title="OBS setup">
+        <GuideStep n={1} title="Stream settings">
+          <ul className="list-disc list-inside text-sm text-zinc-400 mt-2 space-y-1">
+            <li>OBS → Settings → Stream → Service: <strong className="text-zinc-300">Custom</strong></li>
+            <li>
+              Server: <code className="bg-white/10 px-1 rounded">{RTMP_SERVER}</code>
+            </li>
+            <li>Stream key: copy from Go Live — paste in the <strong className="text-zinc-300">Stream key</strong> field only</li>
+            <li>Never put the stream key in the server URL</li>
+          </ul>
+        </GuideStep>
+        <GuideStep n={2} title="Start streaming">
+          Click <strong className="text-zinc-300">Start Streaming</strong> in OBS (not Preview or Virtual Cam alone).
+          The OBS status bar should show a <strong className="text-zinc-300">bitrate number</strong> (e.g. 2500 kbps),
+          not just &quot;Connected&quot;. Go Live detects your feed automatically when the HLS manifest is ready.
+        </GuideStep>
+        <GuideStep n={3} title="New session or new key?">
+          Each Go Live session generates a new stream key. If you start a new session or cancel and restart, click{" "}
+          <strong className="text-zinc-300">Stop Streaming</strong> in OBS, paste the new key, then{" "}
+          <strong className="text-zinc-300">Start Streaming</strong> again.
+        </GuideStep>
+        <GuideStep n={4} title="Preview not showing video?">
+          See <Link href="/support" className="text-[#53fc18] hover:underline">Support → Stream troubleshooting</Link>{" "}
+          for step-by-step checks. The preview page shows diagnostics when OBS looks connected but the server
+          can&apos;t see your feed.
         </GuideStep>
       </GuideSection>
 
@@ -81,12 +103,15 @@ export default function DjGuidePage() {
         <GuideStep n={4} title="Achievements">
           Unlock DJ achievements for streaming milestones, tips, and followers at{" "}
           <Link href="/achievements" className="text-[#53fc18] hover:underline">/achievements</Link>.
-          Claim {DROP_TOKEN_SYMBOL} rewards — on-chain claim when contracts are deployed.
+          Claim {DROP_TOKEN_SYMBOL} rewards in-app; on-chain claims are available when your wallet is connected.
         </GuideStep>
-        <GuideStep n={5} title="Wallet, on-chain & cash-out">
+        <GuideStep n={5} title="Wallet & on-chain tips">
           View earnings at <Link href="/wallet" className="text-[#53fc18] hover:underline">/wallet</Link>.
-          Connect VeWorld for on-chain tips (VeChain testnet — see docs/VECHAIN-TESTNET.md).
-          Request fiat cash-out from the wallet page; admin approves in <Link href="/admin" className="text-[#53fc18] hover:underline">/admin</Link> → Treasury.
+          Connect VeWorld or create an embedded wallet (email login) to receive on-chain tips during live sets.
+          Link your wallet address on your DJ profile so fans can tip on-chain.
+        </GuideStep>
+        <GuideStep n={6} title="Cash-out">
+          Request fiat cash-out from the wallet page when available. Admin-approved payouts are processed manually.
         </GuideStep>
       </GuideSection>
 
@@ -110,14 +135,16 @@ export default function DjGuidePage() {
           <li>Thank tippers in chat; first-tip bonuses encourage early support</li>
           <li>Check the <Link href="/leaderboard" className="text-[#53fc18] hover:underline">rankings</Link> for competition context</li>
           <li>Enable push so followers get notified every time you&apos;re live</li>
+          <li>Use the share button on Go Live and your stream page to spread your booth link</li>
         </ul>
       </GuideSection>
 
       <GuideSection id="support" title="Support">
         <GuideStep n={1} title="Get help">
           Stream issues, payouts, or account problems — see{" "}
-          <Link href="/support" className="text-[#53fc18] hover:underline">support &amp; FAQ</Link> or email{" "}
-          <a href="mailto:support@livebooth.local" className="text-[#53fc18] hover:underline">support@livebooth.local</a>.
+          <Link href="/support" className="text-[#53fc18] hover:underline">Support &amp; FAQ</Link>,{" "}
+          <Link href="/policies" className="text-[#53fc18] hover:underline">Policies &amp; procedures</Link>, or email{" "}
+          <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">support@livebooth.uk</a>.
         </GuideStep>
       </GuideSection>
     </HelpGuideLayout>
