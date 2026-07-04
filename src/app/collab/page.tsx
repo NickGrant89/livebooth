@@ -2,9 +2,20 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Users, Radio, Check, X, Loader2 } from "lucide-react";
+import { Users, Radio, Check, X, Loader2, Video } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { GoLivePreview } from "@/components/GoLivePreview";
 import { apiFetch } from "@/lib/fetch-client";
+
+interface PartnerStream {
+  id: string;
+  title: string;
+  status: string;
+  ingestKey: string;
+  rtmpUrl: string;
+  playbackUrl: string;
+  ingestMode?: "livepeer" | "local" | "demo";
+}
 
 interface Collab {
   id: string;
@@ -18,15 +29,19 @@ interface Collab {
   status: string;
   role: "host" | "partner";
   canRespond: boolean;
+  hostStreamStatus?: string;
+  partnerStream?: PartnerStream | null;
 }
 
 export default function CollabPage() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const [collabs, setCollabs] = useState<Collab[]>([]);
   const [partner, setPartner] = useState("");
+  const [split, setSplit] = useState(50);
   const [msg, setMsg] = useState("");
   const [msgOk, setMsgOk] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [rtmpOnline, setRtmpOnline] = useState<boolean | null>(null);
 
   const loadCollabs = useCallback(() => {
     if (!user) return;
@@ -37,6 +52,10 @@ export default function CollabPage() {
 
   useEffect(() => {
     loadCollabs();
+    apiFetch("/api/rtmp/health")
+      .then((r) => r.json())
+      .then((d) => setRtmpOnline(typeof d.reachable === "boolean" ? d.reachable : null))
+      .catch(() => setRtmpOnline(null));
   }, [loadCollabs]);
 
   async function invite() {
@@ -48,7 +67,7 @@ export default function CollabPage() {
       body: JSON.stringify({
         streamId: user.liveStream.id,
         partnerUsername: partner.trim().replace(/^@/, ""),
-        splitRatio: 0.5,
+        splitRatio: split / 100,
       }),
     });
     const data = await res.json();
@@ -62,11 +81,29 @@ export default function CollabPage() {
   }
 
   async function respond(id: string, accept: boolean) {
+    setLoading(true);
     const res = await apiFetch("/api/collab", {
       method: "PATCH",
       body: JSON.stringify({ collabId: id, accept }),
     });
-    if (res.ok) loadCollabs();
+    setLoading(false);
+    if (res.ok) {
+      await refresh();
+      loadCollabs();
+    }
+  }
+
+  async function publishPartnerFeed(streamId: string) {
+    setLoading(true);
+    const res = await apiFetch("/api/collab", {
+      method: "PUT",
+      body: JSON.stringify({ streamId }),
+    });
+    setLoading(false);
+    if (res.ok) {
+      await refresh();
+      loadCollabs();
+    }
   }
 
   if (!user) {
@@ -74,8 +111,12 @@ export default function CollabPage() {
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <Users className="h-12 w-12 text-[#53fc18] mx-auto mb-4" />
         <h1 className="text-2xl font-bold mb-2">B2B Collab Mode</h1>
-        <p className="text-zinc-400 mb-6">Stream back-to-back with another DJ. Tips split automatically.</p>
-        <Link href="/login" className="btn-primary inline-block rounded-xl px-6 py-3 text-sm">Sign in</Link>
+        <p className="text-zinc-400 mb-6">
+          Stream remotely with another DJ — dual video on one booth, tips split automatically.
+        </p>
+        <Link href="/login" className="btn-primary inline-block rounded-xl px-6 py-3 text-sm">
+          Sign in
+        </Link>
       </div>
     );
   }
@@ -83,6 +124,7 @@ export default function CollabPage() {
   const incoming = collabs.filter((c) => c.canRespond);
   const sent = collabs.filter((c) => c.role === "host" && c.status === "pending");
   const active = collabs.filter((c) => c.status === "active");
+  const myPartnerCollab = active.find((c) => c.role === "partner" && c.partnerStream);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
@@ -91,10 +133,11 @@ export default function CollabPage() {
         Collab Mode
       </h1>
       <p className="text-zinc-400 mb-8">
-        Invite a DJ to your live set. When active, tips split {(0.5 * 100)}% / {(0.5 * 100)}% automatically.
+        Remote B2B sets — each DJ streams from their own location. Fans see both feeds on the host booth;
+        tips split by your chosen ratio.
       </p>
 
-      {user.role === "dj" && (
+      {user.role === "dj" && !myPartnerCollab && (
         <div className="glass rounded-2xl p-6 mb-8">
           <h2 className="font-semibold mb-4 flex items-center gap-2">
             <Radio className="h-4 w-4 text-[#53fc18]" />
@@ -102,45 +145,106 @@ export default function CollabPage() {
           </h2>
           {!user.liveStream ? (
             <p className="text-zinc-500 text-sm">
-              <Link href="/go-live" className="text-[#53fc18] hover:underline">Go live</Link> first to send collab invites.
+              <Link href="/go-live" className="text-[#53fc18] hover:underline">
+                Go live
+              </Link>{" "}
+              first (preview or live) to send collab invites.
             </p>
           ) : (
-            <div className="flex gap-2">
-              <input
-                value={partner}
-                onChange={(e) => setPartner(e.target.value)}
-                placeholder="Partner username (e.g. bassqueen)"
-                className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-2.5 text-sm text-white"
-              />
-              <button
-                onClick={invite}
-                disabled={loading || !partner.trim()}
-                className="btn-primary rounded-xl px-5 py-2.5 text-sm disabled:opacity-50 flex items-center gap-2"
-              >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Invite
-              </button>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  value={partner}
+                  onChange={(e) => setPartner(e.target.value)}
+                  placeholder="Partner username (e.g. bassqueen)"
+                  className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-2.5 text-sm text-white"
+                />
+                <button
+                  onClick={invite}
+                  disabled={loading || !partner.trim()}
+                  className="btn-primary rounded-xl px-5 py-2.5 text-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Invite
+                </button>
+              </div>
+              <label className="block text-xs text-zinc-500">
+                Partner tip share: {split}%
+                <input
+                  type="range"
+                  min={10}
+                  max={90}
+                  value={split}
+                  onChange={(e) => setSplit(Number(e.target.value))}
+                  className="mt-1 w-full accent-[#53fc18]"
+                />
+              </label>
             </div>
           )}
           {msg && (
             <p className={`text-sm mt-2 ${msgOk ? "text-[#53fc18]" : "text-red-400"}`}>{msg}</p>
           )}
-          <p className="text-xs text-zinc-600 mt-3">
-            Demo DJs: bassqueen, discodave, tranceangel, lofiwizard, hypemaster
+        </div>
+      )}
+
+      {myPartnerCollab?.partnerStream && (
+        <div className="glass rounded-2xl p-6 mb-8 border border-[#53fc18]/20">
+          <h2 className="font-semibold mb-2 flex items-center gap-2 text-[#53fc18]">
+            <Video className="h-4 w-4" />
+            Your collab feed · {myPartnerCollab.host}
+          </h2>
+          <p className="text-xs text-zinc-500 mb-4">
+            Stream from your location — your video appears on{" "}
+            <Link href={`/stream/${myPartnerCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
+              @{myPartnerCollab.hostUsername}&apos;s booth
+            </Link>
+            . You earn {Math.round(myPartnerCollab.splitRatio * 100)}% of tips.
           </p>
+          {myPartnerCollab.partnerStream.status === "preparing" ? (
+            <GoLivePreview
+              title={myPartnerCollab.partnerStream.title}
+              djName={user.displayName ?? user.username}
+              playbackUrl={myPartnerCollab.partnerStream.playbackUrl}
+              rtmpUrl={myPartnerCollab.partnerStream.rtmpUrl}
+              ingestKey={myPartnerCollab.partnerStream.ingestKey}
+              ingestMode={myPartnerCollab.partnerStream.ingestMode}
+              rtmpOnline={rtmpOnline}
+              onPublish={() => publishPartnerFeed(myPartnerCollab.partnerStream!.id)}
+              publishing={loading}
+            />
+          ) : (
+            <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4">
+              <p className="text-sm text-[#53fc18] font-medium">Your collab feed is live</p>
+              <Link
+                href={`/stream/${myPartnerCollab.hostUsername}`}
+                className="text-xs text-zinc-400 hover:text-[#53fc18] mt-2 inline-block"
+              >
+                View combined booth →
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
       {active.length > 0 && (
         <section className="mb-8">
-          <h2 className="font-semibold text-[#53fc18] text-sm uppercase tracking-wider mb-3">Active collabs</h2>
+          <h2 className="font-semibold text-[#53fc18] text-sm uppercase tracking-wider mb-3">
+            Active collabs
+          </h2>
           <div className="space-y-2">
             {active.map((c) => (
               <div key={c.id} className="glass rounded-xl p-4 border border-[#53fc18]/20">
                 <p className="font-medium">{c.streamTitle}</p>
                 <p className="text-sm text-zinc-400">
-                  {c.host} + {c.partner} · {c.splitRatio * 100}% split
+                  {c.host} + {c.partner} · partner {Math.round(c.splitRatio * 100)}% / host{" "}
+                  {Math.round((1 - c.splitRatio) * 100)}%
                 </p>
+                {c.role === "host" && c.partnerStream?.status === "preparing" && (
+                  <p className="text-xs text-amber-400/90 mt-1">Waiting for partner OBS feed…</p>
+                )}
+                {c.role === "host" && c.partnerStream?.status === "live" && (
+                  <p className="text-xs text-[#53fc18] mt-1">Partner video connected</p>
+                )}
                 <Link
                   href={`/stream/${c.hostUsername}`}
                   className="text-xs text-[#53fc18] hover:underline mt-1 inline-block"
@@ -155,19 +259,36 @@ export default function CollabPage() {
 
       {incoming.length > 0 && (
         <section className="mb-8">
-          <h2 className="font-semibold text-zinc-400 text-sm uppercase tracking-wider mb-3">Invites for you</h2>
+          <h2 className="font-semibold text-zinc-400 text-sm uppercase tracking-wider mb-3">
+            Invites for you
+          </h2>
           <div className="space-y-2">
             {incoming.map((c) => (
-              <div key={c.id} className="glass rounded-xl p-4 flex items-center justify-between">
+              <div key={c.id} className="glass rounded-xl p-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="font-medium">{c.streamTitle}</p>
-                  <p className="text-sm text-zinc-500">From {c.host} · You get {c.splitRatio * 100}% of tips</p>
+                  <p className="text-sm text-zinc-500">
+                    From {c.host} · You get {Math.round(c.splitRatio * 100)}% of tips
+                  </p>
+                  <p className="text-xs text-zinc-600 mt-1">
+                    Accept to get your own RTMP key and stream remotely.
+                  </p>
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => respond(c.id, true)} className="p-2 rounded-lg bg-[#53fc18]/20 text-[#53fc18]">
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => respond(c.id, true)}
+                    disabled={loading}
+                    className="p-2 rounded-lg bg-[#53fc18]/20 text-[#53fc18]"
+                  >
                     <Check className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => respond(c.id, false)} className="p-2 rounded-lg bg-red-500/20 text-red-400">
+                  <button
+                    type="button"
+                    onClick={() => respond(c.id, false)}
+                    disabled={loading}
+                    className="p-2 rounded-lg bg-red-500/20 text-red-400"
+                  >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -178,13 +299,18 @@ export default function CollabPage() {
       )}
 
       {sent.length > 0 && (
-        <section>
-          <h2 className="font-semibold text-zinc-400 text-sm uppercase tracking-wider mb-3">Sent invites (waiting)</h2>
+        <section className="mb-8">
+          <h2 className="font-semibold text-zinc-400 text-sm uppercase tracking-wider mb-3">
+            Sent invites (waiting)
+          </h2>
           <div className="space-y-2">
             {sent.map((c) => (
               <div key={c.id} className="glass rounded-xl p-4">
                 <p className="font-medium">{c.streamTitle}</p>
-                <p className="text-sm text-zinc-500">Waiting for @{c.partnerUsername} to accept</p>
+                <p className="text-sm text-zinc-500">
+                  Waiting for @{c.partnerUsername} to accept ({Math.round(c.splitRatio * 100)}% partner
+                  split)
+                </p>
               </div>
             ))}
           </div>

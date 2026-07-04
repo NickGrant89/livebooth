@@ -56,11 +56,37 @@ export default async function StreamPage({
 
   const stream = await prisma.stream.findFirst({
     where: { djId: dj.id, status: "live" },
-    include: { nowPlaying: true, collab: true, station: true },
+    include: {
+      nowPlaying: true,
+      collab: { include: { partnerStream: true } },
+      station: true,
+    },
   });
   if (!stream) redirect(`/dj/${username}`);
 
   const playbackUrl = resolveLivePlaybackUrl(stream.status, stream.ingestKey, stream.playbackUrl);
+
+  const partnerUser =
+    stream.collab?.status === "active"
+      ? await prisma.user.findUnique({
+          where: { id: stream.collab.partnerDjId },
+          select: { displayName: true, username: true },
+        })
+      : null;
+
+  const partnerLive =
+    stream.collab?.status === "active" &&
+    stream.collab.partnerStream?.status === "live"
+      ? {
+          name: partnerUser?.displayName ?? "Partner",
+          playbackUrl: resolveLivePlaybackUrl(
+            stream.collab.partnerStream.status,
+            stream.collab.partnerStream.ingestKey,
+            stream.collab.partnerStream.playbackUrl,
+          )!,
+          ingestKey: stream.collab.partnerStream.ingestKey,
+        }
+      : null;
 
   const achievements = await prisma.userAchievement.findMany({
     where: { userId: dj.id, unlockedAt: { not: null } },
@@ -68,9 +94,7 @@ export default async function StreamPage({
     take: 8,
   });
 
-  const partner = stream.collab?.status === "active"
-    ? await prisma.user.findUnique({ where: { id: stream.collab!.partnerDjId } })
-    : null;
+  const partner = partnerUser;
 
   const isHost = session?.id === dj.id;
 
@@ -96,6 +120,7 @@ export default async function StreamPage({
                     }
                   : null
               }
+              collabPartner={partnerLive}
             />
           </div>
 

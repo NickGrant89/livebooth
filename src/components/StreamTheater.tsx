@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { StreamPresence } from "@/components/StreamPresence";
+import { CollabPartnerPip } from "@/components/CollabPartnerPip";
 
 interface StreamTheaterProps {
   streamId: string;
@@ -13,6 +14,11 @@ interface StreamTheaterProps {
   startedAt?: string | null;
   demoPlayback?: boolean;
   station?: { slug: string; name: string; avatar: string } | null;
+  collabPartner?: {
+    name: string;
+    playbackUrl: string;
+    ingestKey?: string | null;
+  } | null;
 }
 
 export function StreamTheater({
@@ -24,6 +30,7 @@ export function StreamTheater({
   startedAt,
   demoPlayback = false,
   station,
+  collabPartner,
 }: StreamTheaterProps) {
   const [watching, setWatching] = useState(0);
   const [peak, setPeak] = useState(initialPeak);
@@ -37,17 +44,26 @@ export function StreamTheater({
           setPeak(p);
         }}
       />
-      <StreamPlayer
-        djName={djName}
-        streamTitle={streamTitle}
-        viewers={watching}
-        peakViewers={peak}
-        playbackUrl={playbackUrl}
-        isLive
-        startedAt={startedAt}
-        demoPlayback={demoPlayback}
-        station={station}
-      />
+      <div className="relative">
+        <StreamPlayer
+          djName={djName}
+          streamTitle={streamTitle}
+          viewers={watching}
+          peakViewers={peak}
+          playbackUrl={playbackUrl}
+          isLive
+          startedAt={startedAt}
+          demoPlayback={demoPlayback}
+          station={station}
+        />
+        {collabPartner?.playbackUrl && (
+          <CollabPartnerPip
+            playbackUrl={collabPartner.playbackUrl}
+            ingestKey={collabPartner.ingestKey}
+            partnerName={collabPartner.name}
+          />
+        )}
+      </div>
     </>
   );
 }

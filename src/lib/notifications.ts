@@ -127,6 +127,52 @@ export async function notifyStationFollowersChannelGoLive(
   return followers.length;
 }
 
+export async function notifyCollabInvite(
+  partnerId: string,
+  hostName: string,
+  hostUsername: string,
+  streamTitle: string,
+  splitRatio: number,
+) {
+  const partnerPct = Math.round(splitRatio * 100);
+  await notifyUser(
+    partnerId,
+    "collab_invite",
+    `${hostName} invited you to collab`,
+    `"${streamTitle}" — you'd earn ${partnerPct}% of tips. Accept on /collab to get your RTMP key.`,
+    "/collab",
+  );
+}
+
+export async function notifyCollabAccepted(
+  hostId: string,
+  partnerName: string,
+  streamTitle: string,
+  hostUsername: string,
+) {
+  await notifyUser(
+    hostId,
+    "collab_accepted",
+    `${partnerName} joined your B2B set`,
+    `"${streamTitle}" — their video appears when they go live from /collab.`,
+    `/stream/${hostUsername}`,
+  );
+}
+
+export async function notifyCollabDeclined(
+  hostId: string,
+  partnerName: string,
+  streamTitle: string,
+) {
+  await notifyUser(
+    hostId,
+    "collab_declined",
+    `${partnerName} declined your collab invite`,
+    `"${streamTitle}" — invite another DJ from /collab.`,
+    "/collab",
+  );
+}
+
 /** Remind DJ to share their booth link when they go live. */
 export async function notifyDjShareReminder(
   djId: string,

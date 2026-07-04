@@ -8,7 +8,7 @@ import {
 } from "./discover-ranking";
 
 export async function fetchDiscoverLiveStreams(genre?: string) {
-  const [djs, flagships] = await Promise.all([
+  const [djs, flagships, collabPartnerFeeds] = await Promise.all([
     prisma.user.findMany({
       where: { role: "dj" },
       include: {
@@ -19,7 +19,15 @@ export async function fetchDiscoverLiveStreams(genre?: string) {
       where: { flagshipDjId: { not: null } },
       select: { flagshipDjId: true },
     }),
+    prisma.streamCollab.findMany({
+      where: { status: "active", partnerStreamId: { not: null } },
+      select: { partnerStreamId: true },
+    }),
   ]);
+
+  const hideStreamIds = new Set(
+    collabPartnerFeeds.map((c) => c.partnerStreamId).filter((id): id is string => Boolean(id)),
+  );
 
   const flagshipDjIds = new Set(
     flagships.map((s) => s.flagshipDjId).filter((id): id is string => Boolean(id)),
@@ -27,7 +35,7 @@ export async function fetchDiscoverLiveStreams(genre?: string) {
   const genreNight = getTodayGenreNight();
 
   let liveStreams: DiscoverLiveStream[] = djs
-    .filter((d) => d.streams.length > 0)
+    .filter((d) => d.streams.length > 0 && !hideStreamIds.has(d.streams[0].id))
     .map((d) => ({
       id: d.streams[0].id,
       title: d.streams[0].title,

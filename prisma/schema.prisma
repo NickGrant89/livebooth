@@ -140,7 +140,8 @@ model Stream {
   nowPlaying          NowPlaying?
   trackUnlocks        TrackUnlock[]
   crowdRequests       CrowdRequest[]
-  collab              StreamCollab?
+  collab              StreamCollab? @relation("CollabHostStream")
+  collabPartnerSlot   StreamCollab? @relation("CollabPartnerStream")
   presence            StreamPresence[]
   highlights          StreamHighlight[]
   stationId           String?
@@ -175,12 +176,14 @@ model StreamPresence {
 }
 
 model StreamCollab {
-  id           String @id @default(cuid())
-  streamId     String @unique
-  partnerDjId  String
-  splitRatio   Float  @default(0.5)
-  status       String @default("pending")
-  stream       Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  id              String  @id @default(cuid())
+  streamId        String  @unique
+  partnerDjId     String
+  partnerStreamId String? @unique
+  splitRatio      Float   @default(0.5)
+  status          String  @default("pending")
+  stream          Stream  @relation("CollabHostStream", fields: [streamId], references: [id], onDelete: Cascade)
+  partnerStream   Stream? @relation("CollabPartnerStream", fields: [partnerStreamId], references: [id], onDelete: SetNull)
 }
 
 model NowPlaying {

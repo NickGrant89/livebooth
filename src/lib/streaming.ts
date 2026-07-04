@@ -254,6 +254,28 @@ export async function endStreamSession(streamId: string, djId: string) {
   });
   if (!stream) return null;
 
+  const hostCollab = await prisma.streamCollab.findUnique({
+    where: { streamId },
+    include: { partnerStream: true },
+  });
+  if (hostCollab?.partnerStreamId && hostCollab.partnerStream?.status !== "ended") {
+    await endStreamSession(hostCollab.partnerStreamId, hostCollab.partnerDjId);
+    await prisma.streamCollab.update({
+      where: { id: hostCollab.id },
+      data: { status: "ended" },
+    });
+  }
+
+  const partnerCollab = await prisma.streamCollab.findFirst({
+    where: { partnerStreamId: streamId, status: "active" },
+  });
+  if (partnerCollab) {
+    await prisma.streamCollab.update({
+      where: { id: partnerCollab.id },
+      data: { status: "ended" },
+    });
+  }
+
   let vodUrl = stream.playbackUrl;
   if (stream.ingestKey && isLocalRtmpMode()) {
     const recorded = await resolveRecordingVodUrlWithRetry(stream.ingestKey);
