@@ -4,6 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import Link from "next/link";
 import Hls from "hls.js";
 import { Disc3, FastForward, Radio, Rewind, Users, Volume2, VolumeX } from "lucide-react";
+import { StreamVideoWatermark } from "@/components/StreamVideoWatermark";
 import {
   ensureVideoExportReady,
   playbackNeedsCrossOrigin,
@@ -410,6 +411,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             crossOrigin={useCrossOrigin ? "anonymous" : undefined}
             className="absolute inset-0 h-full w-full object-cover"
           />
+          <StreamVideoWatermark />
           {isLoading && !playbackError && !previewMode && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
               <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />

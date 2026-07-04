@@ -9,6 +9,7 @@ import {
   hasStreamReplay,
 } from "./playback-url";
 import { getProxiedHlsPlaybackUrl } from "./hls-proxy";
+import { localHlsPlaybackPath } from "./hls-playback";
 
 export { isDemoPlayback, isFilePlaybackUrl, hasStreamReplay };
 

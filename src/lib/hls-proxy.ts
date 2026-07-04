@@ -15,7 +15,7 @@ export function hlsProxyEnabled(): boolean {
 /** Same-origin HLS URL for browser playback (avoids cross-origin HLS quirks). */
 export function getProxiedHlsPlaybackUrl(ingestKey: string): string | null {
   if (!HLS_SERVER_URL || !hlsProxyEnabled()) return null;
-  return `/api/hls/live/${encodeURIComponent(ingestKey)}/index.m3u8`;
+  return localHlsPlaybackPath(ingestKey);
 }
 
 export function upstreamHlsUrl(pathParts: string[], search = ""): string | null {

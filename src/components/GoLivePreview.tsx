@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Loader2, MonitorPlay, Radio, WifiOff } from "lucide-react";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { RtmpCredentials } from "@/components/RtmpCredentials";
+import { resolveClientHlsPlaybackUrl } from "@/lib/hls-playback";
 
 type PreviewStatus = "waiting" | "checking" | "ready" | "error";
 
@@ -37,20 +38,6 @@ async function hlsManifestReady(url: string, depth = 0): Promise<boolean> {
   }
 }
 
-/** Prefer same-origin HLS proxy when preview runs on the app domain. */
-function normalizePreviewPlaybackUrl(url: string): string {
-  if (!url || url.startsWith("/api/hls/")) return url;
-  try {
-    const parsed = new URL(url, typeof window !== "undefined" ? window.location.origin : undefined);
-    if (parsed.pathname.startsWith("/live/") && parsed.pathname.endsWith(".m3u8")) {
-      return `/api/hls${parsed.pathname}${parsed.search}`;
-    }
-  } catch {
-    /* keep original */
-  }
-  return url;
-}
-
 export function GoLivePreview({
   title,
   djName,
@@ -64,7 +51,7 @@ export function GoLivePreview({
 }: GoLivePreviewProps) {
   const [status, setStatus] = useState<PreviewStatus>("waiting");
   const [checks, setChecks] = useState(0);
-  const previewPlaybackUrl = normalizePreviewPlaybackUrl(playbackUrl);
+  const previewPlaybackUrl = resolveClientHlsPlaybackUrl(ingestKey, playbackUrl, ingestMode);
 
   const pollPreview = useCallback(async () => {
     if (!previewPlaybackUrl) return;
@@ -141,7 +128,9 @@ export function GoLivePreview({
 
         {!obsConnected && ingestMode !== "demo" && (
           <p className="text-xs text-zinc-400">
-            Start streaming in OBS with the credentials above. This page refreshes every few seconds until your feed appears.
+            Start streaming in OBS with the credentials above. Update the stream key in OBS if you
+            started a new session — this page polls{" "}
+            <code className="text-zinc-500">{previewPlaybackUrl || "…"}</code> every few seconds.
           </p>
         )}
 
