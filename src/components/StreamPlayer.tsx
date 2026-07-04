@@ -245,6 +245,16 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
         console.error("[hls]", data.type, data.details, playbackUrl);
+        if (
+          previewMode &&
+          data.type === Hls.ErrorTypes.NETWORK_ERROR &&
+          data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR
+        ) {
+          setPlaybackError(true);
+          setIsLoading(false);
+          setAwaitingVideo(false);
+          return;
+        }
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
           hls.startLoad();
           return;

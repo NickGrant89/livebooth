@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Loader2, MonitorPlay, Radio, WifiOff } from "lucide-react";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { RtmpCredentials } from "@/components/RtmpCredentials";
-import { resolveClientHlsPlaybackUrl } from "@/lib/hls-playback";
+import { hlsManifestReady, resolveClientHlsPlaybackUrl } from "@/lib/hls-playback";
 
 type PreviewStatus = "waiting" | "checking" | "ready" | "error";
 
@@ -20,24 +20,6 @@ type GoLivePreviewProps = {
   publishing?: boolean;
 };
 
-async function hlsManifestReady(url: string, depth = 0): Promise<boolean> {
-  if (depth > 2) return false;
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return false;
-    const text = await res.text();
-    if (text.includes("#EXT-X-STREAM-INF")) {
-      const match = text.match(/URI="([^"]+)"/);
-      if (match?.[1]) {
-        return hlsManifestReady(new URL(match[1], url).href, depth + 1);
-      }
-    }
-    return /#EXTINF:[\d.]+/.test(text);
-  } catch {
-    return false;
-  }
-}
-
 export function GoLivePreview({
   title,
   djName,
@@ -52,26 +34,28 @@ export function GoLivePreview({
   const [status, setStatus] = useState<PreviewStatus>("waiting");
   const [checks, setChecks] = useState(0);
   const previewPlaybackUrl = resolveClientHlsPlaybackUrl(ingestKey, playbackUrl, ingestMode);
+  const isDemo = ingestMode === "demo";
 
   const pollPreview = useCallback(async () => {
-    if (!previewPlaybackUrl) return;
+    if (!previewPlaybackUrl || isDemo) return;
     setStatus((s) => (s === "ready" ? s : "checking"));
     const ready = await hlsManifestReady(previewPlaybackUrl);
     setChecks((n) => n + 1);
     setStatus(ready ? "ready" : "waiting");
-  }, [previewPlaybackUrl]);
+  }, [previewPlaybackUrl, isDemo]);
 
   useEffect(() => {
-    if (!previewPlaybackUrl || ingestMode === "demo") return;
+    if (!previewPlaybackUrl || isDemo) return;
     void pollPreview();
     const interval = setInterval(() => {
       void pollPreview();
     }, 3000);
     return () => clearInterval(interval);
-  }, [previewPlaybackUrl, ingestMode, pollPreview]);
+  }, [previewPlaybackUrl, isDemo, pollPreview]);
 
-  const obsConnected = status === "ready";
-  const canPublish = obsConnected || ingestMode === "demo";
+  const obsConnected = status === "ready" || isDemo;
+  const canPublish = obsConnected;
+  const showPlayer = obsConnected && previewPlaybackUrl;
 
   return (
     <div className="space-y-5">
@@ -85,7 +69,7 @@ export function GoLivePreview({
         </p>
       </div>
 
-      <RtmpCredentials rtmpUrl={rtmpUrl} ingestKey={ingestKey} demoMode={ingestMode === "demo"} />
+      <RtmpCredentials rtmpUrl={rtmpUrl} ingestKey={ingestKey} demoMode={isDemo} />
 
       <div className="rounded-xl border border-white/10 bg-black/40 p-3 space-y-3">
         <div className="flex items-center justify-between gap-3 text-xs">
@@ -110,43 +94,59 @@ export function GoLivePreview({
             {rtmpOnline !== false ? "✓" : "✗"} HLS server reachable
             {rtmpOnline === false && (
               <span className="block text-[10px] text-red-300/80 mt-0.5">
-                Cannot reach {ingestMode === "local" ? "streaming server" : "ingest"} — check VPS / DNS
+                Cannot reach streaming server — check VPS / DNS
               </span>
             )}
           </li>
           <li className={obsConnected ? "text-[#53fc18]" : ""}>
             {obsConnected ? "✓" : "○"} OBS stream detected (HLS manifest)
           </li>
-          <li>{checks > 0 ? "✓" : "○"} Preview player below</li>
+          <li className={showPlayer ? "text-zinc-300" : ""}>
+            {showPlayer ? "✓" : "○"} Preview player {showPlayer ? "ready" : "waiting for signal"}
+          </li>
         </ul>
 
-        {ingestMode === "demo" && (
+        {isDemo && (
           <p className="text-xs text-amber-400/90 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
             Demo mode shows a sample HLS feed. Connect real RTMP in production to preview your OBS output.
           </p>
         )}
 
-        {!obsConnected && ingestMode !== "demo" && (
-          <p className="text-xs text-zinc-400">
-            Start streaming in OBS with the credentials above. Update the stream key in OBS if you
-            started a new session — this page polls{" "}
-            <code className="text-zinc-500">{previewPlaybackUrl || "…"}</code> every few seconds.
-          </p>
+        {!obsConnected && !isDemo && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-3 text-xs text-amber-100/90 space-y-2">
+            <p className="font-semibold text-amber-200">OBS not connected yet</p>
+            <ol className="list-decimal list-inside space-y-1 text-amber-100/80">
+              <li>In OBS, click <strong>Start Streaming</strong> (not Preview / Virtual Cam only)</li>
+              <li>Server: <code className="text-amber-200/90">{rtmpUrl}</code></li>
+              <li>Stream key must match: <code className="font-mono text-amber-200/90">{ingestKey}</code></li>
+              <li>OBS status bar should show green bitrate — not &quot;Reconnecting&quot;</li>
+            </ol>
+            <p className="text-[10px] text-amber-200/60">
+              A 404 on the manifest means the server has not received your RTMP feed yet.
+            </p>
+          </div>
         )}
 
-        {previewPlaybackUrl ? (
+        {showPlayer ? (
           <StreamPlayer
+            key={ingestKey}
             djName={djName}
             streamTitle={title}
             viewers={0}
             playbackUrl={previewPlaybackUrl}
             isLive
             previewMode
-            demoPlayback={ingestMode === "demo"}
+            demoPlayback={isDemo}
           />
         ) : (
-          <div className="aspect-video rounded-lg bg-black/60 flex items-center justify-center text-sm text-zinc-500">
-            No preview URL
+          <div className="aspect-video rounded-lg bg-black/70 border border-white/5 flex flex-col items-center justify-center gap-3 text-center px-6">
+            <Radio className="h-10 w-10 text-zinc-600" />
+            <p className="text-sm text-zinc-400">Preview player loads when OBS signal is detected</p>
+            {!isDemo && checks > 2 && (
+              <p className="text-[11px] text-zinc-600">
+                Still waiting… double-check the stream key in OBS matches above.
+              </p>
+            )}
           </div>
         )}
       </div>
