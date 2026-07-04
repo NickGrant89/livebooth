@@ -1,5 +1,6 @@
 import { error } from "@/lib/api-utils";
 import {
+  fetchUpstreamHls,
   hlsResponseHeaders,
   rewriteM3u8ForProxy,
   upstreamHlsUrl,
@@ -19,10 +20,7 @@ export async function GET(
   if (!upstream) return error("HLS not configured", 503);
 
   try {
-    const res = await fetch(upstream, {
-      cache: "no-store",
-      headers: { Accept: "*/*" },
-    });
+    const res = await fetchUpstreamHls(upstream);
 
     if (!res.ok) {
       return error("Upstream HLS error", res.status === 404 ? 404 : 502);

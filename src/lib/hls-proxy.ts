@@ -26,6 +26,28 @@ export function upstreamHlsUrl(pathParts: string[], search = ""): string | null 
   return `${HLS_SERVER_URL}/${path}${search}`;
 }
 
+/** Fetch from MediaMTX HLS (handles HTTPS cookie gate on hls.livebooth.uk). */
+export async function fetchUpstreamHls(
+  url: string,
+  init?: RequestInit & { timeoutMs?: number },
+): Promise<Response> {
+  const withCookie = url.includes("cookieCheck=")
+    ? url
+    : `${url}${url.includes("?") ? "&" : "?"}cookieCheck=1`;
+  const { timeoutMs = 8000, ...fetchInit } = init ?? {};
+  return fetch(withCookie, {
+    cache: "no-store",
+    redirect: "follow",
+    headers: {
+      Accept: "*/*",
+      Cookie: "cookieCheck=1",
+      ...fetchInit.headers,
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+    ...fetchInit,
+  });
+}
+
 /** Rewrite playlist segment / variant URIs to stay on /api/hls. */
 export function rewriteM3u8ForProxy(body: string, manifestPath: string): string {
   const dir = manifestPath.includes("/")

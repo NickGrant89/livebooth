@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError, requireApiUser } from "@/lib/api-utils";
+import { fetchUpstreamHls } from "@/lib/hls-proxy";
+import { hlsManifestBodyReady } from "@/lib/hls-playback";
 import { isRtmpAuthEnabled, validateRtmpPublish } from "@/lib/rtmp-auth";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ async function probeUpstreamHls(relativePath: string): Promise<PathProbe> {
   }
   const url = `${HLS_SERVER_URL}/${relativePath.replace(/^\//, "")}`;
   try {
-    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    const res = await fetchUpstreamHls(url, { timeoutMs: 5000 });
     let hint: string | undefined;
     if (!res.ok) {
       const text = await res.text();
@@ -39,30 +41,14 @@ async function probeUpstreamHls(relativePath: string): Promise<PathProbe> {
   }
 }
 
-async function upstreamManifestReady(relativePath: string, depth = 0): Promise<boolean> {
-  if (!HLS_SERVER_URL || depth > 3) return false;
+async function upstreamManifestReady(relativePath: string): Promise<boolean> {
+  if (!HLS_SERVER_URL) return false;
   const url = `${HLS_SERVER_URL}/${relativePath.replace(/^\//, "")}`;
   try {
-    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    const res = await fetchUpstreamHls(url, { timeoutMs: 5000 });
     if (!res.ok) return false;
     const text = await res.text();
-    if (/#EXTINF:[\d.]+/.test(text) || /#EXT-X-PART:/.test(text)) return true;
-    if (text.includes("#EXT-X-STREAM-INF")) {
-      const uriMatch = text.match(/URI="([^"]+\.m3u8[^"]*)"/i);
-      if (uriMatch?.[1]) {
-        const next = new URL(uriMatch[1], url).pathname.replace(/^\//, "");
-        return upstreamManifestReady(next, depth + 1);
-      }
-      const lines = text.split("\n");
-      for (let i = 0; i < lines.length; i++) {
-        if (!lines[i]?.includes("#EXT-X-STREAM-INF")) continue;
-        const next = lines[i + 1]?.trim();
-        if (next && !next.startsWith("#") && next.includes(".m3u8")) {
-          return upstreamManifestReady(next.split("?")[0]!, depth + 1);
-        }
-      }
-    }
-    return false;
+    return hlsManifestBodyReady(text);
   } catch {
     return false;
   }
@@ -94,24 +80,29 @@ export async function GET(request: Request) {
   ]);
 
   let suggestion: string | null = null;
-  if (!feedReady && upstream.status === 404) {
-    if (altLiveOnly.status === 200) {
+  if (!feedReady) {
+    if (upstream.status === 404) {
+      if (altLiveOnly.status === 200) {
+        suggestion =
+          "OBS appears to be publishing without your stream key in the path. Use Server rtmp://rtmp.livebooth.uk:1935/live and put the full lb_… key in the Stream key field only.";
+      } else if (!stream) {
+        suggestion =
+          "This stream key is not active in LiveBooth. Cancel setup and create a new stream, then update OBS with the new key.";
+      } else if (stream.status !== "preparing" && stream.status !== "live") {
+        suggestion = "This stream session has ended. Start a new Go Live session and update OBS.";
+      } else if (rtmpAuthAllowed) {
+        suggestion =
+          "LiveBooth recognizes this key, but our ingest server has no video on it yet. In OBS → Settings → Stream: Server must be exactly rtmp://rtmp.livebooth.uk:1935/live (nothing after /live), Stream key = your lb_… key only. Stop Streaming, re-paste the key, Start Streaming.";
+      } else if (isRtmpAuthEnabled()) {
+        suggestion =
+          "RTMP auth would reject this key. Cancel setup, start a new Go Live session, and paste the new stream key into OBS.";
+      } else {
+        suggestion =
+          "OBS may show connected but MediaMTX has no feed on this key. Click Stop Streaming in OBS, confirm the stream key matches exactly, then Start Streaming again.";
+      }
+    } else if (upstream.status === 200) {
       suggestion =
-        "OBS appears to be publishing without your stream key in the path. Use Server rtmp://rtmp.livebooth.uk:1935/live and put the full lb_… key in the Stream key field only.";
-    } else if (!stream) {
-      suggestion =
-        "This stream key is not active in LiveBooth. Cancel setup and create a new stream, then update OBS with the new key.";
-    } else if (stream.status !== "preparing" && stream.status !== "live") {
-      suggestion = "This stream session has ended. Start a new Go Live session and update OBS.";
-    } else if (rtmpAuthAllowed) {
-      suggestion =
-        "LiveBooth recognizes this key, but our ingest server has no video on it yet. In OBS → Settings → Stream: Server must be exactly rtmp://rtmp.livebooth.uk:1935/live (nothing after /live), Stream key = your lb_… key only. Stop Streaming, re-paste the key, Start Streaming. If OBS shows “Encoding overloaded”, lower resolution or use a faster x264 preset.";
-    } else if (isRtmpAuthEnabled()) {
-      suggestion =
-        "RTMP auth would reject this key. Cancel setup, start a new Go Live session, and paste the new stream key into OBS.";
-    } else {
-      suggestion =
-        "OBS may show connected but MediaMTX has no feed on this key. Click Stop Streaming in OBS, confirm the stream key matches exactly, then Start Streaming again.";
+        "Ingest server returned a manifest but preview detection failed — refresh this page. If it persists, Stop Streaming in OBS and start again.";
     }
   }
 

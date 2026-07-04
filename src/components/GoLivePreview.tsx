@@ -63,7 +63,8 @@ export function GoLivePreview({
       });
     }
     setChecks((n) => n + 1);
-    setStatus(ready || statusRes?.proxyReady ? "ready" : "waiting");
+    const signalReady = Boolean(statusRes?.proxyReady || ready);
+    setStatus(signalReady ? "ready" : "waiting");
   }, [previewPlaybackUrl, isDemo, ingestKey]);
 
   useEffect(() => {
