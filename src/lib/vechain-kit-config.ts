@@ -32,8 +32,9 @@ function getAppUrl(): string {
 
 function isValidPrivyAppId(value: string | undefined): value is string {
   const id = stripEnv(value);
-  if (!id || id.length < 10) return false;
-  if (!/^cl[a-z0-9]+$/i.test(id)) return false;
+  if (!id || id.length < 20) return false;
+  // Privy app IDs are public alphanumeric strings (legacy cl… or newer cm… formats).
+  if (!/^[a-z0-9]+$/i.test(id)) return false;
   if (/your|placeholder|example|changeme|xxx|todo/i.test(id)) return false;
   return true;
 }
@@ -42,7 +43,9 @@ function isValidPrivyClientId(value: string | undefined): value is string {
   const id = stripEnv(value);
   if (!id || id.length < 8) return false;
   if (/your|placeholder|example|changeme|xxx|todo/i.test(id)) return false;
-  return true;
+  // Web app clients from the Privy dashboard (Clients tab).
+  if (id.startsWith("client-")) return id.length >= 20;
+  return id.length >= 20;
 }
 
 export function privyConfigured(): boolean {
