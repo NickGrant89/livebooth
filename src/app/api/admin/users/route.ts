@@ -6,7 +6,6 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { createPasswordResetToken, getResetUrl } from "@/lib/password-reset";
 import { sendAdminPasswordResetEmail, isEmailConfigured } from "@/lib/email";
-import { getWelcomeBonus } from "@/lib/platform-settings";
 
 export async function GET(request: Request) {
   const admin = await requireAdminApi(request);

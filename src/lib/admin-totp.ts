@@ -1,4 +1,4 @@
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verifySync } from "otplib";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./db";
 
@@ -6,18 +6,21 @@ const SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET ?? "livebooth-dev-secret-change-in-production",
 );
 
-authenticator.options = { window: 1 };
-
 export function generateTotpSecret() {
-  return authenticator.generateSecret();
+  return generateSecret();
 }
 
 export function getTotpUri(email: string, secret: string) {
-  return authenticator.keyuri(email, "LiveBooth", secret);
+  return generateURI({
+    issuer: "LiveBooth",
+    label: email,
+    secret,
+  });
 }
 
 export function verifyTotpCode(secret: string, code: string) {
-  return authenticator.verify({ token: code.replace(/\s/g, ""), secret });
+  const result = verifySync({ secret, token: code.replace(/\s/g, "") });
+  return result.valid === true;
 }
 
 export async function createTotpPendingToken(userId: string) {
