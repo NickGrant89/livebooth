@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Play } from "lucide-react";
 import { StreamPlayer, type StreamPlayerHandle } from "@/components/StreamPlayer";
 import { ShareMenu } from "@/components/ShareMenu";
+import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { FanGradeShare } from "@/components/FanGradeShare";
 import { ClipExportPanel } from "@/components/ClipExportPanel";
 import { formatClipTimestamp } from "@/lib/clip-export";
@@ -124,7 +125,9 @@ export function VodReplay({
             {peakViewers} peak viewers · {totalTips} DROP tipped
           </p>
         </div>
-        <ShareMenu
+        <div className="flex flex-wrap gap-2">
+          <StreamLikeButton streamId={streamId} />
+          <ShareMenu
           kind="vod"
           path={`/vod/${streamId}`}
           djName={djName}
@@ -133,6 +136,7 @@ export function VodReplay({
           label="Share replay"
           variant="secondary"
         />
+        </div>
       </div>
 
       <FanGradeShare

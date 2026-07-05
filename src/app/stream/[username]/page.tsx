@@ -7,6 +7,7 @@ import { StreamTheater } from "@/components/StreamTheater";
 import { StreamChat } from "@/components/StreamChat";
 import { StreamSidebar } from "@/components/StreamSidebar";
 import { FollowButton } from "@/components/FollowButton";
+import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { NowPlayingBar } from "@/components/NowPlayingBar";
 import { getSessionUser } from "@/lib/auth";
@@ -185,6 +186,7 @@ export default async function StreamPage({
                   className="w-full sm:w-auto"
                 />
                 <FollowButton username={dj.username} />
+                <StreamLikeButton streamId={stream.id} />
                 <SubscribeButton djUsername={dj.username} />
               </div>
             </div>

@@ -62,6 +62,7 @@ model User {
   chatBansReceived     StreamChatBan[]   @relation("ChatBansReceived")
   chatBansIssued       StreamChatBan[]   @relation("ChatBansIssued")
   chatMessageReports   ChatMessageReport[] @relation("ChatMessageReports")
+  streamLikes          StreamLike[]
   fanQuestProgress     FanQuestProgress[]
   supportTickets       SupportTicket[]
   passwordResetTokens  PasswordResetToken[]
@@ -160,10 +161,25 @@ model Stream {
   chatBans            StreamChatBan[]
   chatMessageReports  ChatMessageReport[]
 
+  likes               StreamLike[]
+
   @@index([djId])
   @@index([status])
   @@index([stationId])
   @@index([providerStreamId])
+}
+
+model StreamLike {
+  id        String   @id @default(cuid())
+  streamId  String
+  userId    String
+  createdAt DateTime @default(now())
+  stream    Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([streamId, userId])
+  @@index([streamId])
+  @@index([userId])
 }
 
 model StreamPresence {
