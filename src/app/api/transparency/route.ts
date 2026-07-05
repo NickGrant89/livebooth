@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPublicEconomyStats } from "@/lib/public-economy";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const stats = await getPublicEconomyStats();
