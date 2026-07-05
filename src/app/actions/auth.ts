@@ -5,8 +5,10 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { createSession, setSessionCookie, clearSessionCookie } from "@/lib/auth";
+import { createTotpPendingToken } from "@/lib/admin-totp";
 import { getOrCreateBalance } from "@/lib/ledger";
-import { WELCOME_BONUS, CREATOR_TYPES, type CreatorType } from "@/lib/constants";
+import { CREATOR_TYPES, type CreatorType } from "@/lib/constants";
+import { getPlatformSettings, getWelcomeBonus } from "@/lib/platform-settings";
 import { isRateLimitedFromHeaders } from "@/lib/rate-limit";
 import type { AuthFormState } from "@/app/actions/auth-types";
 
@@ -61,6 +63,11 @@ export async function loginAction(
       };
     }
 
+    if (user.role === "admin" && user.totpEnabled) {
+      const pendingToken = await createTotpPendingToken(user.id);
+      return { requiresTotp: true, pendingToken, username: user.username };
+    }
+
     role = user.role;
     const jwt = await createSession(user.id);
     await setSessionCookie(jwt);
@@ -107,6 +114,11 @@ export async function signupAction(
     return { error: "Username: lowercase letters, numbers, underscore only" };
   }
 
+  const platform = await getPlatformSettings();
+  if (!platform.signupEnabled) {
+    return { error: "Signups are temporarily disabled" };
+  }
+
   try {
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
@@ -126,9 +138,10 @@ export async function signupAction(
       },
     });
     await getOrCreateBalance(user.id);
+    const welcomeBonus = await getWelcomeBonus();
     await prisma.beatBalance.update({
       where: { userId: user.id },
-      data: { balance: WELCOME_BONUS },
+      data: { balance: welcomeBonus },
     });
 
     const jwt = await createSession(user.id);

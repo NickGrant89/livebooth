@@ -60,3 +60,37 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
 
   return sendEmail({ to, subject, html, text });
 }
+
+export async function sendSupportTicketAlertEmail(options: {
+  to: string;
+  ticketId: string;
+  subject: string;
+  email: string;
+  preview: string;
+  isNew?: boolean;
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://livebooth.uk";
+  const title = options.isNew ? "New support chat" : "New support message";
+  const html = `
+    <p><strong>${title}</strong></p>
+    <p>From: ${options.email}</p>
+    <p>Subject: ${options.subject}</p>
+    <p>${options.preview.slice(0, 500)}</p>
+    <p><a href="${appUrl}/admin">Open admin support inbox</a></p>
+  `.trim();
+  const text = `${title}\nFrom: ${options.email}\nSubject: ${options.subject}\n\n${options.preview}\n\n${appUrl}/admin`;
+
+  return sendEmail({ to: options.to, subject: `[LiveBooth] ${title}: ${options.subject}`, html, text });
+}
+
+export async function sendAdminPasswordResetEmail(to: string, resetUrl: string, adminName: string) {
+  const subject = "LiveBooth password reset (admin initiated)";
+  const html = `
+    <p>An admin reset your LiveBooth password for account <strong>${adminName}</strong>.</p>
+    <p><a href="${resetUrl}">Set a new password</a></p>
+    <p>This link expires in 1 hour.</p>
+  `.trim();
+  const text = `Set a new LiveBooth password: ${resetUrl}`;
+
+  return sendEmail({ to, subject, html, text });
+}

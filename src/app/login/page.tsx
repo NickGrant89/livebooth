@@ -1,26 +1,76 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { APP_TAGLINE } from "@/lib/constants";
 import { loginAction } from "@/app/actions/auth";
+import { apiFetch } from "@/lib/fetch-client";
 import type { AuthFormState } from "@/app/actions/auth-types";
 
 const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const next = searchParams.get("next") ?? "";
   const isAdminLogin = next === "/admin";
+  const [totpCode, setTotpCode] = useState("");
+  const [totpLoading, setTotpLoading] = useState(false);
+  const [totpError, setTotpError] = useState("");
 
   const [state, formAction, pending] = useActionState<AuthFormState, FormData>(
     loginAction,
     null,
   );
+
+  async function submitTotp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!state?.pendingToken) return;
+    setTotpLoading(true);
+    setTotpError("");
+    const res = await apiFetch("/api/auth/verify-totp", {
+      method: "POST",
+      body: JSON.stringify({ pendingToken: state.pendingToken, code: totpCode }),
+    });
+    const data = await res.json();
+    setTotpLoading(false);
+    if (!res.ok) {
+      setTotpError(data.error ?? "Invalid code");
+      return;
+    }
+    router.push(next.startsWith("/") ? next : "/admin");
+    router.refresh();
+  }
+
+  if (state?.requiresTotp && state.pendingToken) {
+    return (
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center mb-8">
+          <Logo size="lg" showTagline link={false} />
+          <h1 className="text-2xl font-bold tracking-tight mt-6">Two-factor auth</h1>
+          <p className="text-zinc-500 mt-2 text-sm">Enter the 6-digit code for @{state.username}</p>
+        </div>
+        <form onSubmit={submitTotp} className="glass rounded-2xl p-8 space-y-5">
+          <input
+            value={totpCode}
+            onChange={(e) => setTotpCode(e.target.value)}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="000000"
+            className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3.5 text-white text-center tracking-widest"
+          />
+          {totpError && <p className="text-sm text-red-400">{totpError}</p>}
+          <button type="submit" disabled={totpLoading} className="btn-primary w-full rounded-xl py-3.5 text-sm">
+            {totpLoading ? "Verifying…" : "Verify & sign in"}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md">

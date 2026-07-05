@@ -15,10 +15,15 @@ import {
   Landmark,
   ScrollText,
   Building2,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import { SupportTicketAdminCard } from "@/components/AdminSupportTicketCard";
+import { AdminAnalyticsPanel } from "@/components/admin/AdminAnalyticsPanel";
+import { AdminSettingsPanel } from "@/components/admin/AdminSettingsPanel";
+import { AdminStationResidents } from "@/components/admin/AdminStationResidents";
 
-type Tab = "overview" | "users" | "streams" | "archives" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "audit";
+type Tab = "overview" | "analytics" | "users" | "streams" | "archives" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "settings" | "audit";
 
 type PromotionRow = {
   streamId: string;
@@ -141,8 +146,14 @@ export function AdminDashboard() {
     tier: "community",
   });
 
-  const tabs: { id: Tab; label: string; icon: typeof Shield }[] = [
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ email: "", displayName: "", balanceAdjust: "", setPassword: "" });
+  const [transferStation, setTransferStation] = useState<{ id: string; slug: string } | null>(null);
+  const [transferUsername, setTransferUsername] = useState("");
+
+  const tabs: { id: Tab; label: string; icon: typeof Shield; badge?: number }[] = [
     { id: "overview", label: "Overview", icon: Shield },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "users", label: "Users", icon: Users },
     { id: "streams", label: "Live streams", icon: Radio },
     { id: "archives", label: "Archive", icon: ScrollText },
@@ -150,7 +161,8 @@ export function AdminDashboard() {
     { id: "promotions", label: "Promotions", icon: Megaphone },
     { id: "treasury", label: "Treasury", icon: Landmark },
     { id: "moderation", label: "Moderation", icon: Flag },
-    { id: "support", label: "Support", icon: MessageSquare },
+    { id: "support", label: "Support", icon: MessageSquare, badge: stats?.unreadSupport as number | undefined },
+    { id: "settings", label: "Settings", icon: Settings },
     { id: "audit", label: "Audit log", icon: ScrollText },
   ];
 
@@ -320,6 +332,8 @@ export function AdminDashboard() {
       tab === "moderation" ? loadModeration() : Promise.resolve(),
       tab === "support" ? loadTickets() : Promise.resolve(),
       tab === "audit" ? loadAudit() : Promise.resolve(),
+      tab === "analytics" ? Promise.resolve() : Promise.resolve(),
+      tab === "settings" ? Promise.resolve() : Promise.resolve(),
     ]).finally(() => setLoading(false));
   }, [tab]);
 
@@ -424,6 +438,59 @@ export function AdminDashboard() {
     loadTickets();
   }
 
+  async function markTicketRead(ticketId: string) {
+    await apiFetch("/api/admin/support/mark-read", {
+      method: "POST",
+      body: JSON.stringify({ ticketId }),
+    });
+    loadOverview();
+  }
+
+  async function saveUserEdit(userId: string) {
+    const patch: Record<string, unknown> = {
+      userId,
+      email: editForm.email,
+      displayName: editForm.displayName,
+    };
+    if (editForm.balanceAdjust.trim()) {
+      patch.balanceAdjust = Number(editForm.balanceAdjust);
+    }
+    if (editForm.setPassword.trim()) {
+      patch.setPassword = editForm.setPassword;
+    }
+    const res = await apiFetch("/api/admin/users", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    if (res.ok) {
+      setMsg("User updated");
+      setEditingUser(null);
+      loadUsers(search);
+    }
+  }
+
+  async function sendUserPasswordReset(userId: string) {
+    const res = await apiFetch("/api/admin/users", {
+      method: "PATCH",
+      body: JSON.stringify({ userId, sendPasswordReset: true }),
+    });
+    if (res.ok) setMsg("Password reset email sent");
+  }
+
+  async function transferStationOwner(stationId: string) {
+    if (!transferUsername.trim()) return;
+    const res = await apiFetch("/api/admin/stations", {
+      method: "PATCH",
+      body: JSON.stringify({ stationId, transferToUsername: transferUsername }),
+    });
+    if (res.ok) {
+      setMsg("Ownership transferred");
+      setTransferStation(null);
+      setTransferUsername("");
+      loadStations(stationSearch);
+    }
+  }
+
   async function replyToTicket(ticketId: string, body: string) {
     const res = await apiFetch("/api/admin/support/messages", {
       method: "POST",
@@ -432,6 +499,7 @@ export function AdminDashboard() {
     if (res.ok) {
       setMsg("Reply sent");
       loadTickets();
+      loadOverview();
     }
   }
 
@@ -474,6 +542,11 @@ export function AdminDashboard() {
             >
               <Icon className="h-3.5 w-3.5" />
               {t.label}
+              {t.badge != null && t.badge > 0 && (
+                <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {t.badge > 99 ? "99+" : t.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -494,6 +567,7 @@ export function AdminDashboard() {
             { label: "Total users", value: stats.users },
             { label: "Live now", value: stats.liveStreams },
             { label: "Open tickets", value: stats.openTickets },
+            { label: "Unread support", value: stats.unreadSupport ?? 0 },
             { label: "Flagged streams", value: stats.flaggedStreams },
             { label: "Reports (24h)", value: stats.reportsToday },
             { label: "Stations", value: stats.stations },
@@ -505,6 +579,10 @@ export function AdminDashboard() {
             </div>
           ))}
         </div>
+      ) : tab === "analytics" ? (
+        <AdminAnalyticsPanel />
+      ) : tab === "settings" ? (
+        <AdminSettingsPanel onMsg={setMsg} />
       ) : tab === "users" ? (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -543,9 +621,24 @@ export function AdminDashboard() {
               <div key={String(u.id)} className="rounded-xl border border-white/10 bg-[#141416] p-4 flex flex-wrap gap-3 items-center justify-between">
                 <div>
                   <p className="font-semibold text-white">{String(u.displayName)} <span className="text-zinc-500 font-normal">@{String(u.username)}</span></p>
-                  <p className="text-xs text-zinc-500">{String(u.email)} · {String(u.role)}{u.suspendedAt ? " · SUSPENDED" : ""}</p>
+                  <p className="text-xs text-zinc-500">{String(u.email)} · {String(u.role)} · {String(u.balance)} DROP{u.suspendedAt ? " · SUSPENDED" : ""}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingUser(editingUser === String(u.id) ? null : String(u.id));
+                      setEditForm({
+                        email: String(u.email),
+                        displayName: String(u.displayName),
+                        balanceAdjust: "",
+                        setPassword: "",
+                      });
+                    }}
+                    className="text-xs text-zinc-400 underline"
+                  >
+                    Edit
+                  </button>
                   <select
                     defaultValue={String(u.role)}
                     onChange={(e) => updateUser(String(u.id), { role: e.target.value })}
@@ -563,6 +656,18 @@ export function AdminDashboard() {
                   )}
                   <button type="button" onClick={() => deleteUser(String(u.id), String(u.username))} className="text-xs text-red-400 underline">Delete</button>
                 </div>
+                {editingUser === String(u.id) && (
+                  <div className="w-full mt-3 pt-3 border-t border-white/10 grid gap-2 sm:grid-cols-2">
+                    <input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs" placeholder="Email" />
+                    <input value={editForm.displayName} onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs" placeholder="Display name" />
+                    <input value={editForm.balanceAdjust} onChange={(e) => setEditForm((f) => ({ ...f, balanceAdjust: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs" placeholder="Balance adjust (+/- DROP)" />
+                    <input value={editForm.setPassword} onChange={(e) => setEditForm((f) => ({ ...f, setPassword: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs" placeholder="Set new password" />
+                    <div className="sm:col-span-2 flex flex-wrap gap-3">
+                      <button type="button" onClick={() => saveUserEdit(String(u.id))} className="text-xs text-[#53fc18] underline">Save</button>
+                      <button type="button" onClick={() => sendUserPasswordReset(String(u.id))} className="text-xs text-zinc-400 underline">Email password reset</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -946,6 +1051,8 @@ export function AdminDashboard() {
                 key={String(t.id)}
                 ticket={t}
                 messages={msgs}
+                unread={t.lastMessageRole === "user" && t.status !== "resolved"}
+                onOpen={() => markTicketRead(String(t.id))}
                 onStatusChange={(status) => updateTicket(String(t.id), status)}
                 onReply={(body) => replyToTicket(String(t.id), body)}
               />
@@ -1007,6 +1114,11 @@ export function AdminDashboard() {
                       @{String((s.owner as { username: string }).username)} ·{" "}
                       {String(s.residentCount)} residents · {String(s.followerCount)} followers
                     </p>
+                    <AdminStationResidents
+                      stationId={String(s.id)}
+                      stationSlug={String(s.slug)}
+                      onMsg={setMsg}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <select
@@ -1018,8 +1130,26 @@ export function AdminDashboard() {
                       <option value="pro">pro</option>
                       <option value="network">network</option>
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => setTransferStation({ id: String(s.id), slug: String(s.slug) })}
+                      className="text-xs text-zinc-400 underline"
+                    >
+                      Transfer
+                    </button>
                     <button type="button" onClick={() => deleteStation(String(s.id), String(s.slug))} className="text-xs text-red-400 underline">Delete</button>
                   </div>
+                  {transferStation?.id === String(s.id) && (
+                    <div className="w-full flex gap-2 mt-2 pt-2 border-t border-white/10">
+                      <input
+                        value={transferUsername}
+                        onChange={(e) => setTransferUsername(e.target.value)}
+                        placeholder="New owner username"
+                        className="flex-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs"
+                      />
+                      <button type="button" onClick={() => transferStationOwner(String(s.id))} className="text-xs text-[#53fc18] underline">Confirm</button>
+                    </div>
+                  )}
                 </div>
               ))
             )}

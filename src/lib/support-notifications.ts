@@ -1,6 +1,8 @@
 import { prisma } from "./db";
 import { notifyUser } from "./notifications";
 import { sendPushToUser } from "./web-push";
+import { sendSupportTicketAlertEmail, isEmailConfigured } from "./email";
+import { getPlatformSettings } from "./platform-settings";
 
 function preview(text: string, max = 120) {
   const t = text.trim();
@@ -71,4 +73,17 @@ export async function notifyAdminsSupportMessage(
       }).catch((err) => console.error("web push support admin:", err)),
     ),
   );
+
+  const settings = await getPlatformSettings();
+  if (settings.supportEmailAlerts && isEmailConfigured()) {
+    const supportInbox = process.env.SUPPORT_ALERT_EMAIL ?? "support@livebooth.uk";
+    sendSupportTicketAlertEmail({
+      to: supportInbox,
+      ticketId: ticket.id,
+      subject: ticket.subject,
+      email: ticket.email,
+      preview: messageBody,
+      isNew: opts?.isNew,
+    }).catch((err) => console.error("support email alert:", err));
+  }
 }

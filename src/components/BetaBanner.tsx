@@ -1,10 +1,28 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { apiFetch } from "@/lib/fetch-client";
 
 export function BetaBanner() {
-  if (process.env.NEXT_PUBLIC_BETA_MODE !== "true") return null;
-  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") return null;
+  const [visible, setVisible] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_BETA_MODE !== "true") {
+      setVisible(false);
+      return;
+    }
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      setVisible(false);
+      return;
+    }
+    apiFetch("/api/platform/status")
+      .then((r) => r.json())
+      .then((d) => setVisible(d.betaBannerEnabled !== false))
+      .catch(() => setVisible(true));
+  }, []);
+
+  if (visible !== true) return null;
 
   return (
     <div className="mx-3 sm:mx-4 lg:mx-6 mt-3 rounded-xl border border-[#53fc18]/25 bg-[#53fc18]/5 px-4 py-2.5">

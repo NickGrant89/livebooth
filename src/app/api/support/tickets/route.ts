@@ -24,6 +24,8 @@ export async function POST(request: Request) {
         subject: body.subject,
         body: body.body,
         channelToken: crypto.randomUUID().replace(/-/g, ""),
+        lastMessageRole: "user",
+        lastMessageAt: new Date(),
         messages: {
           create: {
             senderRole: "user",

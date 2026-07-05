@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { json, error } from "@/lib/api-utils";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { createTotpPendingToken } from "@/lib/admin-totp";
 
 const schema = z.object({
   email: z.string().min(1),
@@ -25,11 +26,30 @@ export async function POST(request: Request) {
           { username: identifier.replace(/@.*/, "") },
         ],
       },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        role: true,
+        passwordHash: true,
+        totpEnabled: true,
+        suspendedAt: true,
+      },
     });
     if (!user) return error("Invalid email/username or password", 401);
+    if (user.suspendedAt) return error("Account suspended", 403);
 
     const valid = await bcrypt.compare(body.password, user.passwordHash);
     if (!valid) return error("Invalid email/username or password", 401);
+
+    if (user.role === "admin" && user.totpEnabled) {
+      const pendingToken = await createTotpPendingToken(user.id);
+      return json({
+        requiresTotp: true,
+        pendingToken,
+        user: { username: user.username, displayName: user.displayName },
+      });
+    }
 
     const jwt = await createSession(user.id);
     await setSessionCookie(jwt);

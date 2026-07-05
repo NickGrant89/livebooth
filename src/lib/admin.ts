@@ -53,11 +53,17 @@ export async function logAdminAction(
 
 export async function getAdminStats() {
   const now = new Date();
-  const [users, liveStreams, openTickets, flaggedStreams, reportsToday, stations, activePromotions] =
+  const [users, liveStreams, openTickets, unreadSupport, flaggedStreams, reportsToday, stations, activePromotions] =
     await Promise.all([
       prisma.user.count(),
       prisma.stream.count({ where: { status: "live" } }),
       prisma.supportTicket.count({ where: { status: { in: ["open", "in_progress"] } } }),
+      prisma.supportTicket.count({
+        where: {
+          status: { in: ["open", "in_progress"] },
+          lastMessageRole: "user",
+        },
+      }),
       prisma.stream.count({
         where: { status: "live", moderationStatus: { not: "ok" } },
       }),
@@ -70,5 +76,5 @@ export async function getAdminStats() {
       }),
     ]);
 
-  return { users, liveStreams, openTickets, flaggedStreams, reportsToday, stations, activePromotions };
+  return { users, liveStreams, openTickets, unreadSupport, flaggedStreams, reportsToday, stations, activePromotions };
 }

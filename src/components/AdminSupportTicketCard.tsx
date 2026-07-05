@@ -13,11 +13,13 @@ type Message = {
 type Props = {
   ticket: Record<string, unknown>;
   messages: Message[];
+  unread?: boolean;
+  onOpen?: () => void;
   onStatusChange: (status: string) => void;
   onReply: (body: string) => Promise<void>;
 };
 
-export function SupportTicketAdminCard({ ticket, messages, onStatusChange, onReply }: Props) {
+export function SupportTicketAdminCard({ ticket, messages, unread, onOpen, onStatusChange, onReply }: Props) {
   const [open, setOpen] = useState(String(ticket.status) !== "resolved");
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
@@ -32,14 +34,22 @@ export function SupportTicketAdminCard({ ticket, messages, onStatusChange, onRep
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#141416] overflow-hidden">
+    <div className={`rounded-xl border overflow-hidden ${unread ? "border-[#53fc18]/40 bg-[#141416]" : "border-white/10 bg-[#141416]"}`}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => {
+            if (!o) onOpen?.();
+            return !o;
+          });
+        }}
         className="w-full flex items-start justify-between gap-2 p-4 text-left hover:bg-white/[0.02]"
       >
         <div className="min-w-0">
-          <p className="font-semibold text-white text-sm truncate">{String(ticket.subject)}</p>
+          <p className="font-semibold text-white text-sm truncate flex items-center gap-2">
+            {unread && <span className="h-2 w-2 rounded-full bg-[#53fc18] shrink-0" aria-label="Unread" />}
+            {String(ticket.subject)}
+          </p>
           <p className="text-xs text-zinc-500 mt-0.5">
             {String(ticket.email)} · {String(ticket.category)} · {messages.length} msg
             {messages.length !== 1 ? "s" : ""}

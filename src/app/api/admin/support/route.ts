@@ -28,6 +28,8 @@ export async function GET(request: Request) {
       body: t.body,
       status: t.status,
       adminNotes: t.adminNotes,
+      lastMessageRole: t.lastMessageRole,
+      lastMessageAt: t.lastMessageAt?.toISOString() ?? null,
       user: t.user,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),

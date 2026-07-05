@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { json, error } from "@/lib/api-utils";
-import { WELCOME_BONUS } from "@/lib/constants";
+import { getPlatformSettings, getWelcomeBonus } from "@/lib/platform-settings";
 
 const schema = z.object({
   email: z.string().email(),
@@ -15,6 +15,9 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const platform = await getPlatformSettings();
+    if (!platform.signupEnabled) return error("Signups are temporarily disabled", 403);
+
     const body = schema.parse(await request.json());
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email: body.email }, { username: body.username }] },
@@ -22,6 +25,7 @@ export async function POST(request: Request) {
     if (existing) return error("Email or username already taken", 409);
 
     const passwordHash = await bcrypt.hash(body.password, 10);
+    const welcomeBonus = await getWelcomeBonus();
     const user = await prisma.user.create({
       data: {
         email: body.email,
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
         passwordHash,
         role: body.role,
         avatar: body.displayName.slice(0, 2).toUpperCase(),
-        balance: { create: { balance: WELCOME_BONUS, totalEarned: 0 } },
+        balance: { create: { balance: welcomeBonus, totalEarned: 0 } },
       },
     });
 

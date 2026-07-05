@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
 import { requireAdminApi, logAdminAction } from "@/lib/admin";
-import { WELCOME_BONUS } from "@/lib/constants";
+import { getWelcomeBonus } from "@/lib/platform-settings";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { createPasswordResetToken, getResetUrl } from "@/lib/password-reset";
+import { sendAdminPasswordResetEmail, isEmailConfigured } from "@/lib/email";
+import { getWelcomeBonus } from "@/lib/platform-settings";
 
 export async function GET(request: Request) {
   const admin = await requireAdminApi(request);
@@ -51,6 +54,12 @@ const patchSchema = z.object({
   role: z.enum(["fan", "dj", "station", "admin"]).optional(),
   suspend: z.boolean().optional(),
   suspendReason: z.string().optional(),
+  email: z.string().email().optional(),
+  displayName: z.string().min(1).max(50).optional(),
+  balanceAdjust: z.number().optional(),
+  setBalance: z.number().min(0).optional(),
+  sendPasswordReset: z.boolean().optional(),
+  setPassword: z.string().min(6).optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -65,6 +74,8 @@ export async function PATCH(request: Request) {
 
     const data: Record<string, unknown> = {};
     if (body.role) data.role = body.role;
+    if (body.email) data.email = body.email.toLowerCase();
+    if (body.displayName) data.displayName = body.displayName;
     if (body.suspend === true) {
       data.suspendedAt = new Date();
       data.suspendedReason = body.suspendReason ?? "Suspended by admin";
@@ -73,13 +84,45 @@ export async function PATCH(request: Request) {
       data.suspendedReason = null;
     }
 
+    const target = await prisma.user.findUnique({
+      where: { id: body.userId },
+      include: { balance: true },
+    });
+    if (!target) return error("User not found", 404);
+
+    if (body.setPassword) {
+      data.passwordHash = await bcrypt.hash(body.setPassword, 10);
+    }
+
     const user = await prisma.user.update({
       where: { id: body.userId },
       data,
     });
 
-    await logAdminAction(admin.id, "user_update", body.userId, data, request);
-    return json({ user: { id: user.id, role: user.role, suspendedAt: user.suspendedAt } });
+    if (body.balanceAdjust !== undefined || body.setBalance !== undefined) {
+      const current = target.balance?.balance ?? 0;
+      const next =
+        body.setBalance !== undefined ? body.setBalance : current + (body.balanceAdjust ?? 0);
+      await prisma.beatBalance.upsert({
+        where: { userId: body.userId },
+        create: { userId: body.userId, balance: Math.max(0, next), totalEarned: 0 },
+        update: { balance: Math.max(0, next) },
+      });
+    }
+
+    if (body.sendPasswordReset) {
+      const reset = await createPasswordResetToken(target.email);
+      if (reset.token && reset.user && isEmailConfigured()) {
+        await sendAdminPasswordResetEmail(
+          reset.user.email,
+          getResetUrl(reset.token),
+          target.displayName,
+        );
+      }
+    }
+
+    await logAdminAction(admin.id, "user_update", body.userId, { ...data, balanceAdjust: body.balanceAdjust, sendPasswordReset: body.sendPasswordReset }, request);
+    return json({ user: { id: user.id, role: user.role, suspendedAt: user.suspendedAt, email: user.email, displayName: user.displayName } });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid request");
     return error("Update failed", 500);
@@ -106,6 +149,7 @@ export async function POST(request: Request) {
     if (existing) return error("Email or username already taken", 409);
 
     const passwordHash = await bcrypt.hash(body.password, 10);
+    const welcomeBonus = await getWelcomeBonus();
     const user = await prisma.user.create({
       data: {
         email: body.email,
@@ -114,7 +158,7 @@ export async function POST(request: Request) {
         passwordHash,
         role: body.role,
         avatar: body.displayName.slice(0, 2).toUpperCase(),
-        balance: { create: { balance: WELCOME_BONUS, totalEarned: 0 } },
+        balance: { create: { balance: welcomeBonus, totalEarned: 0 } },
       },
     });
 

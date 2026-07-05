@@ -29,6 +29,8 @@ model User {
   weeklySlotLabel   String?
   suspendedAt       DateTime?
   suspendedReason   String?
+  totpSecret        String?
+  totpEnabled       Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -534,6 +536,9 @@ model SupportTicket {
   status       String   @default("open")
   adminNotes   String?
   channelToken String?  @unique
+  lastMessageRole String?
+  lastMessageAt   DateTime?
+  adminReadAt     DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)

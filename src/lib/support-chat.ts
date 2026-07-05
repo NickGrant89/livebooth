@@ -65,6 +65,8 @@ export async function appendSupportMessage(
       where: { id: ticketId },
       data: {
         updatedAt: new Date(),
+        lastMessageRole: senderRole,
+        lastMessageAt: new Date(),
         ...(senderRole === "user" ? { body: trimmed.slice(0, 2000) } : {}),
         ...(senderRole === "user" ? { status: "open" } : { status: "in_progress" }),
       },

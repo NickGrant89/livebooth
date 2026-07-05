@@ -50,6 +50,9 @@ const patchSchema = z.object({
   stationId: z.string(),
   tier: z.enum(["community", "pro", "network"]).optional(),
   relayUrl: z.string().url().nullable().optional(),
+  transferToUsername: z.string().min(1).optional(),
+  name: z.string().min(1).max(80).optional(),
+  slug: z.string().min(3).max(32).optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -64,6 +67,33 @@ export async function PATCH(request: Request) {
     const data: Record<string, unknown> = {};
     if (body.tier) data.tier = body.tier;
     if (body.relayUrl !== undefined) data.relayUrl = body.relayUrl;
+    if (body.name) data.name = body.name.trim();
+
+    if (body.slug) {
+      const slug = normalizeStationSlug(body.slug);
+      const slugError = validateStationSlug(slug);
+      if (slugError) return error(slugError, 400);
+      const taken = await prisma.radioStation.findFirst({
+        where: { slug, NOT: { id: body.stationId } },
+      });
+      if (taken) return error("Slug already taken", 409);
+      data.slug = slug;
+    }
+
+    if (body.transferToUsername) {
+      const newOwner = await prisma.user.findUnique({
+        where: { username: body.transferToUsername.trim().toLowerCase().replace(/^@/, "") },
+      });
+      if (!newOwner) return error("New owner not found", 404);
+      const otherStation = await prisma.radioStation.findFirst({
+        where: { ownerId: newOwner.id, NOT: { id: body.stationId } },
+      });
+      if (otherStation) return error("That user already owns another station", 400);
+      data.ownerId = newOwner.id;
+      if (newOwner.role !== "station" && newOwner.role !== "admin") {
+        await prisma.user.update({ where: { id: newOwner.id }, data: { role: "station" } });
+      }
+    }
 
     const updated = await prisma.radioStation.update({
       where: { id: body.stationId },

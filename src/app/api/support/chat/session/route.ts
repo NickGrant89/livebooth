@@ -31,6 +31,8 @@ export async function POST(request: Request) {
         subject,
         body: body.message.trim(),
         channelToken,
+        lastMessageRole: "user",
+        lastMessageAt: new Date(),
         messages: {
           create: {
             senderRole: "user",
