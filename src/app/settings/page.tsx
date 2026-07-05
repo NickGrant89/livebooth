@@ -289,7 +289,7 @@ export default function SettingsPage() {
                 Full docs
               </Link>
               <Link href="/support" className="text-zinc-400 hover:text-white">
-                Support
+                Live support chat
               </Link>
             </div>
           </div>

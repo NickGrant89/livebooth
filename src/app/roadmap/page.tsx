@@ -33,6 +33,7 @@ const PHASES: Phase[] = [
       { title: "Privy embedded wallets", detail: "Email login + one-click on-chain tips", status: "active" },
       { title: "On-chain tips during live sets", detail: "TipRouter with fee delegation", status: "active" },
       { title: "On-chain achievement claims", detail: "Signed claims via AchievementVault", status: "active" },
+      { title: "Live support chat", detail: "Chat on /support — logged as tickets, admin replies in dashboard", status: "done" },
       { title: "Station Pro & residencies", detail: "Branded channels, resident lineups", status: "planned" },
     ],
   },

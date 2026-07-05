@@ -22,6 +22,14 @@ export async function POST(request: Request) {
         category: body.category,
         subject: body.subject,
         body: body.body,
+        channelToken: crypto.randomUUID().replace(/-/g, ""),
+        messages: {
+          create: {
+            senderRole: "user",
+            senderId: session?.id ?? null,
+            body: body.body,
+          },
+        },
       },
     });
     return json({ ok: true, ticketId: ticket.id });

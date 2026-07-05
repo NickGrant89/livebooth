@@ -60,7 +60,7 @@ export default function PrivacyPage() {
           {" · "}
           <Link href="/terms" className="text-[#53fc18] hover:underline">Terms of Service</Link>
           {" · "}
-          <Link href="/support" className="text-[#53fc18] hover:underline">Support</Link>
+          <Link href="/support" className="text-[#53fc18] hover:underline">Support (live chat)</Link>
         </p>
       </section>
     </div>

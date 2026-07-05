@@ -105,7 +105,8 @@ export default function PoliciesPage() {
           <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">
             support@livebooth.uk
           </a>{" "}
-          or open a ticket via <Link href="/support" className="text-[#53fc18] hover:underline">Support</Link>.
+          or start <Link href="/support" className="text-[#53fc18] hover:underline">live support chat</Link> on
+          Support (each chat is logged as a ticket).
         </p>
       </section>
     </div>

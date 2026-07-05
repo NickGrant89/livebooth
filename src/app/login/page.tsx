@@ -114,7 +114,7 @@ function LoginForm() {
           <p className="text-center text-xs text-zinc-500 mt-4">
             Admin access requires an account with the admin role.{" "}
             <Link href="/support" className="text-[#53fc18] hover:underline">
-              Contact support
+              Live support chat
             </Link>{" "}
             if you need access.
           </p>

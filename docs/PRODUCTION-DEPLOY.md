@@ -201,6 +201,8 @@ npx prisma migrate deploy
 npx tsx prisma/seed.ts   # optional — never with SEED_DEMO_USERS on prod
 ```
 
+Latest migrations include **support live chat** (`20260705140000_support_live_chat` — `SupportTicketMessage` + `channelToken`). See [SUPPORT-LIVE-CHAT.md](./SUPPORT-LIVE-CHAT.md).
+
 ### SQLite → Postgres data migration
 
 For a one-off export from local `dev.db`, use `pgloader` or custom scripts. For greenfield launch, migrate deploy + invite beta DJs is usually enough.

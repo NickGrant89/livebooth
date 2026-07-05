@@ -42,7 +42,7 @@ You're invited to the LiveBooth beta — tip the drop.
 3. Complete your profile in Settings (genres + bio)
 4. Go Live: https://livebooth.uk/go-live — OBS setup guide on the page
 
-Support: https://livebooth.uk/support
+Support (live chat + FAQ): https://livebooth.uk/support
 Fan guide: https://livebooth.uk/help/fans
 Creator guide: https://livebooth.uk/help/djs
 ```

@@ -84,3 +84,9 @@ Full guide: [rtmp-server/README.md](rtmp-server/README.md)
 | `npm run contracts:deploy` | Deploy to VeChain Testnet |
 
 Design docs: [docs/design/](docs/design/)
+
+## Support
+
+- **Live chat:** [/support](https://livebooth.uk/support) — every conversation is logged as a ticket
+- **Admin replies:** Admin dashboard → Support tab
+- **Docs:** [docs/SUPPORT-LIVE-CHAT.md](docs/SUPPORT-LIVE-CHAT.md)

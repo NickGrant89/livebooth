@@ -16,6 +16,7 @@ import {
   ScrollText,
   Building2,
 } from "lucide-react";
+import { SupportTicketAdminCard } from "@/components/AdminSupportTicketCard";
 
 type Tab = "overview" | "users" | "streams" | "archives" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "audit";
 
@@ -337,6 +338,17 @@ export function AdminDashboard() {
       body: JSON.stringify({ ticketId, status }),
     });
     loadTickets();
+  }
+
+  async function replyToTicket(ticketId: string, body: string) {
+    const res = await apiFetch("/api/admin/support/messages", {
+      method: "POST",
+      body: JSON.stringify({ ticketId, body }),
+    });
+    if (res.ok) {
+      setMsg("Reply sent");
+      loadTickets();
+    }
   }
 
   return (
@@ -815,27 +827,21 @@ export function AdminDashboard() {
           </p>
         </div>
       ) : tab === "support" ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {tickets.length === 0 ? (
             <p className="text-zinc-500 text-sm">No tickets</p>
-          ) : tickets.map((t) => (
-            <div key={String(t.id)} className="rounded-xl border border-white/10 bg-[#141416] p-4">
-              <div className="flex justify-between gap-2 mb-1">
-                <p className="font-semibold text-white text-sm">{String(t.subject)}</p>
-                <select
-                  value={String(t.status)}
-                  onChange={(e) => updateTicket(String(t.id), e.target.value)}
-                  className="rounded bg-white/5 border border-white/10 text-xs px-2 py-0.5"
-                >
-                  <option value="open">open</option>
-                  <option value="in_progress">in progress</option>
-                  <option value="resolved">resolved</option>
-                </select>
-              </div>
-              <p className="text-xs text-zinc-500">{String(t.email)} · {String(t.category)}</p>
-              <p className="text-sm text-zinc-400 mt-2">{String(t.body)}</p>
-            </div>
-          ))}
+          ) : tickets.map((t) => {
+            const msgs = (t.messages as Array<{ id: string; senderRole: string; body: string; createdAt: string }>) ?? [];
+            return (
+              <SupportTicketAdminCard
+                key={String(t.id)}
+                ticket={t}
+                messages={msgs}
+                onStatusChange={(status) => updateTicket(String(t.id), status)}
+                onReply={(body) => replyToTicket(String(t.id), body)}
+              />
+            );
+          })}
         </div>
       ) : tab === "stations" ? (
         <div className="space-y-4">

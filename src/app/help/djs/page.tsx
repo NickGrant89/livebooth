@@ -147,8 +147,9 @@ export default function DjGuidePage() {
 
       <GuideSection id="support" title="Support">
         <GuideStep n={1} title="Get help">
-          Stream issues, payouts, or account problems — see{" "}
-          <Link href="/support" className="text-[#53fc18] hover:underline">Support &amp; FAQ</Link>,{" "}
+          Stream issues, payouts, or account problems — open{" "}
+          <Link href="/support" className="text-[#53fc18] hover:underline">live support chat</Link> (logged as a
+          ticket), read{" "}
           <Link href="/policies" className="text-[#53fc18] hover:underline">Policies &amp; procedures</Link>, or email{" "}
           <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">support@livebooth.uk</a>.
         </GuideStep>

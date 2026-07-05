@@ -30,7 +30,7 @@ const guides = [
   {
     href: "/support",
     title: "Help & support",
-    description: "FAQs, streaming troubleshooting, and how to contact the LiveBooth team.",
+    description: "Live support chat (logged as tickets), FAQs, streaming troubleshooting, and contact options.",
     icon: HelpCircle,
     color: "from-amber-500/20 to-orange-500/20 border-amber-500/30",
     cta: "Get support",
@@ -65,7 +65,7 @@ export default function HelpHubPage() {
           href="/support"
           className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-zinc-300 hover:bg-white/5 transition-colors"
         >
-          FAQ & troubleshooting
+          FAQ &amp; live chat
         </Link>
       </div>
 

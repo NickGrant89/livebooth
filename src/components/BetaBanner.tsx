@@ -13,9 +13,9 @@ export function BetaBanner() {
         <span>
           <span className="font-semibold text-[#53fc18]">Beta</span>
           {" — "}
-          LiveBooth is in early access. Report issues via{" "}
+          LiveBooth is in early access. Use{" "}
           <a href="/support" className="text-[#53fc18] hover:underline">
-            Support
+            live support chat
           </a>
           .
         </span>

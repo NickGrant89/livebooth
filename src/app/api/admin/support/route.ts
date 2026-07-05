@@ -11,8 +11,11 @@ export async function GET(request: Request) {
 
   const tickets = await prisma.supportTicket.findMany({
     where: status === "all" ? {} : { status },
-    include: { user: { select: { username: true, displayName: true, role: true } } },
-    orderBy: { createdAt: "desc" },
+    include: {
+      user: { select: { username: true, displayName: true, role: true } },
+      messages: { orderBy: { createdAt: "asc" }, take: 50 },
+    },
+    orderBy: { updatedAt: "desc" },
     take: 100,
   });
 
@@ -28,6 +31,12 @@ export async function GET(request: Request) {
       user: t.user,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
+      messages: t.messages.map((m) => ({
+        id: m.id,
+        senderRole: m.senderRole,
+        body: m.body,
+        createdAt: m.createdAt.toISOString(),
+      })),
     })),
   });
 }

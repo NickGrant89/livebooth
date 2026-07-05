@@ -50,7 +50,7 @@ export function Footer() {
                 <li><Link href="/help/fans" className="hover:text-white transition-colors">Fan guide</Link></li>
                 <li><Link href="/help/djs" className="hover:text-white transition-colors">DJ guide</Link></li>
                 <li><Link href="/help/stations" className="hover:text-white transition-colors">Station guide</Link></li>
-                <li><Link href="/support" className="hover:text-white transition-colors">Support & FAQ</Link></li>
+                <li><Link href="/support" className="hover:text-white transition-colors">Support & live chat</Link></li>
               </ul>
             </div>
           </div>

@@ -17,10 +17,24 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { SUPPORT_CATEGORIES } from "@/lib/constants";
+import { SupportLiveChat } from "@/components/SupportLiveChat";
 
 const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
 
 const FAQ = [
+  {
+    category: "Support",
+    items: [
+      {
+        q: "How do I contact LiveBooth support?",
+        a: "Open live support chat on this page — every chat is logged as a ticket so you can continue the conversation and we keep a record. You can also email support@livebooth.uk or use the one-shot ticket form.",
+      },
+      {
+        q: "Will I get a reply in the chat?",
+        a: "Yes. Our team replies in the same chat thread when online, and you'll also get email follow-up at the address you provide. Keep this page open or return later — your chat is saved on this device.",
+      },
+    ],
+  },
   {
     category: "Account",
     items: [
@@ -247,7 +261,9 @@ export default function SupportPage() {
       <div className="mb-10">
         <HelpCircle className="h-8 w-8 text-[#53fc18] mb-3" />
         <h1 className="text-3xl font-bold text-white">Support</h1>
-        <p className="text-zinc-400 mt-2">FAQs and ways to reach us for fans, DJs, and station owners.</p>
+        <p className="text-zinc-400 mt-2">
+          Live support chat, FAQs, and guides for fans, DJs, and station owners.
+        </p>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
@@ -268,26 +284,41 @@ export default function SupportPage() {
         ))}
       </div>
 
-      <section className="rounded-2xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-6 mb-10">
-        <h2 className="font-bold text-white mb-4 flex items-center gap-2">
-          <Mail className="h-5 w-5 text-[#53fc18]" />
-          Contact support
+      <section className="rounded-2xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-6 mb-4">
+        <h2 className="font-bold text-white mb-2 flex items-center gap-2">
+          <MessageCircle className="h-5 w-5 text-[#53fc18]" />
+          Live support chat
         </h2>
         <p className="text-sm text-zinc-400 mb-4">
-          For bugs, account issues, payout questions, or partnership inquiries:
+          Start a live chat below — every conversation is logged as a support ticket. You can also email us
+          or use the classic ticket form.
         </p>
         <a
           href="mailto:support@livebooth.uk?subject=LiveBooth%20Support"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#53fc18] px-5 py-2.5 text-sm font-bold text-black hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-white/10"
         >
           <Mail className="h-4 w-4" />
           support@livebooth.uk
         </a>
         <p className="text-xs text-zinc-600 mt-3">
-          Include your username, role (fan/DJ/station), and what you were doing when the issue occurred.
+          Live chat is fastest. Include your username and role (fan/DJ/station) if you email instead.
           We typically respond within 1–2 business days.
         </p>
       </section>
+
+      <SupportLiveChat />
+
+      <div className="mb-10" />
+
+      <details className="mt-6 mb-10 group">
+        <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300 list-none flex items-center gap-2">
+          <Send className="h-3.5 w-3.5" />
+          Prefer a one-shot ticket form? (no chat)
+        </summary>
+        <div className="mt-4">
+          <SupportTicketForm />
+        </div>
+      </details>
 
       <section className="rounded-2xl border border-white/10 bg-[#141416] p-6 mb-10">
         <h2 className="font-bold text-white mb-2 flex items-center gap-2">
@@ -312,8 +343,6 @@ export default function SupportPage() {
           <Link href="/policies#djs" className="text-[#53fc18] hover:underline">Go-live procedures</Link>
         </p>
       </section>
-
-      <SupportTicketForm />
 
       <section className="mt-10">
         <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">

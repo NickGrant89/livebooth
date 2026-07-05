@@ -122,7 +122,8 @@ export default function FanGuidePage() {
           <Link href="/settings" className="text-[#53fc18] hover:underline">/settings</Link>.
         </GuideStep>
         <GuideStep n={2} title="Need help?">
-          Check <Link href="/support" className="text-[#53fc18] hover:underline">Support &amp; FAQ</Link> or email{" "}
+          Use <Link href="/support" className="text-[#53fc18] hover:underline">live support chat</Link> on
+          Support — chats are logged as tickets. Or email{" "}
           <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">support@livebooth.uk</a>.
         </GuideStep>
       </GuideSection>

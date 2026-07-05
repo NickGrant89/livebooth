@@ -81,7 +81,7 @@ export function HelpGuideLayout({
             Station guide →
           </Link>
           <Link href="/support" className="text-zinc-500 hover:text-[#53fc18]">
-            Support & FAQ →
+            Live support chat →
           </Link>
         </div>
       </div>

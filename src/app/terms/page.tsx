@@ -56,7 +56,7 @@ export default function TermsPage() {
             legal@livebooth.uk
           </a>
           {" · "}
-          <Link href="/support" className="text-[#53fc18] hover:underline">Support</Link>
+          <Link href="/support" className="text-[#53fc18] hover:underline">Support (live chat)</Link>
         </p>
       </section>
     </div>

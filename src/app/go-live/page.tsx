@@ -283,7 +283,7 @@ export default function GoLivePage() {
             {rtmpOnline === false && (
               <p className="text-xs text-red-400">
                 Streaming server unreachable — check{" "}
-                <Link href="/support" className="text-red-300 underline">Support</Link> or try again in a few minutes.
+                <Link href="/support" className="text-red-300 underline">live support chat</Link> or try again in a few minutes.
               </p>
             )}
             <div className="flex gap-3">
@@ -351,7 +351,7 @@ export default function GoLivePage() {
                 Streaming server is temporarily unreachable. Confirm OBS is set to{" "}
                 <code className="rounded bg-black/30 px-1 font-mono text-xs">rtmp://rtmp.livebooth.uk:1935/live</code>{" "}
                 and your stream key matches Go Live. See{" "}
-                <Link href="/support" className="text-red-200 underline">Support</Link> if this persists.
+                <Link href="/support" className="text-red-200 underline">live support chat</Link> if this persists.
               </p>
             )}
             <ShareReminderBanner

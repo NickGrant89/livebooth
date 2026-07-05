@@ -133,7 +133,7 @@ export function StationTierUpgrade({ currentTier, onUpgraded }: Props) {
             href="/support"
             className="inline-flex items-center gap-2 rounded-lg bg-[#15CFF4] px-5 py-2.5 text-sm font-bold text-black"
           >
-            Contact support for Pro
+            Live support chat for Pro
           </Link>
         )}
         <Link
