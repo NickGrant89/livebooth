@@ -6,6 +6,7 @@ import {
   isGridPromoted,
   type DiscoverLiveStream,
 } from "./discover-ranking";
+import { attachLikeCounts } from "./stream-likes";
 
 export async function fetchDiscoverLiveStreams(genre?: string) {
   const [djs, flagships, collabPartnerFeeds] = await Promise.all([
@@ -61,7 +62,9 @@ export async function fetchDiscoverLiveStreams(genre?: string) {
 
   if (genre) liveStreams = liveStreams.filter((s) => s.genre === genre);
 
-  return liveStreams.map((s) => ({
+  const withLikes = await attachLikeCounts(liveStreams);
+
+  return withLikes.map((s) => ({
     ...s,
     startedAt: s.startedAt?.toISOString() ?? null,
     promotedUntil: s.promotedUntil?.toISOString() ?? null,

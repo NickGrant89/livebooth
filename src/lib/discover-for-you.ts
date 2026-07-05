@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { attachLikeCounts } from "./stream-likes";
 
 export type ForYouLiveStream = {
   id: string;
@@ -26,12 +27,14 @@ export async function fetchForYouLiveStreams(userId: string): Promise<ForYouLive
     orderBy: { startedAt: "desc" },
   });
 
-  return streams.map((s) => ({
-    id: s.id,
-    title: s.title,
-    genre: s.genre,
-    viewers: s.peakViewers,
-    sessionTips: Math.round(s.totalTips),
-    dj: s.dj,
-  }));
+  return attachLikeCounts(
+    streams.map((s) => ({
+      id: s.id,
+      title: s.title,
+      genre: s.genre,
+      viewers: s.peakViewers,
+      sessionTips: Math.round(s.totalTips),
+      dj: s.dj,
+    })),
+  );
 }

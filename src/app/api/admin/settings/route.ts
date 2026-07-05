@@ -22,6 +22,9 @@ const patchSchema = z.object({
   signupEnabled: z.boolean().optional(),
   betaBannerEnabled: z.boolean().optional(),
   supportEmailAlerts: z.boolean().optional(),
+  inStreamAdEnabled: z.boolean().optional(),
+  inStreamAdLabel: z.string().max(120).optional(),
+  inStreamAdUrl: z.string().max(500).optional(),
 });
 
 export async function PATCH(request: Request) {

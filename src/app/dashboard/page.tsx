@@ -23,6 +23,7 @@ import { SessionRecapModal, type RecapData } from "@/components/SessionRecapModa
 import { DjSetupChecklist } from "@/components/DjSetupChecklist";
 import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { PromoteBoothPanel } from "@/components/PromoteBoothPanel";
+import { CreatorMonetizationPanel } from "@/components/CreatorMonetizationPanel";
 import { CollabDashboardPanel } from "@/components/CollabDashboardPanel";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
 import { DjWalletBanner } from "@/components/DjWalletBanner";
@@ -233,6 +234,8 @@ export default function DashboardPage() {
           isLive={Boolean(liveStream)}
         />
       )}
+
+      <CreatorMonetizationPanel isLive={Boolean(liveStream)} />
 
       {liveStream && (
         <div className="mb-6 space-y-4">

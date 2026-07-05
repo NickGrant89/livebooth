@@ -9,5 +9,8 @@ export async function GET() {
     maintenanceMessage: settings.maintenanceMessage,
     signupEnabled: settings.signupEnabled,
     betaBannerEnabled: settings.betaBannerEnabled,
+    inStreamAdEnabled: settings.inStreamAdEnabled,
+    inStreamAdLabel: settings.inStreamAdLabel,
+    inStreamAdUrl: settings.inStreamAdUrl,
   });
 }

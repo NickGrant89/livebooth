@@ -11,6 +11,9 @@ type Settings = {
   signupEnabled: boolean;
   betaBannerEnabled: boolean;
   supportEmailAlerts: boolean;
+  inStreamAdEnabled: boolean;
+  inStreamAdLabel: string;
+  inStreamAdUrl: string;
 };
 
 export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
@@ -152,6 +155,38 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
             className="w-28 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-sm"
           />
         </div>
+      </section>
+
+      <section className="rounded-xl border border-white/10 bg-[#141416] p-5 space-y-4">
+        <h2 className="font-semibold text-white">In-stream sponsor banner</h2>
+        <p className="text-xs text-zinc-500">
+          Shows under the live player on all streams. Use for platform partnerships or brand deals.
+        </p>
+        <label className="flex items-center gap-3 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={settings.inStreamAdEnabled}
+            onChange={(e) => saveSettings({ inStreamAdEnabled: e.target.checked })}
+            disabled={saving}
+          />
+          Enable in-stream sponsor banner
+        </label>
+        <input
+          value={settings.inStreamAdLabel}
+          onChange={(e) => setSettings({ ...settings, inStreamAdLabel: e.target.value })}
+          onBlur={() => saveSettings({ inStreamAdLabel: settings.inStreamAdLabel })}
+          className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
+          placeholder="Banner label"
+        />
+        <input
+          value={settings.inStreamAdUrl}
+          onChange={(e) => setSettings({ ...settings, inStreamAdUrl: e.target.value })}
+          onBlur={() => {
+            if (settings.inStreamAdUrl) saveSettings({ inStreamAdUrl: settings.inStreamAdUrl });
+          }}
+          className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
+          placeholder="https://..."
+        />
       </section>
 
       <section className="rounded-xl border border-white/10 bg-[#141416] p-5 space-y-4">

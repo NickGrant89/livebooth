@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Coins, Eye, Radio } from "lucide-react";
+import { Coins, Eye, Heart, Radio } from "lucide-react";
 import { genreLabels } from "@/lib/constants";
 
 interface StreamCardProps {
@@ -9,6 +9,7 @@ interface StreamCardProps {
     genre: string;
     viewers: number;
     sessionTips?: number;
+    likeCount?: number;
     dj: { username: string; displayName: string; avatar: string };
   };
   sponsored?: boolean;
@@ -48,11 +49,19 @@ export function StreamCard({ stream, sponsored }: StreamCardProps) {
           {genreLabels[stream.genre] ?? stream.genre}
         </span>
       </div>
-      <div className="p-3.5">
-        <h3 className="font-semibold text-sm text-white group-hover:text-[#53fc18] transition-colors line-clamp-1">
-          {stream.title}
-        </h3>
-        <p className="text-xs text-zinc-500 mt-0.5">{stream.dj.displayName}</p>
+      <div className="p-3.5 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-sm text-white group-hover:text-[#53fc18] transition-colors line-clamp-1">
+            {stream.title}
+          </h3>
+          <p className="text-xs text-zinc-500 mt-0.5">{stream.dj.displayName}</p>
+        </div>
+        {(stream.likeCount ?? 0) > 0 ? (
+          <span className="flex items-center gap-1 text-xs text-pink-300/90 shrink-0 pt-0.5">
+            <Heart className="h-3.5 w-3.5 fill-current" />
+            {stream.likeCount!.toLocaleString()}
+          </span>
+        ) : null}
       </div>
     </Link>
   );

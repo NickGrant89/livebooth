@@ -17,6 +17,7 @@ export interface DiscoverLiveStream {
   promotionTier?: string | null;
   promotedUntil?: Date | null;
   djUserId?: string;
+  likeCount?: number;
   dj: {
     username: string;
     displayName: string;

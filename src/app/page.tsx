@@ -106,6 +106,12 @@ export default async function HomePage({
                   {featured.sessionTips.toLocaleString()} {DROP_TOKEN_SYMBOL} tipped
                 </span>
               ) : null}
+              {(featured.likeCount ?? 0) > 0 ? (
+                <span className="rounded-lg bg-pink-500/15 backdrop-blur px-3 py-1 text-xs font-semibold text-pink-200 flex items-center gap-1">
+                  <Heart className="h-3 w-3 fill-current" />
+                  {featured.likeCount!.toLocaleString()}
+                </span>
+              ) : null}
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-10">

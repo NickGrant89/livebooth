@@ -22,6 +22,8 @@ import { SetScorePanel } from "@/components/SetScorePanel";
 import { StreamPageLayout } from "@/components/StreamPageLayout";
 import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { streamMetadata } from "@/lib/metadata-share";
+import { getPlatformSettings } from "@/lib/platform-settings";
+import { StreamInStreamAdBanner } from "@/components/StreamInStreamAdBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +113,8 @@ export default async function StreamPage({
     take: 8,
   });
 
+  const platform = await getPlatformSettings();
+
   const partner = partnerUser;
 
   const isHost = session?.id === dj.id;
@@ -139,6 +143,11 @@ export default async function StreamPage({
               }
               collabPartner={partnerLive}
               compositorMixed={Boolean(stream.collab?.compositorActive)}
+            />
+            <StreamInStreamAdBanner
+              enabled={platform.inStreamAdEnabled}
+              label={platform.inStreamAdLabel}
+              url={platform.inStreamAdUrl}
             />
           </div>
 

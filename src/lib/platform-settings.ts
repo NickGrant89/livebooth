@@ -10,6 +10,9 @@ export type PlatformSettings = {
   signupEnabled: boolean;
   betaBannerEnabled: boolean;
   supportEmailAlerts: boolean;
+  inStreamAdEnabled: boolean;
+  inStreamAdLabel: string;
+  inStreamAdUrl: string;
 };
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
@@ -19,6 +22,9 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   signupEnabled: true,
   betaBannerEnabled: true,
   supportEmailAlerts: true,
+  inStreamAdEnabled: false,
+  inStreamAdLabel: "Partner with LiveBooth",
+  inStreamAdUrl: "https://livebooth.uk/support",
 };
 
 export async function getPlatformSettings(): Promise<PlatformSettings> {

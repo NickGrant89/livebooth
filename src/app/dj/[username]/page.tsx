@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Radio, Users, Coins, Trophy, Settings } from "lucide-react";
+import { Radio, Users, Coins, Trophy, Settings, Heart, Crown } from "lucide-react";
 import { FollowButton } from "@/components/FollowButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
+import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { StakePanel } from "@/components/StakePanel";
 import { DjArchiveList, DjProfileTabs } from "@/components/DjArchiveList";
 import { prisma } from "@/lib/db";
@@ -15,6 +16,7 @@ import { djProfileMetadata } from "@/lib/metadata-share";
 import { ProfileOnChainStrip } from "@/components/ProfileOnChainStrip";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { profileImageSrc } from "@/lib/profile-images";
+import { getDjTotalLikes } from "@/lib/stream-likes";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +62,11 @@ export default async function DJProfilePage({
   });
   if (!dj) notFound();
 
-  const [liveStream, archiveStreams, stationAffiliation] = await Promise.all([
+  const isOwnProfile = session?.id === dj.id;
+  const isCreator = dj.role === "dj" || dj.role === "admin" || dj.role === "station";
+  const isDj = dj.role === "dj" || dj.role === "admin";
+
+  const [liveStream, archiveStreams, stationAffiliation, totalLikes, vipSubCount] = await Promise.all([
     prisma.stream.findFirst({
       where: { djId: dj.id, status: "live" },
     }),
@@ -70,13 +76,16 @@ export default async function DJProfilePage({
       take: 50,
     }),
     getStationAffiliationForUser(dj.id),
+    getDjTotalLikes(dj.id),
+    isCreator
+      ? prisma.subscription.count({
+          where: { djId: dj.id, status: "active", nextBillingAt: { gt: new Date() } },
+        })
+      : Promise.resolve(0),
   ]);
 
   const lastSet = archiveStreams.find((s) => s.setGrade);
   const genres = JSON.parse(dj.genres || "[]") as string[];
-  const isOwnProfile = session?.id === dj.id;
-  const isCreator = dj.role === "dj" || dj.role === "admin" || dj.role === "station";
-  const isDj = dj.role === "dj" || dj.role === "admin";
   const roleLabel =
     dj.role === "station"
       ? "Radio"
@@ -109,6 +118,7 @@ export default async function DJProfilePage({
           Watch Live
         </Link>
       )}
+      {liveStream && <StreamLikeButton streamId={liveStream.id} />}
       {!isOwnProfile && <FollowButton username={dj.username} />}
       {!liveStream && isCreator && !isOwnProfile && (
         <SubscribeButton djUsername={dj.username} />
@@ -214,11 +224,16 @@ export default async function DJProfilePage({
               isDj={isCreator}
             />
           )}
-          <div className="mt-6 grid grid-cols-3 gap-4">
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="rounded-xl bg-white/5 p-4 text-center">
               <Users className="h-5 w-5 text-[#53fc18] mx-auto mb-1" />
               <div className="text-xl font-bold">{dj._count.followers}</div>
               <div className="text-xs text-zinc-500">Followers</div>
+            </div>
+            <div className="rounded-xl bg-white/5 p-4 text-center">
+              <Heart className="h-5 w-5 text-pink-400 mx-auto mb-1" />
+              <div className="text-xl font-bold">{totalLikes}</div>
+              <div className="text-xs text-zinc-500">Stream likes</div>
             </div>
             <div className="rounded-xl bg-white/5 p-4 text-center">
               <Coins className="h-5 w-5 text-[#53fc18] mx-auto mb-1" />
@@ -226,11 +241,27 @@ export default async function DJProfilePage({
               <div className="text-xs text-zinc-500">{DROP_TOKEN_SYMBOL} Earned</div>
             </div>
             <div className="rounded-xl bg-white/5 p-4 text-center">
-              <Trophy className="h-5 w-5 text-[#53fc18] mx-auto mb-1" />
-              <div className="text-xl font-bold">{dj.achievements.length}</div>
-              <div className="text-xs text-zinc-500">Achievements</div>
+              {isCreator ? (
+                <>
+                  <Crown className="h-5 w-5 text-purple-400 mx-auto mb-1" />
+                  <div className="text-xl font-bold">{vipSubCount}</div>
+                  <div className="text-xs text-zinc-500">VIP subs</div>
+                </>
+              ) : (
+                <>
+                  <Trophy className="h-5 w-5 text-[#53fc18] mx-auto mb-1" />
+                  <div className="text-xl font-bold">{dj.achievements.length}</div>
+                  <div className="text-xs text-zinc-500">Achievements</div>
+                </>
+              )}
             </div>
           </div>
+          {isCreator && (
+            <div className="mt-3 rounded-xl bg-white/[0.03] border border-white/5 px-4 py-2 text-center">
+              <Trophy className="inline h-3.5 w-3.5 text-[#53fc18] mr-1" />
+              <span className="text-xs text-zinc-500">{dj.achievements.length} achievements unlocked</span>
+            </div>
+          )}
         </div>
       </div>
 
