@@ -9,16 +9,23 @@ export async function GET(request: Request) {
   const admin = await requireAdminApi(request);
   if (isApiError(admin)) return admin;
 
-  const status = new URL(request.url).searchParams.get("status") ?? "open";
+  const statusParam = new URL(request.url).searchParams.get("status") ?? "open";
   const assignee = new URL(request.url).searchParams.get("assignee");
 
   const where: {
     status?: string | { in: string[] };
     assignedAdminId?: string | null;
-  } =
-    status === "all"
-      ? {}
-      : { status };
+  } = {};
+
+  if (statusParam === "open") {
+    where.status = { in: ["open", "in_progress"] };
+  } else if (statusParam === "closed") {
+    where.status = "resolved";
+  } else if (statusParam === "all") {
+    // legacy: no status filter
+  } else {
+    where.status = statusParam;
+  }
 
   if (assignee === "unassigned") {
     where.assignedAdminId = null;

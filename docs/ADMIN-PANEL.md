@@ -15,6 +15,7 @@
 - **Unread badge** on Support tab when last message is from the user (and not yet read)
 - Green dot on ticket cards until opened
 - **Assign tickets** to admin users via dropdown on each ticket; filter by All / Assigned to me / Unassigned
+- **Open / Closed tabs** — open includes in-progress tickets; closed shows resolved
 - Assigning sets status to **in progress** when ticket was open; assignee gets an in-app notification
 - Email to `SUPPORT_ALERT_EMAIL` (default `support@livebooth.uk`) when enabled in Settings
 

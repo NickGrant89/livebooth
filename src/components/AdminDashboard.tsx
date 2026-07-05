@@ -113,6 +113,7 @@ export function AdminDashboard() {
   const [supportAdmins, setSupportAdmins] = useState<
     Array<{ id: string; username: string; displayName: string }>
   >([]);
+  const [supportStatusTab, setSupportStatusTab] = useState<"open" | "closed">("open");
   const [supportFilter, setSupportFilter] = useState<"all" | "me" | "unassigned">("all");
   const [promotions, setPromotions] = useState<PromotionsData | null>(null);
   const [treasury, setTreasury] = useState<TreasuryData | null>(null);
@@ -240,10 +241,13 @@ export function AdminDashboard() {
     if (res.ok) setModeration(await res.json());
   }
 
-  async function loadTickets(filter: "all" | "me" | "unassigned" = supportFilter) {
-    const q =
-      filter === "me" ? "?status=all&assignee=me" : filter === "unassigned" ? "?status=all&assignee=unassigned" : "?status=all";
-    const res = await apiFetch(`/api/admin/support${q}`);
+  async function loadTickets(
+    statusTab: "open" | "closed" = supportStatusTab,
+    assignee: "all" | "me" | "unassigned" = supportFilter,
+  ) {
+    const params = new URLSearchParams({ status: statusTab });
+    if (assignee !== "all") params.set("assignee", assignee);
+    const res = await apiFetch(`/api/admin/support?${params}`);
     if (res.ok) {
       const d = await res.json();
       setTickets(d.tickets ?? []);
@@ -1061,19 +1065,38 @@ export function AdminDashboard() {
         </div>
       ) : tab === "support" ? (
         <div className="space-y-3">
+          <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3">
+            {(["open", "closed"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  setSupportStatusTab(s);
+                  loadTickets(s, supportFilter);
+                }}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                  supportStatusTab === s
+                    ? "bg-red-500/15 border border-red-500/40 text-red-300"
+                    : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white"
+                }`}
+              >
+                {s === "open" ? "Open" : "Closed"}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-zinc-500 uppercase font-semibold">Filter</span>
+            <span className="text-xs text-zinc-500 uppercase font-semibold">Assignee</span>
             {(["all", "me", "unassigned"] as const).map((f) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => {
                   setSupportFilter(f);
-                  loadTickets(f);
+                  loadTickets(supportStatusTab, f);
                 }}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                   supportFilter === f
-                    ? "bg-red-500/15 border border-red-500/40 text-red-300"
+                    ? "bg-white/10 border border-white/20 text-white"
                     : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white"
                 }`}
               >
@@ -1082,7 +1105,10 @@ export function AdminDashboard() {
             ))}
           </div>
           {tickets.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No tickets</p>
+            <p className="text-zinc-500 text-sm">
+              No {supportStatusTab === "open" ? "open" : "closed"} tickets
+              {supportFilter !== "all" ? " for this filter" : ""}
+            </p>
           ) : tickets.map((t) => {
             const msgs = (t.messages as Array<{ id: string; senderRole: string; body: string; createdAt: string }>) ?? [];
             return (
