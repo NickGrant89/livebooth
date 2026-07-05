@@ -26,10 +26,9 @@ export type OnChainTreasuryStats = {
   explorerDropTokenUrl: string;
 };
 
-function resolveVeChainRpc(chain: typeof vechainTestnet): string {
+function resolveVeChainRpc(defaultUrl: string): string {
   const publicUrl = process.env.NEXT_PUBLIC_VECHAIN_RPC_URL?.trim();
   const devUrl = process.env.VECHAIN_TESTNET_RPC_URL?.trim();
-  const defaultUrl = chain.rpcUrls.default.http[0];
   const isLoopback = (u: string) => /^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(u);
   const preferPublic =
     process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
@@ -48,7 +47,7 @@ export async function getOnChainTreasuryStats(): Promise<OnChainTreasuryStats | 
   if (!contractsConfigured()) return null;
 
   const chain = getChain();
-  const rpc = resolveVeChainRpc(chain);
+  const rpc = resolveVeChainRpc(chain.rpcUrls.default.http[0]);
 
   try {
     const client = createPublicClient({
