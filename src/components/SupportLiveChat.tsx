@@ -44,7 +44,15 @@ function mergeMessages(prev: SupportMessagePayload[], incoming: SupportMessagePa
   );
 }
 
-export function SupportLiveChat({ compact = false }: { compact?: boolean }) {
+export function SupportLiveChat({
+  compact = false,
+  panelOpen = true,
+  onAdminReplyWhileClosed,
+}: {
+  compact?: boolean;
+  panelOpen?: boolean;
+  onAdminReplyWhileClosed?: (preview: string) => void;
+}) {
   const { user } = useAuth();
   const [email, setEmail] = useState(user?.email ?? "");
   const [category, setCategory] = useState("other");
@@ -88,6 +96,11 @@ export function SupportLiveChat({ compact = false }: { compact?: boolean }) {
         setMessages((prev) => {
           const merged = since ? mergeMessages(prev, data.messages) : data.messages;
           if (merged.length) lastAtRef.current = merged[merged.length - 1]!.createdAt;
+          if (!panelOpen && onAdminReplyWhileClosed) {
+            for (const m of data.messages) {
+              if (m.senderRole === "admin") onAdminReplyWhileClosed(m.body);
+            }
+          }
           return merged;
         });
       } else if (!since && data.messages) {
@@ -96,7 +109,7 @@ export function SupportLiveChat({ compact = false }: { compact?: boolean }) {
     } catch {
       /* polling best-effort */
     }
-  }, []);
+  }, [panelOpen, onAdminReplyWhileClosed]);
 
   useEffect(() => {
     const stored = loadStoredSession();

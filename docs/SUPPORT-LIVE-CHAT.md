@@ -26,7 +26,11 @@ Fans, DJs, and station owners can open **live support chat** at [/support](https
 | `POST /api/admin/support/messages` | Admin reply |
 | `POST /api/support/tickets` | Legacy one-shot form (also creates message) |
 
-## Migration
+## Notifications
+
+- **User:** in-app bell + optional browser push when support replies (signed-in users)
+- **Widget:** red badge on the chat button when a reply arrives while closed; browser notification if permission granted
+- **Admin:** in-app bell + push when a user starts chat or sends a message → links to `/admin`
 
 ```bash
 npx prisma migrate deploy

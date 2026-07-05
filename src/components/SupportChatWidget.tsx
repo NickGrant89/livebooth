@@ -1,18 +1,41 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 import { SupportLiveChat } from "@/components/SupportLiveChat";
 
 const HIDDEN_PREFIXES = ["/embed", "/support", "/admin"];
 
+function showBrowserNotification(title: string, body: string) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    new Notification(title, { body: body.slice(0, 120), tag: "livebooth-support" });
+  } catch {
+    /* ignore */
+  }
+}
+
 export function SupportChatWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+
+  const handleAdminReplyWhileClosed = useCallback((preview: string) => {
+    setUnread((n) => n + 1);
+    showBrowserNotification("Support replied", preview);
+  }, []);
 
   if (HIDDEN_PREFIXES.some((p) => pathname?.startsWith(p))) {
     return null;
+  }
+
+  function toggleOpen() {
+    setOpen((v) => {
+      if (!v) setUnread(0);
+      return !v;
+    });
   }
 
   return (
@@ -38,19 +61,28 @@ export function SupportChatWidget() {
             </button>
           </div>
           <div className="p-3">
-            <SupportLiveChat compact />
+            <SupportLiveChat
+              compact
+              panelOpen={open}
+              onAdminReplyWhileClosed={handleAdminReplyWhileClosed}
+            />
           </div>
         </div>
       </div>
 
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#53fc18] text-black shadow-lg shadow-[#53fc18]/25 hover:scale-105 active:scale-95 transition-transform"
+        onClick={toggleOpen}
+        className="pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full bg-[#53fc18] text-black shadow-lg shadow-[#53fc18]/25 hover:scale-105 active:scale-95 transition-transform"
         aria-label={open ? "Close support chat" : "Open support chat"}
         aria-expanded={open}
       >
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        {!open && unread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
       </button>
     </div>
   );

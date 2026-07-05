@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
 import { requireAdminApi, logAdminAction } from "@/lib/admin";
+import { WELCOME_BONUS } from "@/lib/constants";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 export async function GET(request: Request) {
@@ -81,5 +83,81 @@ export async function PATCH(request: Request) {
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid request");
     return error("Update failed", 500);
+  }
+}
+
+const createSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  username: z.string().min(3).max(20).regex(/^[a-z0-9_]+$/),
+  displayName: z.string().min(1).max(50),
+  role: z.enum(["fan", "dj", "station", "admin"]).default("fan"),
+});
+
+export async function POST(request: Request) {
+  const admin = await requireAdminApi(request);
+  if (isApiError(admin)) return admin;
+
+  try {
+    const body = createSchema.parse(await request.json());
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ email: body.email }, { username: body.username }] },
+    });
+    if (existing) return error("Email or username already taken", 409);
+
+    const passwordHash = await bcrypt.hash(body.password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email: body.email,
+        username: body.username,
+        displayName: body.displayName,
+        passwordHash,
+        role: body.role,
+        avatar: body.displayName.slice(0, 2).toUpperCase(),
+        balance: { create: { balance: WELCOME_BONUS, totalEarned: 0 } },
+      },
+    });
+
+    await logAdminAction(admin.id, "user_create", user.id, { role: body.role }, request);
+    return json({
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+      },
+    });
+  } catch (e) {
+    if (e instanceof z.ZodError) return error(e.issues[0]?.message ?? "Invalid input");
+    return error("Create failed", 500);
+  }
+}
+
+const deleteSchema = z.object({ userId: z.string() });
+
+export async function DELETE(request: Request) {
+  const admin = await requireAdminApi(request);
+  if (isApiError(admin)) return admin;
+
+  try {
+    const body = deleteSchema.parse(await request.json());
+    if (body.userId === admin.id) return error("Cannot delete your own account", 400);
+
+    const user = await prisma.user.findUnique({ where: { id: body.userId } });
+    if (!user) return error("User not found", 404);
+
+    if (user.role === "admin") {
+      const adminCount = await prisma.user.count({ where: { role: "admin" } });
+      if (adminCount <= 1) return error("Cannot delete the last admin account", 400);
+    }
+
+    await prisma.user.delete({ where: { id: body.userId } });
+    await logAdminAction(admin.id, "user_delete", body.userId, { username: user.username }, request);
+    return json({ ok: true });
+  } catch (e) {
+    if (e instanceof z.ZodError) return error("Invalid request");
+    console.error("admin user delete:", e);
+    return error("Delete failed — user may have linked data that blocks removal", 500);
   }
 }

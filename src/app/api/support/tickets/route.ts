@@ -1,6 +1,7 @@
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { json, error } from "@/lib/api-utils";
+import { notifyAdminsSupportMessage } from "@/lib/support-notifications";
 import { z } from "zod";
 
 const schema = z.object({
@@ -32,6 +33,13 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    notifyAdminsSupportMessage(
+      { id: ticket.id, subject: ticket.subject, email: ticket.email },
+      body.body,
+      { isNew: true },
+    ).catch((err) => console.error("support ticket notification:", err));
+
     return json({ ok: true, ticketId: ticket.id });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Please fill all fields correctly");

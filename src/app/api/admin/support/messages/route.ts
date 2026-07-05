@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
 import { requireAdminApi, logAdminAction } from "@/lib/admin";
 import { appendSupportMessage, serializeSupportMessage } from "@/lib/support-chat";
+import { notifyAdminsSupportMessage, notifySupportReply } from "@/lib/support-notifications";
 import { z } from "zod";
 
 const schema = z.object({
@@ -20,6 +21,10 @@ export async function POST(request: Request) {
 
     const message = await appendSupportMessage(body.ticketId, "admin", body.body, admin.id);
     await logAdminAction(admin.id, "support_reply", body.ticketId, { preview: body.body.slice(0, 80) }, request);
+
+    notifySupportReply(ticket, body.body).catch((err) =>
+      console.error("support reply notification:", err),
+    );
 
     return json({ message: serializeSupportMessage(message) });
   } catch (e) {

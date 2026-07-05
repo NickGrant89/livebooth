@@ -124,6 +124,22 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [accessError, setAccessError] = useState("");
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    username: "",
+    email: "",
+    displayName: "",
+    password: "",
+    role: "fan",
+  });
+  const [showCreateStation, setShowCreateStation] = useState(false);
+  const [createStationForm, setCreateStationForm] = useState({
+    ownerUsername: "",
+    slug: "",
+    name: "",
+    tagline: "",
+    tier: "community",
+  });
 
   const tabs: { id: Tab; label: string; icon: typeof Shield }[] = [
     { id: "overview", label: "Overview", icon: Shield },
@@ -332,6 +348,74 @@ export function AdminDashboard() {
     }
   }
 
+  async function createUser(e: React.FormEvent) {
+    e.preventDefault();
+    const res = await apiFetch("/api/admin/users", {
+      method: "POST",
+      body: JSON.stringify(createUserForm),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg(`Created @${data.user.username}`);
+      setCreateUserForm({ username: "", email: "", displayName: "", password: "", role: "fan" });
+      setShowCreateUser(false);
+      loadUsers(search);
+      loadOverview();
+    } else {
+      setMsg(String(data.error ?? "Create failed"));
+    }
+  }
+
+  async function deleteUser(userId: string, username: string) {
+    if (!confirm(`Permanently delete @${username}? This cannot be undone.`)) return;
+    const res = await apiFetch("/api/admin/users", {
+      method: "DELETE",
+      body: JSON.stringify({ userId }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg(`Deleted @${username}`);
+      loadUsers(search);
+      loadOverview();
+    } else {
+      setMsg(String(data.error ?? "Delete failed"));
+    }
+  }
+
+  async function createStation(e: React.FormEvent) {
+    e.preventDefault();
+    const res = await apiFetch("/api/admin/stations", {
+      method: "POST",
+      body: JSON.stringify(createStationForm),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg(`Created station /${data.station.slug}`);
+      setCreateStationForm({ ownerUsername: "", slug: "", name: "", tagline: "", tier: "community" });
+      setShowCreateStation(false);
+      loadStations(stationSearch);
+      loadOverview();
+    } else {
+      setMsg(String(data.error ?? "Create failed"));
+    }
+  }
+
+  async function deleteStation(stationId: string, slug: string) {
+    if (!confirm(`Delete station /${slug}? Residents, followers, and stakes will be removed.`)) return;
+    const res = await apiFetch("/api/admin/stations", {
+      method: "DELETE",
+      body: JSON.stringify({ stationId }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg(`Deleted /${slug}`);
+      loadStations(stationSearch);
+      loadOverview();
+    } else {
+      setMsg(String(data.error ?? "Delete failed"));
+    }
+  }
+
   async function updateTicket(ticketId: string, status: string) {
     await apiFetch("/api/admin/support", {
       method: "PATCH",
@@ -423,13 +507,37 @@ export function AdminDashboard() {
         </div>
       ) : tab === "users" ? (
         <div className="space-y-4">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && loadUsers(search)}
-            placeholder="Search username, email…"
-            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
-          />
+          <div className="flex flex-wrap gap-2 items-center justify-between">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && loadUsers(search)}
+              placeholder="Search username, email…"
+              className="flex-1 min-w-[200px] rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCreateUser((v) => !v)}
+              className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black"
+            >
+              {showCreateUser ? "Cancel" : "Add user"}
+            </button>
+          </div>
+          {showCreateUser && (
+            <form onSubmit={createUser} className="rounded-xl border border-[#53fc18]/30 bg-[#141416] p-4 grid gap-3 sm:grid-cols-2">
+              <input required value={createUserForm.username} onChange={(e) => setCreateUserForm((f) => ({ ...f, username: e.target.value }))} placeholder="username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <input required type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm((f) => ({ ...f, email: e.target.value }))} placeholder="email" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <input required value={createUserForm.displayName} onChange={(e) => setCreateUserForm((f) => ({ ...f, displayName: e.target.value }))} placeholder="Display name" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <input required type="password" minLength={6} value={createUserForm.password} onChange={(e) => setCreateUserForm((f) => ({ ...f, password: e.target.value }))} placeholder="Password (min 6)" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <select value={createUserForm.role} onChange={(e) => setCreateUserForm((f) => ({ ...f, role: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm">
+                <option value="fan">fan</option>
+                <option value="dj">dj</option>
+                <option value="station">station</option>
+                <option value="admin">admin</option>
+              </select>
+              <button type="submit" className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black sm:col-span-2">Create user</button>
+            </form>
+          )}
           <div className="space-y-2">
             {users.map((u) => (
               <div key={String(u.id)} className="rounded-xl border border-white/10 bg-[#141416] p-4 flex flex-wrap gap-3 items-center justify-between">
@@ -453,6 +561,7 @@ export function AdminDashboard() {
                   ) : (
                     <button type="button" onClick={() => updateUser(String(u.id), { suspend: true, suspendReason: "Admin suspension" })} className="text-xs text-red-400 underline">Suspend</button>
                   )}
+                  <button type="button" onClick={() => deleteUser(String(u.id), String(u.username))} className="text-xs text-red-400 underline">Delete</button>
                 </div>
               </div>
             ))}
@@ -845,13 +954,36 @@ export function AdminDashboard() {
         </div>
       ) : tab === "stations" ? (
         <div className="space-y-4">
-          <input
-            value={stationSearch}
-            onChange={(e) => setStationSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && loadStations(stationSearch)}
-            placeholder="Search station slug, name, owner…"
-            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
-          />
+          <div className="flex flex-wrap gap-2 items-center justify-between">
+            <input
+              value={stationSearch}
+              onChange={(e) => setStationSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && loadStations(stationSearch)}
+              placeholder="Search station slug, name, owner…"
+              className="flex-1 min-w-[200px] rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCreateStation((v) => !v)}
+              className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black"
+            >
+              {showCreateStation ? "Cancel" : "Add station"}
+            </button>
+          </div>
+          {showCreateStation && (
+            <form onSubmit={createStation} className="rounded-xl border border-[#53fc18]/30 bg-[#141416] p-4 grid gap-3 sm:grid-cols-2">
+              <input required value={createStationForm.ownerUsername} onChange={(e) => setCreateStationForm((f) => ({ ...f, ownerUsername: e.target.value }))} placeholder="Owner username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <input required value={createStationForm.slug} onChange={(e) => setCreateStationForm((f) => ({ ...f, slug: e.target.value }))} placeholder="URL slug" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <input required value={createStationForm.name} onChange={(e) => setCreateStationForm((f) => ({ ...f, name: e.target.value }))} placeholder="Station name" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm sm:col-span-2" />
+              <input value={createStationForm.tagline} onChange={(e) => setCreateStationForm((f) => ({ ...f, tagline: e.target.value }))} placeholder="Tagline (optional)" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm sm:col-span-2" />
+              <select value={createStationForm.tier} onChange={(e) => setCreateStationForm((f) => ({ ...f, tier: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm">
+                <option value="community">community</option>
+                <option value="pro">pro</option>
+                <option value="network">network</option>
+              </select>
+              <button type="submit" className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black">Create station</button>
+            </form>
+          )}
           <div className="space-y-2">
             {stations.length === 0 ? (
               <p className="text-zinc-500 text-sm">No stations found.</p>
@@ -876,15 +1008,18 @@ export function AdminDashboard() {
                       {String(s.residentCount)} residents · {String(s.followerCount)} followers
                     </p>
                   </div>
-                  <select
-                    defaultValue={String(s.tier)}
-                    onChange={(e) => updateStation(String(s.id), e.target.value)}
-                    className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs"
-                  >
-                    <option value="community">community</option>
-                    <option value="pro">pro</option>
-                    <option value="network">network</option>
-                  </select>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <select
+                      defaultValue={String(s.tier)}
+                      onChange={(e) => updateStation(String(s.id), e.target.value)}
+                      className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs"
+                    >
+                      <option value="community">community</option>
+                      <option value="pro">pro</option>
+                      <option value="network">network</option>
+                    </select>
+                    <button type="button" onClick={() => deleteStation(String(s.id), String(s.slug))} className="text-xs text-red-400 underline">Delete</button>
+                  </div>
                 </div>
               ))
             )}

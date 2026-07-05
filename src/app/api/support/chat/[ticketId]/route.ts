@@ -6,6 +6,7 @@ import {
   getTicketForAccess,
   serializeSupportMessage,
 } from "@/lib/support-chat";
+import { notifyAdminsSupportMessage } from "@/lib/support-notifications";
 import { z } from "zod";
 
 const messageSchema = z.object({
@@ -75,6 +76,11 @@ export async function POST(
       body.body,
       session?.id,
     );
+
+    notifyAdminsSupportMessage(
+      { id: ticket.id, subject: ticket.subject, email: ticket.email },
+      body.body,
+    ).catch((err) => console.error("support user message notification:", err));
 
     return json({ message: serializeSupportMessage(message) });
   } catch (e) {

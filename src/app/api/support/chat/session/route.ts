@@ -2,6 +2,7 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { json, error } from "@/lib/api-utils";
 import { appendSupportMessage, serializeSupportMessage } from "@/lib/support-chat";
+import { notifyAdminsSupportMessage } from "@/lib/support-notifications";
 import { z } from "zod";
 
 const startSchema = z.object({
@@ -42,6 +43,12 @@ export async function POST(request: Request) {
         messages: { orderBy: { createdAt: "asc" }, take: 1 },
       },
     });
+
+    notifyAdminsSupportMessage(
+      { id: ticket.id, subject: ticket.subject, email: ticket.email },
+      body.message.trim(),
+      { isNew: true },
+    ).catch((err) => console.error("support chat start notification:", err));
 
     return json({
       ticketId: ticket.id,
