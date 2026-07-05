@@ -180,9 +180,12 @@ model StreamCollab {
   streamId        String  @unique
   partnerDjId     String
   partnerStreamId String? @unique
-  splitRatio      Float   @default(0.5)
-  status          String  @default("pending")
-  stream          Stream  @relation("CollabHostStream", fields: [streamId], references: [id], onDelete: Cascade)
+  splitRatio            Float     @default(0.5)
+  status                String    @default("pending")
+  compositorActive      Boolean   @default(false)
+  compositedIngestKey   String?
+  compositorStartedAt   DateTime?
+  stream                Stream    @relation("CollabHostStream", fields: [streamId], references: [id], onDelete: Cascade)
   partnerStream   Stream? @relation("CollabPartnerStream", fields: [partnerStreamId], references: [id], onDelete: SetNull)
 }
 

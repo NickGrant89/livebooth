@@ -12,7 +12,8 @@ import { NowPlayingBar } from "@/components/NowPlayingBar";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
-import { isDemoPlayback, resolveLivePlaybackUrl } from "@/lib/streaming";
+import { isDemoPlayback } from "@/lib/streaming";
+import { resolveCollabViewerPlaybackUrl } from "@/lib/collab-compositor";
 import { RequestQueue } from "@/components/RequestQueue";
 import { StreamPageGuide } from "@/components/StreamPageGuide";
 import { QuestStreamChip } from "@/components/QuestStreamChip";
@@ -64,7 +65,20 @@ export default async function StreamPage({
   });
   if (!stream) redirect(`/dj/${username}`);
 
-  const playbackUrl = resolveLivePlaybackUrl(stream.status, stream.ingestKey, stream.playbackUrl);
+  const collabPlayback =
+    stream.collab?.status === "active"
+      ? {
+          compositorActive: stream.collab.compositorActive,
+          compositedIngestKey: stream.collab.compositedIngestKey,
+        }
+      : null;
+
+  const playbackUrl = resolveCollabViewerPlaybackUrl(
+    stream.status,
+    stream.ingestKey,
+    stream.playbackUrl,
+    collabPlayback,
+  );
 
   const partnerUser =
     stream.collab?.status === "active"
@@ -75,14 +89,16 @@ export default async function StreamPage({
       : null;
 
   const partnerLive =
+    !stream.collab?.compositorActive &&
     stream.collab?.status === "active" &&
     stream.collab.partnerStream?.status === "live"
       ? {
           name: partnerUser?.displayName ?? "Partner",
-          playbackUrl: resolveLivePlaybackUrl(
+          playbackUrl: resolveCollabViewerPlaybackUrl(
             stream.collab.partnerStream.status,
             stream.collab.partnerStream.ingestKey,
             stream.collab.partnerStream.playbackUrl,
+            null,
           )!,
           ingestKey: stream.collab.partnerStream.ingestKey,
         }
@@ -121,6 +137,7 @@ export default async function StreamPage({
                   : null
               }
               collabPartner={partnerLive}
+              compositorMixed={Boolean(stream.collab?.compositorActive)}
             />
           </div>
 

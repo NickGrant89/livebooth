@@ -20,3 +20,17 @@ services:
       - "127.0.0.1:8888:8888"    # HLS — localhost only; reverse-proxy via Caddy
       - "127.0.0.1:9997:9997"    # MediaMTX API — optional, keep private
     command: /mediamtx.yml
+
+  compositor:
+    build: ./compositor
+    container_name: livebooth-compositor
+    restart: unless-stopped
+    environment:
+      COMPOSITOR_SECRET: ${COMPOSITOR_SECRET:-}
+      MEDIAMTX_RTMP_URL: rtmp://mediamtx:1935/live
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      COMPOSITOR_PORT: 8090
+    ports:
+      - "127.0.0.1:8090:8090"    # Caddy → compositor.livebooth.uk for Vercel callbacks
+    depends_on:
+      - mediamtx

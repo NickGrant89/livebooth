@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "./db";
 import { resolveRecordingVodUrlWithRetry } from "./vod-recording";
+import { deactivateCollabCompositor, resolveCollabVodIngestKey } from "./collab-compositor";
 import {
   DEMO_HLS,
   isDemoPlayback,
@@ -258,6 +259,15 @@ export async function endStreamSession(streamId: string, djId: string) {
     where: { streamId },
     include: { partnerStream: true },
   });
+  const hostVodCollab = hostCollab
+    ? {
+        compositorActive: hostCollab.compositorActive,
+        compositedIngestKey: hostCollab.compositedIngestKey,
+      }
+    : null;
+  if (hostCollab) {
+    await deactivateCollabCompositor(hostCollab.id);
+  }
   if (hostCollab?.partnerStreamId && hostCollab.partnerStream?.status !== "ended") {
     await endStreamSession(hostCollab.partnerStreamId, hostCollab.partnerDjId);
     await prisma.streamCollab.update({
@@ -270,6 +280,7 @@ export async function endStreamSession(streamId: string, djId: string) {
     where: { partnerStreamId: streamId, status: "active" },
   });
   if (partnerCollab) {
+    await deactivateCollabCompositor(partnerCollab.id);
     await prisma.streamCollab.update({
       where: { id: partnerCollab.id },
       data: { status: "ended" },
@@ -277,8 +288,9 @@ export async function endStreamSession(streamId: string, djId: string) {
   }
 
   let vodUrl = stream.playbackUrl;
-  if (stream.ingestKey && isLocalRtmpMode()) {
-    const recorded = await resolveRecordingVodUrlWithRetry(stream.ingestKey);
+  const vodIngestKey = resolveCollabVodIngestKey(stream.ingestKey, hostVodCollab ?? undefined);
+  if (vodIngestKey && isLocalRtmpMode()) {
+    const recorded = await resolveRecordingVodUrlWithRetry(vodIngestKey);
     if (recorded) vodUrl = recorded;
   }
 

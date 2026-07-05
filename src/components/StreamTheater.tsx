@@ -14,6 +14,7 @@ interface StreamTheaterProps {
   startedAt?: string | null;
   demoPlayback?: boolean;
   station?: { slug: string; name: string; avatar: string; avatarUrl?: string | null } | null;
+  compositorMixed?: boolean;
   collabPartner?: {
     name: string;
     playbackUrl: string;
@@ -30,6 +31,7 @@ export function StreamTheater({
   startedAt,
   demoPlayback = false,
   station,
+  compositorMixed = false,
   collabPartner,
 }: StreamTheaterProps) {
   const [watching, setWatching] = useState(0);
@@ -62,6 +64,11 @@ export function StreamTheater({
             ingestKey={collabPartner.ingestKey}
             partnerName={collabPartner.name}
           />
+        )}
+        {compositorMixed && (
+          <span className="absolute top-14 left-4 z-30 rounded-md bg-[#53fc18]/20 border border-[#53fc18]/40 px-2 py-0.5 text-[10px] font-bold uppercase text-[#53fc18] backdrop-blur-sm">
+            B2B mix · synced audio
+          </span>
         )}
       </div>
     </>

@@ -1,4 +1,5 @@
 import { publishStreamSession, getRtmpIngestUrl, getIngestModeForStream, resolveLivePlaybackUrl } from "@/lib/streaming";
+import { tryActivateCollabCompositor } from "@/lib/collab-compositor";
 import { evaluateAchievements } from "@/lib/achievements";
 import {
   notifyFollowersGoLive,
@@ -61,6 +62,14 @@ export async function POST(request: Request) {
     const stream = await publishStreamSession(body.streamId, auth.id);
     if (!stream) return error("Could not publish stream", 400);
 
+    const hostCollab = await prisma.streamCollab.findUnique({
+      where: { streamId: stream.id },
+    });
+    const compositor =
+      hostCollab?.status === "active"
+        ? await tryActivateCollabCompositor(hostCollab.id)
+        : null;
+
     const dj = await prisma.user.findUnique({ where: { id: auth.id } });
     const station = await getStationForDj(auth.id);
     if (dj) {
@@ -78,7 +87,7 @@ export async function POST(request: Request) {
       await evaluateAchievements(auth.id);
     }
 
-    return json({ stream: serializeGoLiveStream(stream), alreadyPublished: false });
+    return json({ stream: serializeGoLiveStream(stream), alreadyPublished: false, compositor });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid request");
     console.error("go-live publish:", e);

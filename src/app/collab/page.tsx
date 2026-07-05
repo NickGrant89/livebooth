@@ -30,6 +30,7 @@ interface Collab {
   role: "host" | "partner";
   canRespond: boolean;
   hostStreamStatus?: string;
+  compositorActive?: boolean;
   partnerStream?: PartnerStream | null;
 }
 
@@ -133,8 +134,8 @@ export default function CollabPage() {
         Collab Mode
       </h1>
       <p className="text-zinc-400 mb-8">
-        Remote B2B sets — each DJ streams from their own location. Fans see both feeds on the host booth;
-        tips split by your chosen ratio.
+        Remote B2B sets — each DJ streams from their own location. When both feeds are live, LiveBooth
+        mixes video and audio into one synced booth on the host page. Tips split by your chosen ratio.
       </p>
 
       {user.role === "dj" && !myPartnerCollab && (
@@ -239,11 +240,14 @@ export default function CollabPage() {
                   {c.host} + {c.partner} · partner {Math.round(c.splitRatio * 100)}% / host{" "}
                   {Math.round((1 - c.splitRatio) * 100)}%
                 </p>
+                {c.role === "host" && c.compositorActive && (
+                  <p className="text-xs text-[#53fc18] mt-1">Synced B2B mix active — one stream for fans</p>
+                )}
+                {c.role === "host" && !c.compositorActive && c.partnerStream?.status === "live" && (
+                  <p className="text-xs text-amber-400/90 mt-1">Building synced mix… (PiP fallback until ready)</p>
+                )}
                 {c.role === "host" && c.partnerStream?.status === "preparing" && (
                   <p className="text-xs text-amber-400/90 mt-1">Waiting for partner OBS feed…</p>
-                )}
-                {c.role === "host" && c.partnerStream?.status === "live" && (
-                  <p className="text-xs text-[#53fc18] mt-1">Partner video connected</p>
                 )}
                 <Link
                   href={`/stream/${c.hostUsername}`}

@@ -118,9 +118,15 @@ export default function DjGuidePage() {
       <GuideSection id="collab" title="Collab & B2B">
         <GuideStep n={1} title="Collab mode">
           Invite another DJ from <Link href="/collab" className="text-[#53fc18] hover:underline">/collab</Link>.
-          When active on a stream, tips split between host and partner per your agreed ratio.
+          When both feeds are live, LiveBooth mixes host + partner into one synced stream (DJ + MC audio and video).
+          Tips split between host and partner per your agreed ratio.
         </GuideStep>
-        <GuideStep n={2} title="Station residencies">
+        <GuideStep n={2} title="How to run a B2B set">
+          Host goes live first and sends a collab invite. Partner accepts, streams from their location, and publishes.
+          When both OBS feeds are connected, the server compositor builds one booth — fans watch the host page only.
+          Both DJs should enable audio in OBS (mic or stream audio) for the mix.
+        </GuideStep>
+        <GuideStep n={3} title="Station residencies">
           Radio stations can add you as a resident. Your shows appear on their channel and tips may split{" "}
           {Math.round(STATION_TIP_DJ_SHARE * 100)}% DJ / {Math.round(STATION_TIP_STATION_SHARE * 100)}% station / 10% platform.
           When you go live as a resident, the stream shows &quot;Presented by [Station]&quot;.

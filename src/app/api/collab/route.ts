@@ -12,6 +12,7 @@ import {
   notifyCollabDeclined,
   notifyCollabInvite,
 } from "@/lib/notifications";
+import { tryActivateCollabCompositor } from "@/lib/collab-compositor";
 import { z } from "zod";
 
 const inviteSchema = z.object({
@@ -73,6 +74,7 @@ export async function GET() {
         role: isPartner ? ("partner" as const) : ("host" as const),
         canRespond: isPartner && c.status === "pending",
         hostStreamStatus: c.stream.status,
+        compositorActive: c.compositorActive,
         partnerStream: c.partnerStream ? serializePartnerStream(c.partnerStream) : null,
       };
     }),
@@ -233,5 +235,7 @@ export async function PUT(request: Request) {
   const stream = await publishStreamSession(streamId, auth.id);
   if (!stream) return error("Could not publish partner feed", 400);
 
-  return json({ stream: serializePartnerStream(stream) });
+  const compositor = await tryActivateCollabCompositor(collab.id);
+
+  return json({ stream: serializePartnerStream(stream), compositor });
 }
