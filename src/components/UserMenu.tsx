@@ -18,6 +18,7 @@ export function UserMenu({ user }: { user: AuthUser }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const isDj = user.role === "dj" || user.role === "admin";
+  const isStation = user.role === "station";
 
   useEffect(() => {
     if (!open) return;
@@ -63,6 +64,20 @@ export function UserMenu({ user }: { user: AuthUser }) {
           role="menu"
           className="absolute right-0 top-[calc(100%+6px)] z-50 w-52 rounded-xl border border-white/10 bg-[#121214] py-1.5 shadow-xl shadow-black/40"
         >
+          {isStation && (
+            <>
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 hover:text-white"
+              >
+                <UserCircle className="h-4 w-4 text-zinc-500" />
+                Station dashboard
+              </Link>
+              <div className="my-1 border-t border-white/10" />
+            </>
+          )}
           {isDj && (
             <>
               <Link

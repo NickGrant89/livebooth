@@ -61,6 +61,34 @@ export async function getStationForDj(djId: string) {
   return resident?.station ?? null;
 }
 
+export async function getStationAffiliationForUser(userId: string) {
+  const [owned, resident] = await Promise.all([
+    prisma.radioStation.findUnique({
+      where: { ownerId: userId },
+      select: { slug: true, name: true, avatar: true },
+    }),
+    prisma.stationResident.findFirst({
+      where: { djId: userId },
+      select: {
+        showTitle: true,
+        station: { select: { slug: true, name: true, avatar: true } },
+      },
+    }),
+  ]);
+
+  if (owned) {
+    return { kind: "owner" as const, station: owned };
+  }
+  if (resident) {
+    return {
+      kind: "resident" as const,
+      station: resident.station,
+      showTitle: resident.showTitle,
+    };
+  }
+  return null;
+}
+
 export async function getLiveStreamForStation(stationId: string) {
   const include = {
     dj: { select: { username: true, displayName: true, avatar: true } },

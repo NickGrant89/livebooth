@@ -39,7 +39,7 @@ export function FollowButton({ username }: { username: string }) {
     <button
       onClick={toggle}
       disabled={loading || !checked}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold transition-all disabled:opacity-50 flex-1 sm:flex-none min-w-0 ${
+        className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 sm:px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 shrink-0 ${
         following
           ? "bg-white/[0.08] border border-white/15 text-zinc-300"
           : "bg-[#53fc18]/10 border border-[#53fc18]/30 text-[#53fc18] hover:bg-[#53fc18]/20"

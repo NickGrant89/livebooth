@@ -8,6 +8,7 @@ import { StakePanel } from "@/components/StakePanel";
 import { DjArchiveList, DjProfileTabs } from "@/components/DjArchiveList";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { getStationAffiliationForUser } from "@/lib/stations";
 import { genreLabels, DROP_TOKEN_SYMBOL, DAY_LABELS, getCreatorTypeLabel } from "@/lib/constants";
 import { ShareProfileButton } from "@/components/ShareLiveButton";
 import { djProfileMetadata } from "@/lib/metadata-share";
@@ -59,7 +60,7 @@ export default async function DJProfilePage({
   });
   if (!dj) notFound();
 
-  const [liveStream, archiveStreams] = await Promise.all([
+  const [liveStream, archiveStreams, stationAffiliation] = await Promise.all([
     prisma.stream.findFirst({
       where: { djId: dj.id, status: "live" },
     }),
@@ -68,12 +69,52 @@ export default async function DJProfilePage({
       orderBy: { endedAt: "desc" },
       take: 50,
     }),
+    getStationAffiliationForUser(dj.id),
   ]);
 
   const lastSet = archiveStreams.find((s) => s.setGrade);
   const genres = JSON.parse(dj.genres || "[]") as string[];
   const isOwnProfile = session?.id === dj.id;
+  const isCreator = dj.role === "dj" || dj.role === "admin" || dj.role === "station";
   const isDj = dj.role === "dj" || dj.role === "admin";
+  const roleLabel =
+    dj.role === "station"
+      ? "Radio"
+      : isDj
+        ? getCreatorTypeLabel(dj.creatorType)
+        : null;
+
+  const profileActions = (
+    <>
+      {isOwnProfile && (
+        <Link
+          href="/settings"
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-[#141416] px-3 py-2.5 text-sm text-zinc-200 hover:bg-white/10"
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Edit profile</span>
+          <span className="sm:hidden">Edit</span>
+        </Link>
+      )}
+      <ShareProfileButton
+        username={dj.username}
+        djName={dj.displayName}
+        isLive={Boolean(liveStream)}
+      />
+      {liveStream && (
+        <Link
+          href={`/stream/${dj.username}`}
+          className="rounded-xl bg-red-500 px-3 py-2.5 text-sm font-bold text-white whitespace-nowrap"
+        >
+          Watch Live
+        </Link>
+      )}
+      {!isOwnProfile && <FollowButton username={dj.username} />}
+      {!liveStream && isCreator && !isOwnProfile && (
+        <SubscribeButton djUsername={dj.username} />
+      )}
+    </>
+  );
 
   const bannerSrc = profileImageSrc(dj.bannerUrl);
 
@@ -89,81 +130,73 @@ export default async function DJProfilePage({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="rounded-2xl border border-white/5 bg-[#141416] overflow-hidden">
-        <div className="relative z-0 h-32 shrink-0 overflow-hidden bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20">
+      <div className="rounded-2xl border border-white/5 bg-[#141416]">
+        <div className="relative h-28 sm:h-32 overflow-hidden rounded-t-2xl bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20">
           {bannerSrc && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={bannerSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
           )}
         </div>
-        <div className="relative z-10 px-4 sm:px-6 pb-6">
-          <div className="flex items-end justify-between gap-3 -mt-10 sm:-mt-12 mb-4">
-            <div className="relative z-10 shrink-0">
-              <ProfileAvatar
-                displayName={dj.displayName}
-                avatar={dj.avatar}
-                avatarUrl={dj.avatarUrl}
-                size="lg"
-                borderClassName="border-4 border-[#141416]"
-              />
-            </div>
-            <div className="flex gap-2 flex-wrap justify-end pb-0.5 min-w-0">
-              {isOwnProfile && (
-                <Link
-                  href="/settings"
-                  className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416]/90 px-3 sm:px-4 py-2 text-sm text-zinc-200 hover:bg-white/10 backdrop-blur-sm"
-                >
-                  <Settings className="h-4 w-4 shrink-0" />
-                  Edit profile
-                </Link>
-              )}
-              <ShareProfileButton
-                username={dj.username}
-                djName={dj.displayName}
-                isLive={Boolean(liveStream)}
-              />
-              {liveStream && (
-                <Link href={`/stream/${dj.username}`} className="rounded-lg bg-red-500 px-3 sm:px-4 py-2 text-sm font-bold text-white whitespace-nowrap">
-                  Watch Live
-                </Link>
-              )}
-              {!isOwnProfile && <FollowButton username={dj.username} />}
-              {!liveStream && isDj && !isOwnProfile && (
-                <SubscribeButton djUsername={dj.username} />
-              )}
+        <div className="px-4 sm:px-6 pb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between -mt-10 sm:-mt-12 mb-4">
+            <ProfileAvatar
+              displayName={dj.displayName}
+              avatar={dj.avatar}
+              avatarUrl={dj.avatarUrl}
+              size="lg"
+              borderClassName="border-4 border-[#141416]"
+              className="shrink-0"
+            />
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:max-w-[70%] sm:justify-end sm:pt-14">
+              {profileActions}
             </div>
           </div>
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-white">{dj.displayName}</h1>
-                {isDj && (
-                  <span className="rounded-full bg-[#53fc18]/10 border border-[#53fc18]/30 px-2.5 py-0.5 text-[10px] font-bold uppercase text-[#53fc18]">
-                    {getCreatorTypeLabel(dj.creatorType)}
-                  </span>
-                )}
-                {liveStream && (
-                  <Link href={`/stream/${dj.username}`} className="flex items-center gap-1 rounded-full bg-red-500/90 px-2.5 py-0.5 text-xs font-bold uppercase">
-                    <Radio className="h-3 w-3 animate-pulse" />
-                    Live
-                  </Link>
-                )}
-              </div>
-              <p className="text-sm text-zinc-300">@{dj.username}</p>
-              {lastSet?.setGrade && !liveStream && (
-                <p className="text-xs text-[#15CFF4] mt-1">
-                  Last set: Grade {lastSet.setGrade}
-                  {lastSet.setScore != null ? ` · ${lastSet.setScore.toLocaleString()} pts` : ""}
-                </p>
+              {roleLabel && (
+                <span className="rounded-full bg-[#53fc18]/10 border border-[#53fc18]/30 px-2.5 py-0.5 text-[10px] font-bold uppercase text-[#53fc18]">
+                  {roleLabel}
+                </span>
               )}
-              {dj.streamStreak > 1 && (
-                <p className="text-xs text-amber-400 mt-1">🔥 {dj.streamStreak}-week streaming streak</p>
-              )}
-              {dj.weeklySlotDay != null && dj.weeklySlotHour != null && (
-                <p className="text-xs text-zinc-500 mt-1">
-                  📅 {dj.weeklySlotLabel || "Weekly set"} — {DAY_LABELS[dj.weeklySlotDay]} {dj.weeklySlotHour}:00 UTC
-                </p>
+              {liveStream && (
+                <Link
+                  href={`/stream/${dj.username}`}
+                  className="flex items-center gap-1 rounded-full bg-red-500/90 px-2.5 py-0.5 text-xs font-bold uppercase"
+                >
+                  <Radio className="h-3 w-3 animate-pulse" />
+                  Live
+                </Link>
               )}
             </div>
+            <p className="text-sm text-zinc-300">@{dj.username}</p>
+            {stationAffiliation && (
+              <Link
+                href={`/station/${stationAffiliation.station.slug}`}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#53fc18] hover:underline mt-1"
+              >
+                <Radio className="h-3.5 w-3.5 shrink-0" />
+                {stationAffiliation.station.name}
+                <span className="text-zinc-500 font-normal">
+                  · {stationAffiliation.kind === "owner" ? "Station page" : "Resident on"}
+                </span>
+              </Link>
+            )}
+            {lastSet?.setGrade && !liveStream && (
+              <p className="text-xs text-[#15CFF4] mt-1">
+                Last set: Grade {lastSet.setGrade}
+                {lastSet.setScore != null ? ` · ${lastSet.setScore.toLocaleString()} pts` : ""}
+              </p>
+            )}
+            {dj.streamStreak > 1 && (
+              <p className="text-xs text-amber-400 mt-1">🔥 {dj.streamStreak}-week streaming streak</p>
+            )}
+            {dj.weeklySlotDay != null && dj.weeklySlotHour != null && (
+              <p className="text-xs text-zinc-500 mt-1">
+                📅 {dj.weeklySlotLabel || "Weekly set"} — {DAY_LABELS[dj.weeklySlotDay]} {dj.weeklySlotHour}:00 UTC
+              </p>
+            )}
+          </div>
           <p className="mt-3 text-zinc-300">{dj.bio || (isOwnProfile ? "Add a bio in settings →" : "")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {genres.map((g: string) => (
@@ -172,11 +205,11 @@ export default async function DJProfilePage({
               </span>
             ))}
           </div>
-          {isDj && (
+          {isCreator && (
             <ProfileOnChainStrip
               walletAddress={dj.walletAddress}
               isOwnProfile={isOwnProfile}
-              isDj={isDj}
+              isDj={isCreator}
             />
           )}
           <div className="mt-6 grid grid-cols-3 gap-4">
@@ -199,7 +232,7 @@ export default async function DJProfilePage({
         </div>
       </div>
 
-      {isDj && (
+      {isCreator && (
         <DjProfileTabs
           username={dj.username}
           activeTab={tab}
@@ -207,14 +240,14 @@ export default async function DJProfilePage({
         />
       )}
 
-      {tab === "archive" && isDj ? (
+      {tab === "archive" && isCreator ? (
         <section>
           <h2 className="text-lg font-bold mb-4">Set archive</h2>
           <p className="text-sm text-zinc-500 mb-4">
             {archiveStreams.length} replay{archiveStreams.length === 1 ? "" : "s"}
             {liveStream ? " · go live to add more" : ""}
           </p>
-          <DjArchiveList streams={archiveStreams} liveStreamId={liveStream?.id} canDelete={isOwnProfile && isDj} />
+          <DjArchiveList streams={archiveStreams} liveStreamId={liveStream?.id} canDelete={isOwnProfile && isCreator} />
         </section>
       ) : (
         <>
@@ -233,9 +266,9 @@ export default async function DJProfilePage({
             </div>
           </section>
 
-          {isDj && !isOwnProfile && <StakePanel djUsername={dj.username} />}
+          {isCreator && !isOwnProfile && <StakePanel djUsername={dj.username} />}
 
-          {isDj && archiveStreams.length > 0 && (
+          {isCreator && archiveStreams.length > 0 && (
             <section className="mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">Recent sets</h2>
