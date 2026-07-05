@@ -4,7 +4,7 @@ type ProfileAvatarProps = {
   displayName: string;
   avatar?: string;
   avatarUrl?: string | null;
-  size?: "xs" | "sm" | "md" | "lg" | "xl";
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
   className?: string;
   borderClassName?: string;
 };
@@ -15,6 +15,7 @@ const sizeClasses = {
   md: "h-12 w-12 text-sm rounded-xl",
   lg: "h-20 w-20 text-2xl rounded-2xl",
   xl: "h-24 w-24 text-2xl rounded-2xl",
+  "2xl": "h-28 w-28 text-3xl rounded-2xl",
 };
 
 export function ProfileAvatar({
@@ -34,14 +35,14 @@ export function ProfileAvatar({
       <img
         src={src}
         alt={displayName}
-        className={`object-cover bg-[#141416] ${sizeClasses[size]} ${borderClassName} ${className}`}
+        className={`shrink-0 object-cover bg-[#141416] ${sizeClasses[size]} ${borderClassName} ${className}`}
       />
     );
   }
 
   return (
     <div
-      className={`flex items-center justify-center bg-gradient-to-br from-[#53fc18] to-[#00d4aa] font-bold text-black ${sizeClasses[size]} ${borderClassName} ${className}`}
+      className={`shrink-0 flex items-center justify-center bg-gradient-to-br from-[#53fc18] to-[#00d4aa] font-bold text-black ${sizeClasses[size]} ${borderClassName} ${className}`}
     >
       {fallback}
     </div>

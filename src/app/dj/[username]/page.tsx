@@ -131,24 +131,26 @@ export default async function DJProfilePage({
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="rounded-2xl border border-white/5 bg-[#141416]">
-        <div className="relative h-28 sm:h-32 overflow-hidden rounded-t-2xl bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20">
+        <div className="relative h-32 sm:h-36 overflow-hidden rounded-t-2xl bg-gradient-to-r from-[#53fc18]/20 via-[#00d4aa]/10 to-purple-500/20">
           {bannerSrc && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={bannerSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
           )}
         </div>
         <div className="px-4 sm:px-6 pb-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between -mt-10 sm:-mt-12 mb-4">
-            <ProfileAvatar
-              displayName={dj.displayName}
-              avatar={dj.avatar}
-              avatarUrl={dj.avatarUrl}
-              size="lg"
-              borderClassName="border-4 border-[#141416]"
-              className="shrink-0"
-            />
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:max-w-[70%] sm:justify-end sm:pt-14">
-              {profileActions}
+          <div className="relative z-10 -mt-14 sm:-mt-16 mb-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <ProfileAvatar
+                displayName={dj.displayName}
+                avatar={dj.avatar}
+                avatarUrl={dj.avatarUrl}
+                size="2xl"
+                borderClassName="border-4 border-[#141416] shadow-lg shadow-black/40"
+                className="shrink-0"
+              />
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
+                {profileActions}
+              </div>
             </div>
           </div>
           <div className="space-y-1 min-w-0">
