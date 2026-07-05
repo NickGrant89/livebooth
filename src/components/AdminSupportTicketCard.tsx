@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, Send, UserRound } from "lucide-react";
 
 type Message = {
   id: string;
@@ -10,19 +10,47 @@ type Message = {
   createdAt: string;
 };
 
+type AdminOption = {
+  id: string;
+  username: string;
+  displayName: string;
+};
+
 type Props = {
   ticket: Record<string, unknown>;
   messages: Message[];
+  admins?: AdminOption[];
   unread?: boolean;
   onOpen?: () => void;
   onStatusChange: (status: string) => void;
+  onAssign?: (assignedAdminId: string | null) => void;
   onReply: (body: string) => Promise<void>;
 };
 
-export function SupportTicketAdminCard({ ticket, messages, unread, onOpen, onStatusChange, onReply }: Props) {
+export function SupportTicketAdminCard({
+  ticket,
+  messages,
+  admins = [],
+  unread,
+  onOpen,
+  onStatusChange,
+  onAssign,
+  onReply,
+}: Props) {
   const [open, setOpen] = useState(String(ticket.status) !== "resolved");
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  const markedRead = useRef(false);
+
+  const assignedAdmin = ticket.assignedAdmin as AdminOption | null | undefined;
+  const assignedAdminId = ticket.assignedAdminId ? String(ticket.assignedAdminId) : "";
+
+  useEffect(() => {
+    if (unread && open && onOpen && !markedRead.current) {
+      markedRead.current = true;
+      onOpen();
+    }
+  }, [unread, open, onOpen]);
 
   async function submitReply(e: React.FormEvent) {
     e.preventDefault();
@@ -39,8 +67,9 @@ export function SupportTicketAdminCard({ ticket, messages, unread, onOpen, onSta
         type="button"
         onClick={() => {
           setOpen((o) => {
-            if (!o) onOpen?.();
-            return !o;
+            const next = !o;
+            if (next && unread && onOpen) onOpen();
+            return next;
           });
         }}
         className="w-full flex items-start justify-between gap-2 p-4 text-left hover:bg-white/[0.02]"
@@ -53,6 +82,14 @@ export function SupportTicketAdminCard({ ticket, messages, unread, onOpen, onSta
           <p className="text-xs text-zinc-500 mt-0.5">
             {String(ticket.email)} · {String(ticket.category)} · {messages.length} msg
             {messages.length !== 1 ? "s" : ""}
+            {assignedAdmin ? (
+              <span className="text-zinc-400">
+                {" "}
+                · <UserRound className="inline h-3 w-3 -mt-0.5" /> {assignedAdmin.displayName}
+              </span>
+            ) : (
+              <span className="text-amber-500/80"> · Unassigned</span>
+            )}
           </p>
         </div>
         <select
@@ -69,6 +106,26 @@ export function SupportTicketAdminCard({ ticket, messages, unread, onOpen, onSta
 
       {open && (
         <div className="border-t border-white/10 px-4 pb-4">
+          {onAssign && admins.length > 0 && (
+            <div className="pt-3 flex flex-wrap items-center gap-2">
+              <label htmlFor={`assign-${String(ticket.id)}`} className="text-[10px] uppercase text-zinc-500 font-semibold">
+                Assign to
+              </label>
+              <select
+                id={`assign-${String(ticket.id)}`}
+                value={assignedAdminId}
+                onChange={(e) => onAssign(e.target.value || null)}
+                className="rounded-lg bg-white/5 border border-white/10 text-xs px-2 py-1.5 min-w-[160px]"
+              >
+                <option value="">Unassigned</option>
+                {admins.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.displayName} (@{a.username})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="max-h-64 overflow-y-auto space-y-2 py-3">
             {messages.length === 0 ? (
               <p className="text-xs text-zinc-500">{String(ticket.body)}</p>

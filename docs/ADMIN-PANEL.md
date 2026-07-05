@@ -12,8 +12,10 @@
 
 ## Support inbox
 
-- **Unread badge** on Support tab when last message is from the user
+- **Unread badge** on Support tab when last message is from the user (and not yet read)
 - Green dot on ticket cards until opened
+- **Assign tickets** to admin users via dropdown on each ticket; filter by All / Assigned to me / Unassigned
+- Assigning sets status to **in progress** when ticket was open; assignee gets an in-app notification
 - Email to `SUPPORT_ALERT_EMAIL` (default `support@livebooth.uk`) when enabled in Settings
 
 ## Admin 2FA
@@ -33,4 +35,4 @@ Stored in `PlatformStats` id `platform_settings`. Maintenance mode blocks non-ad
 
 ## Migration
 
-`20260705150000_admin_features` — adds `totpSecret`, `totpEnabled`, support ticket unread fields.
+`20260705170000_support_ticket_assignment` — `SupportTicket.assignedAdminId` for admin assignee.

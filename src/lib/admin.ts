@@ -3,6 +3,7 @@ import { prisma } from "./db";
 import { error } from "./api-utils";
 import { getSessionUser, type SessionUser } from "./auth";
 import { enforceRateLimit, getClientIp } from "./rate-limit";
+import { isSupportTicketUnread } from "./support-ticket-unread";
 
 const ADMIN_API_LIMIT = 120;
 const ADMIN_API_WINDOW_MS = 60 * 1000;
@@ -53,15 +54,21 @@ export async function logAdminAction(
 
 export async function getAdminStats() {
   const now = new Date();
-  const [users, liveStreams, openTickets, unreadSupport, flaggedStreams, reportsToday, stations, activePromotions] =
+  const [users, liveStreams, openTickets, unreadCandidates, flaggedStreams, reportsToday, stations, activePromotions] =
     await Promise.all([
       prisma.user.count(),
       prisma.stream.count({ where: { status: "live" } }),
       prisma.supportTicket.count({ where: { status: { in: ["open", "in_progress"] } } }),
-      prisma.supportTicket.count({
+      prisma.supportTicket.findMany({
         where: {
           status: { in: ["open", "in_progress"] },
           lastMessageRole: "user",
+        },
+        select: {
+          status: true,
+          lastMessageRole: true,
+          lastMessageAt: true,
+          adminReadAt: true,
         },
       }),
       prisma.stream.count({
@@ -75,6 +82,8 @@ export async function getAdminStats() {
         where: { promotionTier: { not: null }, promotedUntil: { gt: now } },
       }),
     ]);
+
+  const unreadSupport = unreadCandidates.filter(isSupportTicketUnread).length;
 
   return { users, liveStreams, openTickets, unreadSupport, flaggedStreams, reportsToday, stations, activePromotions };
 }

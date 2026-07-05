@@ -110,6 +110,10 @@ export function AdminDashboard() {
     ai?: { provider: string; configured: boolean; stopThreshold: number; flagThreshold: number };
   } | null>(null);
   const [tickets, setTickets] = useState<Array<Record<string, unknown>>>([]);
+  const [supportAdmins, setSupportAdmins] = useState<
+    Array<{ id: string; username: string; displayName: string }>
+  >([]);
+  const [supportFilter, setSupportFilter] = useState<"all" | "me" | "unassigned">("all");
   const [promotions, setPromotions] = useState<PromotionsData | null>(null);
   const [treasury, setTreasury] = useState<TreasuryData | null>(null);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawRow[]>([]);
@@ -236,11 +240,14 @@ export function AdminDashboard() {
     if (res.ok) setModeration(await res.json());
   }
 
-  async function loadTickets() {
-    const res = await apiFetch("/api/admin/support?status=all");
+  async function loadTickets(filter: "all" | "me" | "unassigned" = supportFilter) {
+    const q =
+      filter === "me" ? "?status=all&assignee=me" : filter === "unassigned" ? "?status=all&assignee=unassigned" : "?status=all";
+    const res = await apiFetch(`/api/admin/support${q}`);
     if (res.ok) {
       const d = await res.json();
       setTickets(d.tickets ?? []);
+      setSupportAdmins(d.admins ?? []);
     }
   }
 
@@ -444,6 +451,18 @@ export function AdminDashboard() {
       body: JSON.stringify({ ticketId }),
     });
     loadOverview();
+    loadTickets();
+  }
+
+  async function assignTicket(ticketId: string, assignedAdminId: string | null) {
+    const res = await apiFetch("/api/admin/support", {
+      method: "PATCH",
+      body: JSON.stringify({ ticketId, assignedAdminId }),
+    });
+    if (res.ok) {
+      setMsg(assignedAdminId ? "Ticket assigned" : "Ticket unassigned");
+      loadTickets();
+    }
   }
 
   async function saveUserEdit(userId: string) {
@@ -1042,6 +1061,26 @@ export function AdminDashboard() {
         </div>
       ) : tab === "support" ? (
         <div className="space-y-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-zinc-500 uppercase font-semibold">Filter</span>
+            {(["all", "me", "unassigned"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  setSupportFilter(f);
+                  loadTickets(f);
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  supportFilter === f
+                    ? "bg-red-500/15 border border-red-500/40 text-red-300"
+                    : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white"
+                }`}
+              >
+                {f === "all" ? "All" : f === "me" ? "Assigned to me" : "Unassigned"}
+              </button>
+            ))}
+          </div>
           {tickets.length === 0 ? (
             <p className="text-zinc-500 text-sm">No tickets</p>
           ) : tickets.map((t) => {
@@ -1051,9 +1090,11 @@ export function AdminDashboard() {
                 key={String(t.id)}
                 ticket={t}
                 messages={msgs}
-                unread={t.lastMessageRole === "user" && t.status !== "resolved"}
+                admins={supportAdmins}
+                unread={Boolean(t.unread)}
                 onOpen={() => markTicketRead(String(t.id))}
                 onStatusChange={(status) => updateTicket(String(t.id), status)}
+                onAssign={(assignedAdminId) => assignTicket(String(t.id), assignedAdminId)}
                 onReply={(body) => replyToTicket(String(t.id), body)}
               />
             );

@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { isSupportTicketUnread } from "./support-ticket-unread";
 
 function hoursBetween(start: Date, end: Date) {
   return Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
@@ -23,7 +24,7 @@ export async function getAdminAnalytics() {
     tipsMonthAgg,
     endedWeek,
     openTickets,
-    unreadSupport,
+    unreadCandidates,
     stations,
     pendingWithdrawals,
   ] = await Promise.all([
@@ -54,10 +55,16 @@ export async function getAdminAnalytics() {
       select: { startedAt: true, endedAt: true },
     }),
     prisma.supportTicket.count({ where: { status: { in: ["open", "in_progress"] } } }),
-    prisma.supportTicket.count({
+    prisma.supportTicket.findMany({
       where: {
         status: { in: ["open", "in_progress"] },
         lastMessageRole: "user",
+      },
+      select: {
+        status: true,
+        lastMessageRole: true,
+        lastMessageAt: true,
+        adminReadAt: true,
       },
     }),
     prisma.radioStation.count(),
@@ -70,6 +77,8 @@ export async function getAdminAnalytics() {
       streamHoursWeek += hoursBetween(s.startedAt, s.endedAt);
     }
   }
+
+  const unreadSupport = unreadCandidates.filter(isSupportTicketUnread).length;
 
   const activeSessions = await prisma.session.count({
     where: { expiresAt: { gt: now }, createdAt: { gte: dayAgo } },
