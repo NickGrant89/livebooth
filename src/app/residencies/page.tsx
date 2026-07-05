@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Building2, Radio, Users, ChevronRight } from "lucide-react";
+import { StationBrandAvatar } from "@/components/StationBrandAvatar";
 import { fetchPublicStations, formatSlotLabel } from "@/lib/stations-discover";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +43,12 @@ export default async function ResidenciesPage() {
               className="group rounded-2xl border border-white/10 bg-[#141416] p-5 hover:border-[#53fc18]/30 transition-colors"
             >
               <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#53fc18] to-[#00f0ff] text-lg font-bold text-black">
-                  {s.avatar || s.name.slice(0, 2).toUpperCase()}
-                </div>
+                <StationBrandAvatar
+                  name={s.name}
+                  avatar={s.avatar}
+                  avatarUrl={s.avatarUrl}
+                  size="lg"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-bold text-white group-hover:text-[#53fc18] transition-colors truncate">

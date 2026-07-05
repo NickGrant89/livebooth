@@ -15,6 +15,7 @@ import {
 import { stationAllowsEmbed } from "@/lib/schedule-import";
 import { normalizeStationSlug, validateStationSlug } from "@/lib/station-slug";
 import { getStationOwnerEarnings } from "@/lib/stations-discover";
+import { sanitizeProfileImageUrl } from "@/lib/profile-images";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -28,6 +29,8 @@ const patchSchema = z.object({
   name: z.string().min(1).max(80).optional(),
   tagline: z.string().max(200).optional(),
   avatar: z.string().max(4).optional(),
+  avatarUrl: z.string().optional(),
+  bannerUrl: z.string().optional(),
   relayUrl: z.string().url().optional().nullable(),
   embedPrimaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   embedHideBranding: z.boolean().optional(),
@@ -70,6 +73,8 @@ export async function GET() {
       name: station.name,
       tagline: station.tagline,
       avatar: station.avatar,
+      avatarUrl: station.avatarUrl,
+      bannerUrl: station.bannerUrl,
       tier: station.tier,
       tierMeta,
       relayUrl: station.relayUrl,
@@ -198,21 +203,45 @@ export async function PATCH(request: Request) {
       return error("Embed player requires Pro tier or higher", 403);
     }
 
+    const data: {
+      name?: string;
+      tagline?: string;
+      avatar?: string;
+      avatarUrl?: string;
+      bannerUrl?: string;
+      relayUrl?: string | null;
+      embedPrimaryColor?: string;
+      embedHideBranding?: boolean;
+      flagshipDjId?: string | null;
+    } = {};
+
+    if (body.name !== undefined) data.name = body.name;
+    if (body.tagline !== undefined) data.tagline = body.tagline;
+    if (body.avatar !== undefined) data.avatar = body.avatar;
+    if (body.avatarUrl !== undefined) {
+      try {
+        data.avatarUrl = sanitizeProfileImageUrl(body.avatarUrl, 400_000);
+      } catch (e) {
+        return error(e instanceof Error ? e.message : "Invalid station logo");
+      }
+    }
+    if (body.bannerUrl !== undefined) {
+      try {
+        data.bannerUrl = sanitizeProfileImageUrl(body.bannerUrl, 600_000);
+      } catch (e) {
+        return error(e instanceof Error ? e.message : "Invalid banner image");
+      }
+    }
+    if (tierMeta.relayMode && body.relayUrl !== undefined) data.relayUrl = body.relayUrl;
+    if (stationAllowsEmbed(station.tier)) {
+      if (body.embedPrimaryColor !== undefined) data.embedPrimaryColor = body.embedPrimaryColor;
+      if (body.embedHideBranding !== undefined) data.embedHideBranding = body.embedHideBranding;
+    }
+    if (flagshipDjId !== undefined) data.flagshipDjId = flagshipDjId;
+
     const updated = await prisma.radioStation.update({
       where: { id: station.id },
-      data: {
-        name: body.name,
-        tagline: body.tagline,
-        avatar: body.avatar,
-        ...(tierMeta.relayMode ? { relayUrl: body.relayUrl } : {}),
-        ...(stationAllowsEmbed(station.tier)
-          ? {
-              embedPrimaryColor: body.embedPrimaryColor,
-              embedHideBranding: body.embedHideBranding,
-            }
-          : {}),
-        ...(flagshipDjId !== undefined ? { flagshipDjId } : {}),
-      },
+      data,
     });
 
     return json({ station: updated });

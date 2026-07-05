@@ -16,6 +16,7 @@ import { prisma } from "@/lib/db";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { isDemoPlayback, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { StreamPageLayout } from "@/components/StreamPageLayout";
+import { StationBrandAvatar } from "@/components/StationBrandAvatar";
 import { getStationBySlug, getLiveStreamForStation } from "@/lib/stations";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +86,7 @@ export default async function StationLivePage({
                 slug: station.slug,
                 name: station.name,
                 avatar: station.avatar,
+                avatarUrl: station.avatarUrl,
               }}
             />
           </div>
@@ -102,9 +104,13 @@ export default async function StationLivePage({
             <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-start justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <Link href={`/station/${station.slug}`}>
-                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#53fc18] to-[#00f0ff] text-sm font-bold text-black shrink-0 hover:scale-105 transition-transform">
-                    {station.avatar || station.name.slice(0, 2).toUpperCase()}
-                  </div>
+                  <StationBrandAvatar
+                    name={station.name}
+                    avatar={station.avatar}
+                    avatarUrl={station.avatarUrl}
+                    size="md"
+                    className="hover:scale-105 transition-transform"
+                  />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <Link

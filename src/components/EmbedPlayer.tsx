@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import Link from "next/link";
 import { Radio, Volume2, VolumeX } from "lucide-react";
+import { profileImageSrc, avatarFallbackLabel } from "@/lib/profile-images";
 
 interface EmbedPlayerProps {
   stationName: string;
   stationSlug: string;
   avatar: string;
+  avatarUrl?: string | null;
   primaryColor: string;
   hideBranding: boolean;
   playbackUrl?: string | null;
@@ -22,6 +24,7 @@ export function EmbedPlayer({
   stationName,
   stationSlug,
   avatar,
+  avatarUrl,
   primaryColor,
   hideBranding,
   playbackUrl,
@@ -33,6 +36,8 @@ export function EmbedPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
   const url = playbackUrl ?? (relayUrl && !isLive ? relayUrl : null);
+  const logoSrc = profileImageSrc(avatarUrl);
+  const logoFallback = avatarFallbackLabel(stationName, avatar);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -55,12 +60,21 @@ export function EmbedPlayer({
       style={{ "--embed-accent": primaryColor } as React.CSSProperties}
     >
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-xs font-bold text-black"
-          style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}99)` }}
-        >
-          {avatar || stationName.slice(0, 2)}
-        </div>
+        {logoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoSrc}
+            alt={stationName}
+            className="h-9 w-9 shrink-0 rounded-lg object-cover bg-[#141416]"
+          />
+        ) : (
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-xs font-bold text-black shrink-0"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}99)` }}
+          >
+            {logoFallback}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="font-bold text-sm truncate">{stationName}</p>
           {isLive && streamTitle ? (

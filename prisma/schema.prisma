@@ -390,6 +390,8 @@ model RadioStation {
   name              String
   tagline           String   @default("")
   avatar            String   @default("")
+  avatarUrl         String   @default("")
+  bannerUrl         String   @default("")
   tier              String   @default("community")
   relayUrl          String?
   ownerId           String   @unique

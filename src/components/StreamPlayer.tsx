@@ -49,7 +49,7 @@ interface StreamPlayerProps {
   previewMode?: boolean;
   viewerLabel?: "live" | "peak";
   peakViewers?: number;
-  station?: { slug: string; name: string; avatar: string } | null;
+  station?: { slug: string; name: string; avatar: string; avatarUrl?: string | null } | null;
 }
 
 export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(function StreamPlayer(

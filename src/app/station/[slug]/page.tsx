@@ -18,6 +18,7 @@ import { StationEmbedSection } from "@/components/StationEmbedSection";
 import { StationStakePanel } from "@/components/StationStakePanel";
 import { StationPastBroadcasts } from "@/components/StationPastBroadcasts";
 import { StationFanCta } from "@/components/StationFanCta";
+import { StationProfileHero } from "@/components/StationProfileHero";
 import { ShareMenu } from "@/components/ShareMenu";
 import {
   getStationBySlug,
@@ -77,66 +78,64 @@ export default async function StationPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8 space-y-6">
-      {/* Hero header */}
-      <header className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0a1628] via-[#0a0a0c] to-[#141416] p-5 sm:p-6">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(83,252,24,0.08),_transparent_60%)] pointer-events-none" />
-        <div className="relative flex flex-col sm:flex-row gap-5 items-start">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#53fc18] to-[#00f0ff] text-2xl font-bold text-black shrink-0 shadow-lg shadow-[#53fc18]/10">
-            {station.avatar || station.name.slice(0, 2).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">{station.name}</h1>
-              <span className="rounded-full bg-[#53fc18]/10 border border-[#53fc18]/30 px-2.5 py-0.5 text-[11px] font-bold uppercase text-[#53fc18]">
-                {tierMeta.label} radio
+      <StationProfileHero
+        name={station.name}
+        tagline={station.tagline || undefined}
+        avatar={station.avatar}
+        avatarUrl={station.avatarUrl}
+        bannerUrl={station.bannerUrl}
+        badge={
+          <>
+            <span className="rounded-full bg-[#53fc18]/10 border border-[#53fc18]/30 px-2.5 py-0.5 text-[11px] font-bold uppercase text-[#53fc18]">
+              {tierMeta.label} radio
+            </span>
+            {liveStream && (
+              <span className="rounded-full bg-red-500/20 border border-red-500/40 px-2.5 py-0.5 text-[11px] font-bold uppercase text-red-300 flex items-center gap-1">
+                <Radio className="h-3 w-3 animate-pulse" /> On air
               </span>
-              {liveStream && (
-                <span className="rounded-full bg-red-500/20 border border-red-500/40 px-2.5 py-0.5 text-[11px] font-bold uppercase text-red-300 flex items-center gap-1">
-                  <Radio className="h-3 w-3 animate-pulse" /> On air
-                </span>
-              )}
-            </div>
-            {station.tagline && (
-              <p className="text-zinc-400 mt-1.5 text-sm sm:text-base">{station.tagline}</p>
             )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-zinc-500">
-              <span className="flex items-center gap-1">
-                <Users className="h-3.5 w-3.5" />
-                <StationFollowerCount slug={station.slug} initialCount={station._count.follows} />{" "}
-                followers
+          </>
+        }
+        meta={
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-xs text-zinc-500">
+            <span className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" />
+              <StationFollowerCount slug={station.slug} initialCount={station._count.follows} />{" "}
+              followers
+            </span>
+            <span className="flex items-center gap-1">
+              <TrendingUp className="h-3.5 w-3.5" />
+              {station._count.stakes.toLocaleString()} stakers
+            </span>
+            {station.flagshipDj && (
+              <span className="flex items-center gap-1 text-amber-400/90">
+                <Star className="h-3.5 w-3.5" />
+                Flagship: {station.flagshipDj.displayName}
               </span>
-              <span className="flex items-center gap-1">
-                <TrendingUp className="h-3.5 w-3.5" />
-                {station._count.stakes.toLocaleString()} stakers
-              </span>
-              {station.flagshipDj && (
-                <span className="flex items-center gap-1 text-amber-400/90">
-                  <Star className="h-3.5 w-3.5" />
-                  Flagship: {station.flagshipDj.displayName}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 mt-4">
-              <StationFollowButton slug={station.slug} />
-              <ShareMenu
-                kind="station"
-                path={`/station/${station.slug}`}
-                stationName={station.name}
-                username={station.slug}
-                label="Share station"
-                variant="secondary"
-              />
-              <Link
-                href="/leaderboard"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/10"
-              >
-                <Trophy className="h-3.5 w-3.5" />
-                Rankings
-              </Link>
-            </div>
+            )}
           </div>
-        </div>
-      </header>
+        }
+        actions={
+          <>
+            <StationFollowButton slug={station.slug} />
+            <ShareMenu
+              kind="station"
+              path={`/station/${station.slug}`}
+              stationName={station.name}
+              username={station.slug}
+              label="Share station"
+              variant="secondary"
+            />
+            <Link
+              href="/leaderboard"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/10"
+            >
+              <Trophy className="h-3.5 w-3.5" />
+              Rankings
+            </Link>
+          </>
+        }
+      />
 
       <StationFanCta
         slug={station.slug}

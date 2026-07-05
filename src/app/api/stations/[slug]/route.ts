@@ -7,12 +7,15 @@ import {
   getTierMeta,
 } from "@/lib/stations";
 import { prisma } from "@/lib/db";
+import { sanitizeProfileImageUrl } from "@/lib/profile-images";
 import { z } from "zod";
 
 const patchSchema = z.object({
   name: z.string().min(1).max(80).optional(),
   tagline: z.string().max(200).optional(),
   avatar: z.string().max(4).optional(),
+  avatarUrl: z.string().optional(),
+  bannerUrl: z.string().optional(),
   relayUrl: z.string().url().optional().nullable(),
 });
 
@@ -36,6 +39,8 @@ export async function GET(
       name: station.name,
       tagline: station.tagline,
       avatar: station.avatar,
+      avatarUrl: station.avatarUrl,
+      bannerUrl: station.bannerUrl,
       tier: station.tier,
       tierMeta: getTierMeta(station.tier),
       relayUrl: station.relayUrl,
@@ -80,9 +85,16 @@ export async function PATCH(
 
   try {
     const body = patchSchema.parse(await request.json());
+    const data: Record<string, unknown> = { ...body };
+    if (body.avatarUrl !== undefined) {
+      data.avatarUrl = sanitizeProfileImageUrl(body.avatarUrl, 400_000);
+    }
+    if (body.bannerUrl !== undefined) {
+      data.bannerUrl = sanitizeProfileImageUrl(body.bannerUrl, 600_000);
+    }
     const updated = await prisma.radioStation.update({
       where: { id: station.id },
-      data: body,
+      data,
     });
     return json({ station: updated });
   } catch (e) {

@@ -20,6 +20,7 @@ import { StationTierUpgrade } from "@/components/StationTierUpgrade";
 import { StationProSetup } from "@/components/StationProSetup";
 import { StationGoLivePanel } from "@/components/StationGoLivePanel";
 import { DjUserPicker, type DjSearchResult } from "@/components/DjUserPicker";
+import { ProfileImageField } from "@/components/ProfileImageField";
 import { STAKING_COPY, STAKING_DEEMPHASIZED } from "@/lib/staking-ui";
 
 interface Resident {
@@ -37,6 +38,8 @@ interface OwnerData {
     name: string;
     tagline: string;
     avatar: string;
+    avatarUrl: string;
+    bannerUrl: string;
     tier: string;
     tierMeta: {
       label: string;
@@ -84,6 +87,8 @@ export function StationOwnerDashboard() {
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
   const [relayUrl, setRelayUrl] = useState("");
   const [embedColor, setEmbedColor] = useState("#53fc18");
   const [hideBranding, setHideBranding] = useState(false);
@@ -109,6 +114,8 @@ export function StationOwnerDashboard() {
         setName(d.station.name);
         setTagline(d.station.tagline);
         setAvatar(d.station.avatar);
+        setAvatarUrl(d.station.avatarUrl ?? "");
+        setBannerUrl(d.station.bannerUrl ?? "");
         setRelayUrl(d.station.relayUrl ?? "");
         setEmbedColor(d.station.embedPrimaryColor);
         setHideBranding(d.station.embedHideBranding);
@@ -132,6 +139,8 @@ export function StationOwnerDashboard() {
         name,
         tagline,
         avatar,
+        avatarUrl,
+        bannerUrl,
         relayUrl: relayUrl || null,
         embedPrimaryColor: embedColor,
         embedHideBranding: hideBranding,
@@ -306,6 +315,20 @@ export function StationOwnerDashboard() {
 
       <div className="space-y-3">
         <h3 className="text-xs font-bold uppercase text-zinc-500">Channel branding</h3>
+        <ProfileImageField
+          label="Station logo"
+          hint="Square image, shown on your station page and embed player. JPG or PNG recommended."
+          value={avatarUrl}
+          onChange={setAvatarUrl}
+          variant="avatar"
+        />
+        <ProfileImageField
+          label="Station banner"
+          hint="Wide cover image at the top of your station page (1600×400 recommended)."
+          value={bannerUrl}
+          onChange={setBannerUrl}
+          variant="banner"
+        />
         <div className="grid sm:grid-cols-2 gap-3">
           <input
             value={name}
@@ -316,7 +339,7 @@ export function StationOwnerDashboard() {
           <input
             value={avatar}
             onChange={(e) => setAvatar(e.target.value)}
-            placeholder="Avatar (KX)"
+            placeholder="Initials fallback (DR)"
             maxLength={4}
             className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
           />

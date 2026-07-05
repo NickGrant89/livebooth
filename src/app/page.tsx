@@ -14,6 +14,7 @@ import { fetchPublicStations, fetchUpcomingStationShows, formatSlotLabel } from 
 import { getHeroLabel, isGridPromoted } from "@/lib/discover-ranking";
 import { QuestPanel } from "@/components/QuestPanel";
 import { HomeDiscoverRefresh } from "@/components/HomeDiscoverRefresh";
+import { StationBrandAvatar } from "@/components/StationBrandAvatar";
 
 export const dynamic = "force-dynamic";
 
@@ -199,7 +200,12 @@ export default async function HomePage({
                 href={`/station/${show.stationSlug}`}
                 className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm hover:bg-white/10"
               >
-                <span className="font-bold text-xs">{show.stationAvatar || show.stationName.slice(0, 2)}</span>
+                <StationBrandAvatar
+                  name={show.stationName}
+                  avatar={show.stationAvatar}
+                  avatarUrl={show.stationAvatarUrl}
+                  size="xs"
+                />
                 <span>
                   {show.showTitle}{" "}
                   <span className="text-zinc-500">@{show.djUsername}</span>
@@ -247,9 +253,12 @@ export default async function HomePage({
                 className="glass rounded-xl p-4 hover:border-[#53fc18]/20 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-[#53fc18] to-[#00f0ff] text-sm font-bold text-black">
-                    {s.avatar || s.name.slice(0, 2)}
-                  </div>
+                  <StationBrandAvatar
+                    name={s.name}
+                    avatar={s.avatar}
+                    avatarUrl={s.avatarUrl}
+                    size="sm"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold truncate">{s.name}</p>
                     <p className="text-xs text-zinc-500">

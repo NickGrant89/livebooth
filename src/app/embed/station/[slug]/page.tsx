@@ -23,6 +23,7 @@ export default async function EmbedStationPage({
       stationName={station.name}
       stationSlug={station.slug}
       avatar={station.avatar}
+      avatarUrl={station.avatarUrl}
       primaryColor={station.embedPrimaryColor}
       hideBranding={station.embedHideBranding && tierMeta.whiteLabel}
       playbackUrl={

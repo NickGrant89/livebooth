@@ -6,6 +6,7 @@ export type UpcomingStationShow = {
   stationSlug: string;
   stationName: string;
   stationAvatar: string;
+  stationAvatarUrl: string;
   showTitle: string;
   djUsername: string;
   djDisplayName: string;
@@ -22,6 +23,7 @@ export type PublicStationCard = {
   name: string;
   tagline: string;
   avatar: string;
+  avatarUrl: string;
   tier: string;
   tierLabel: string;
   followerCount: number;
@@ -52,7 +54,7 @@ export async function fetchUpcomingStationShows(limit = 8): Promise<UpcomingStat
   const residents = await prisma.stationResident.findMany({
     where: { slotDay: { not: null }, slotHour: { not: null } },
     include: {
-      station: { select: { slug: true, name: true, avatar: true } },
+      station: { select: { slug: true, name: true, avatar: true, avatarUrl: true } },
       dj: { select: { username: true, displayName: true, avatar: true } },
     },
   });
@@ -64,6 +66,7 @@ export async function fetchUpcomingStationShows(limit = 8): Promise<UpcomingStat
       stationSlug: r.station.slug,
       stationName: r.station.name,
       stationAvatar: r.station.avatar,
+      stationAvatarUrl: r.station.avatarUrl,
       showTitle: r.showTitle || r.dj.displayName,
       djUsername: r.dj.username,
       djDisplayName: r.dj.displayName,
@@ -110,6 +113,7 @@ export async function fetchPublicStations(limit = 24): Promise<PublicStationCard
       name: s.name,
       tagline: s.tagline,
       avatar: s.avatar,
+      avatarUrl: s.avatarUrl,
       tier: s.tier,
       tierLabel: tierMeta.label,
       followerCount: s._count.follows,

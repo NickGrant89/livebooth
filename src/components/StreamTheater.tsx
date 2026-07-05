@@ -13,7 +13,7 @@ interface StreamTheaterProps {
   playbackUrl?: string | null;
   startedAt?: string | null;
   demoPlayback?: boolean;
-  station?: { slug: string; name: string; avatar: string } | null;
+  station?: { slug: string; name: string; avatar: string; avatarUrl?: string | null } | null;
   collabPartner?: {
     name: string;
     playbackUrl: string;
