@@ -27,7 +27,7 @@ const FAQ = [
     items: [
       {
         q: "How do I contact LiveBooth support?",
-        a: "Open live support chat on this page — every chat is logged as a ticket so you can continue the conversation and we keep a record. You can also email support@livebooth.uk or use the one-shot ticket form.",
+        a: "Open live support chat on this page, or tap the green chat button in the bottom-right corner on any page. Every chat is logged as a ticket so you can continue the conversation and we keep a record. You can also email support@livebooth.uk or use the one-shot ticket form.",
       },
       {
         q: "Will I get a reply in the chat?",

@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { DailyLoginBanner } from "@/components/DailyLoginBanner";
 import { DemoHostBanner } from "@/components/DemoHostBanner";
 import { BetaBanner } from "@/components/BetaBanner";
+import { SupportChatWidget } from "@/components/SupportChatWidget";
 import type { AuthUser } from "@/context/AuthContext";
 
 export function AppShell({
@@ -34,6 +35,7 @@ export function AppShell({
         <DailyLoginBanner />
         <main className="relative z-[1] flex-1 min-w-0 w-full">{children}</main>
         {!isStream && <Footer />}
+        <SupportChatWidget />
       </div>
     </Providers>
   );

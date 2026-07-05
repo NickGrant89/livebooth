@@ -44,7 +44,7 @@ function mergeMessages(prev: SupportMessagePayload[], incoming: SupportMessagePa
   );
 }
 
-export function SupportLiveChat() {
+export function SupportLiveChat({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth();
   const [email, setEmail] = useState(user?.email ?? "");
   const [category, setCategory] = useState("other");
@@ -178,16 +178,26 @@ export function SupportLiveChat() {
 
   if (!session) {
     return (
-      <form onSubmit={startChat} className="rounded-2xl border border-[#53fc18]/30 bg-[#141416] p-6 space-y-4">
-        <div>
-          <h2 className="font-bold text-white flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-[#53fc18]" />
-            Live support chat
-          </h2>
-          <p className="text-sm text-zinc-500 mt-1">
-            Chat with our team — your conversation is saved as a support ticket so nothing gets lost.
+      <form
+        onSubmit={startChat}
+        className={`${compact ? "space-y-3" : "space-y-4"} ${compact ? "" : "rounded-2xl border border-[#53fc18]/30 bg-[#141416] p-6"}`}
+      >
+        {!compact && (
+          <div>
+            <h2 className="font-bold text-white flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-[#53fc18]" />
+              Live support chat
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">
+              Chat with our team — your conversation is saved as a support ticket so nothing gets lost.
+            </p>
+          </div>
+        )}
+        {compact && (
+          <p className="text-xs text-zinc-500">
+            Chat with our team — saved as a support ticket.
           </p>
-        </div>
+        )}
         <input
           type="email"
           value={email}
@@ -209,7 +219,7 @@ export function SupportLiveChat() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           required
-          rows={3}
+          rows={compact ? 2 : 3}
           placeholder="Describe your issue — we'll reply here and by email…"
           className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm resize-none"
         />
@@ -227,7 +237,9 @@ export function SupportLiveChat() {
   }
 
   return (
-    <div className="rounded-2xl border border-[#53fc18]/30 bg-[#141416] overflow-hidden flex flex-col h-[420px]">
+    <div
+      className={`${compact ? "border border-white/10 rounded-xl" : "rounded-2xl border border-[#53fc18]/30 bg-[#141416]"} overflow-hidden flex flex-col ${compact ? "h-[340px]" : "h-[420px]"}`}
+    >
       <div className="border-b border-white/10 px-4 py-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="font-semibold text-white text-sm truncate">{subject || "Support chat"}</p>
