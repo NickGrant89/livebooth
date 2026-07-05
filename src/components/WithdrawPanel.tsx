@@ -92,7 +92,7 @@ export function WithdrawPanel() {
       <p className="text-xs text-zinc-400 mb-4 flex items-start gap-1.5">
         <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
         Redeem at platform rate ({quote?.redeemRateLabel ?? "~$0.0425/DROP"}) minus {quote?.feePercent ?? 2}% fee.
-        Payouts are manual in demo — admin marks paid after bank/Stripe Connect (production).
+        Connect Stripe on this page for automated payouts when approved.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-3">

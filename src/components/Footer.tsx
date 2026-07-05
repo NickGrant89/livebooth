@@ -40,6 +40,7 @@ export function Footer() {
             <div>
               <p className="text-zinc-400 font-semibold mb-2">Company</p>
               <ul className="space-y-1.5 text-zinc-500">
+                <li><Link href="/transparency" className="hover:text-white transition-colors">Transparency</Link></li>
                 <li><Link href="/roadmap" className="hover:text-white transition-colors">Roadmap</Link></li>
                 <li><Link href="/policies" className="hover:text-white transition-colors">Policies &amp; procedures</Link></li>
               </ul>
@@ -58,6 +59,7 @@ export function Footer() {
         <div className="mt-8 pt-6 border-t border-white/[0.04] flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-600">
           <span>© {new Date().getFullYear()} LiveBooth · livebooth.fm</span>
           <div className="flex gap-4">
+            <Link href="/transparency" className="hover:text-zinc-400">Transparency</Link>
             <Link href="/roadmap" className="hover:text-zinc-400">Roadmap</Link>
             <Link href="/policies" className="hover:text-zinc-400">Policies</Link>
             <Link href="/terms" className="hover:text-zinc-400">Terms</Link>

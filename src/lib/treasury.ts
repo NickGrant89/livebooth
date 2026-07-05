@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { REDEEM_USD_CENTS_PER_DROP, WITHDRAWAL_FEE_BPS, effectiveWithdrawMinDrop } from "./constants";
+import { getOnChainTreasuryStats } from "./onchain-treasury";
 
 export async function getTreasuryStats() {
   const monthStart = new Date();
@@ -56,6 +57,8 @@ export async function getTreasuryStats() {
     _count: true,
   });
 
+  const onChain = await getOnChainTreasuryStats();
+
   const fiatInCents = stripePurchases._sum.amountCents ?? 0;
   const dropSoldStripe = stripePurchases._sum.dropAmount ?? 0;
 
@@ -93,6 +96,7 @@ export async function getTreasuryStats() {
     revenue: {
       promotionDrop: Math.round(promotionRevenue._sum.promotionDropAmount ?? 0),
     },
+    onChain,
     recentLedger: recentLedger.map((e) => ({
       id: e.id,
       type: e.type,

@@ -43,7 +43,8 @@ const PHASES: Phase[] = [
     items: [
       { title: "Mobile-optimised watch & chat", detail: "Theatre mode, push alerts, share flows", status: "planned" },
       { title: "DROP mainnet launch", detail: "VeChain mainnet migration path", status: "planned" },
-      { title: "Creator payouts & redeem", detail: "Cash-out flow for earned DROP", status: "planned" },
+      { title: "Creator payouts & redeem", detail: "Wallet cash-out, admin treasury, Stripe Connect auto-payout", status: "done" },
+      { title: "Public transparency page", detail: "/transparency — DROP circulation, fees, on-chain treasury", status: "done" },
       { title: "Clip export & social clips", detail: "Share highlights from replays", status: "planned" },
     ],
   },

@@ -34,6 +34,23 @@ CSV with header: `username,email,displayName,password,role`
 
 Stored in `PlatformStats` id `platform_settings`. Maintenance mode blocks non-admin pages (admins can still access `/admin`).
 
-## Migration
+## Treasury tab
 
-`20260705170000_support_ticket_assignment` — `SupportTicket.assignedAdminId` for admin assignee.
+- Fiat in (Stripe), user balances, paid withdrawals, promo revenue
+- **On-chain treasury** — TipRouter platform wallet balance (when VeChain contracts configured)
+- **Withdrawal queue** — approve, mark paid (auto Stripe Connect transfer when DJ onboarded), reject
+- Link to public **[Transparency](/transparency)** page
+
+### Stripe Connect setup (Vercel)
+
+1. Enable **Connect** in Stripe Dashboard → Settings → Connect
+2. Set env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_COUNTRY=GB`, `STRIPE_PAYOUT_CURRENCY=gbp`
+3. Webhook events: `checkout.session.completed`, `account.updated`
+4. DJs: **Wallet → Set up payouts** (Express onboarding)
+5. Admin **Mark paid** triggers Stripe transfer when DJ is connected (`STRIPE_CONNECT_AUTO_PAYOUT=true`)
+
+Set `STRIPE_CONNECT_AUTO_PAYOUT=false` for manual bank payouts only.
+
+### On-chain treasury
+
+TipRouter sends 10% of on-chain tips to `platformTreasury`. Public stats at `/transparency` and admin Treasury tab read balance via RPC. Optional override: `NEXT_PUBLIC_PLATFORM_TREASURY_ADDRESS`.

@@ -82,6 +82,12 @@ type TreasuryData = {
     approvedUsdCents: number;
   };
   revenue: { promotionDrop: number };
+  onChain?: {
+    treasuryBalanceDrop: number;
+    totalSupplyDrop: number;
+    treasuryAddress: string;
+    explorerTreasuryUrl: string;
+  } | null;
   recentLedger: Array<{ id: string; type: string; amount: number; username: string; createdAt: string }>;
 };
 
@@ -93,7 +99,7 @@ type AdminWithdrawRow = {
   status: string;
   rejectReason: string | null;
   createdAt: string;
-  user: { username: string; displayName: string; email: string; role: string };
+  user: { username: string; displayName: string; email: string; role: string; stripeConnectOnboarded?: boolean };
 };
 
 export function AdminDashboard() {
@@ -901,7 +907,30 @@ export function AdminDashboard() {
               {" · "}This month paid: ${(treasury.outflow.paidThisMonthUsdCents / 100).toFixed(2)}
             </p>
             <p>Dev top-ups: {Math.round(treasury.inflow.devTopUpDrop)} DROP (demo)</p>
+            <p>
+              <Link href="/transparency" className="text-[#53fc18] hover:underline">
+                Public transparency page →
+              </Link>
+            </p>
           </div>
+
+          {treasury.onChain && (
+            <div className="rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-4 text-xs text-zinc-400 space-y-1">
+              <p className="font-semibold text-[#53fc18]">On-chain treasury (TipRouter 10% fees)</p>
+              <p>
+                Balance: <strong className="text-white">{treasury.onChain.treasuryBalanceDrop.toLocaleString()} DROP</strong>
+                {" · "}Supply: {treasury.onChain.totalSupplyDrop.toLocaleString()} DROP
+              </p>
+              <a
+                href={treasury.onChain.explorerTreasuryUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#53fc18] hover:underline inline-block"
+              >
+                View treasury wallet on explorer →
+              </a>
+            </div>
+          )}
 
           <div>
             <h2 className="text-sm font-bold text-zinc-400 uppercase mb-2">Withdrawal queue</h2>
@@ -917,6 +946,11 @@ export function AdminDashboard() {
                       </p>
                       <p className="text-xs text-zinc-500">
                         {w.dropAmount} DROP · fee {w.feeDrop} · net ${(w.netUsdCents / 100).toFixed(2)} · {w.user.email}
+                        {w.user.stripeConnectOnboarded ? (
+                          <span className="text-sky-400/80"> · Stripe connected</span>
+                        ) : (
+                          <span className="text-amber-500/80"> · manual payout</span>
+                        )}
                       </p>
                       <p className="text-[10px] text-zinc-600">{new Date(w.createdAt).toLocaleString()}</p>
                     </div>

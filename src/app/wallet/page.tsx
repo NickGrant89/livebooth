@@ -10,6 +10,7 @@ import { useOnChainDrop } from "@/hooks/useOnChainDrop";
 import { contractsConfigured } from "@/lib/web3/contracts";
 import Link from "next/link";
 import { WithdrawPanel } from "@/components/WithdrawPanel";
+import { StripeConnectPanel } from "@/components/StripeConnectPanel";
 import { WalletGuide } from "@/components/WalletGuide";
 
 interface DropPack {
@@ -151,6 +152,8 @@ function WalletContent() {
           {faucetMsg && <p className="text-xs text-zinc-400 mt-2">{faucetMsg}</p>}
         </div>
       )}
+
+      <StripeConnectPanel />
 
       <WithdrawPanel />
 

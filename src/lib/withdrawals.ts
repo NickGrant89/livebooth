@@ -2,6 +2,10 @@ import { prisma } from "./db";
 import { debitUser, creditUser } from "./ledger";
 import { effectiveWithdrawMinDrop } from "./constants";
 import { checkWithdrawEligibility, quoteWithdrawal } from "./redeem";
+import {
+  isStripeAutoPayoutEnabled,
+  transferWithdrawalPayout,
+} from "./stripe-connect";
 
 export async function listUserWithdrawals(userId: string) {
   return prisma.withdrawalRequest.findMany({
@@ -76,7 +80,16 @@ export async function adminUpdateWithdrawal(
 ) {
   const row = await prisma.withdrawalRequest.findUnique({
     where: { id: requestId },
-    include: { user: { select: { id: true, username: true } } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          stripeConnectAccountId: true,
+          stripeConnectOnboarded: true,
+        },
+      },
+    },
   });
   if (!row) return { ok: false as const, error: "Request not found" };
 
@@ -93,12 +106,41 @@ export async function adminUpdateWithdrawal(
     if (row.status !== "approved" && row.status !== "pending") {
       return { ok: false as const, error: "Cannot mark paid from this status" };
     }
+
+    let stripeTransferId: string | undefined;
+    let payoutMethod = "manual";
+
+    if (
+      isStripeAutoPayoutEnabled() &&
+      row.user.stripeConnectOnboarded &&
+      row.user.stripeConnectAccountId
+    ) {
+      try {
+        const payout = await transferWithdrawalPayout({
+          accountId: row.user.stripeConnectAccountId,
+          amountCents: row.netUsdCents,
+          withdrawalRequestId: requestId,
+          userId: row.userId,
+        });
+        stripeTransferId = payout.transferId;
+        payoutMethod = "stripe_connect";
+      } catch (e) {
+        console.error("stripe connect payout:", e);
+        return {
+          ok: false as const,
+          error: "Stripe payout failed — use manual payout or retry",
+        };
+      }
+    }
+
     const updated = await prisma.withdrawalRequest.update({
       where: { id: requestId },
       data: {
         status: "paid",
         paidAt: new Date(),
         reviewedBy: adminId,
+        stripeTransferId,
+        payoutMethod,
       },
     });
     await prisma.ledgerEntry.create({
@@ -144,7 +186,15 @@ export async function listAdminWithdrawals(status?: string) {
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {
-      user: { select: { username: true, displayName: true, email: true, role: true } },
+      user: {
+        select: {
+          username: true,
+          displayName: true,
+          email: true,
+          role: true,
+          stripeConnectOnboarded: true,
+        },
+      },
     },
   });
 }
