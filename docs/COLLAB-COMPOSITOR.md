@@ -23,20 +23,32 @@ Partner OBS ──► MediaMTX live/lb_partner
 COMPOSITOR_SECRET=your-long-random-secret
 ```
 
+Or run the automated setup (generates secret + Caddy + docker):
+
+```bash
+# From your Mac:
+DROPLET=root@YOUR_VPS_IP bash scripts/deploy-compositor-to-droplet.sh
+
+# Or on the VPS after copying files:
+bash /opt/livebooth/setup-compositor-droplet.sh
+```
+
 2. Rebuild and start:
 
 ```bash
 cd rtmp-server
-docker compose -f docker-compose.production.yml up -d --build
+docker compose -f docker-compose.production.yml --env-file .env up -d --build
 ```
 
-3. Expose compositor control API to Vercel (Caddy example):
+3. Expose compositor control API to Vercel (Caddy — included in `Caddyfile.example`):
 
 ```
 compositor.livebooth.uk {
   reverse_proxy 127.0.0.1:8090
 }
 ```
+
+DNS: `compositor.livebooth.uk` → VPS IP (grey cloud / DNS only).
 
 4. On **Vercel** (production env):
 

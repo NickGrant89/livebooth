@@ -6,8 +6,9 @@
 #   sudo systemctl reload caddy
 #
 # DNS (all → VPS public IP, grey cloud / DNS only in Cloudflare):
-#   hls.livebooth.uk   — HTTPS HLS playback (Caddy below)
-#   rtmp.livebooth.uk  — RTMP ingest port 1935 (OBS, no Caddy)
+#   hls.livebooth.uk        — HTTPS HLS playback (Caddy below)
+#   compositor.livebooth.uk — Collab FFmpeg mixer API (Vercel only)
+#   rtmp.livebooth.uk       — RTMP ingest port 1935 (OBS, no Caddy)
 
 {
 	email you@yourdomain.com
@@ -32,3 +33,9 @@ hls.livebooth.uk {
 # }
 
 # RTMP ingest: rtmp://rtmp.livebooth.uk:1935/live (DNS A → VPS IP, port 1935 open)
+
+# Collab compositor control API (Vercel calls this to start/stop FFmpeg mixer)
+# DNS: compositor.livebooth.uk → VPS IP (grey cloud / DNS only)
+compositor.livebooth.uk {
+	reverse_proxy 127.0.0.1:8090
+}

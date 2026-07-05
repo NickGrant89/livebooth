@@ -127,6 +127,11 @@ In **Vercel → Settings → Environment Variables** (Production):
 | `RTMP_SERVER_URL` | `rtmp://hls.livebooth.uk:1935/live` or `rtmp://YOUR_VPS_IP:1935/live` |
 | `HLS_SERVER_URL` | `https://hls.livebooth.uk` (no trailing slash) |
 | `RTMP_AUTH_ENABLED` | `true` |
+| `COMPOSITOR_ENABLED` | `true` (for synced B2B collab mix) |
+| `COMPOSITOR_CONTROL_URL` | `https://compositor.livebooth.uk` |
+| `COMPOSITOR_SECRET` | Same secret as VPS `rtmp-server/.env` |
+
+See [COLLAB-COMPOSITOR.md](./COLLAB-COMPOSITOR.md) and run `scripts/setup-compositor-droplet.sh` on the VPS.
 
 **Important:**
 
