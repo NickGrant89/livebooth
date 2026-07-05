@@ -81,6 +81,30 @@ export async function getLiveStreamForStation(stationId: string) {
   });
 }
 
+export async function getPastBroadcastsForStation(stationId: string, limit = 20) {
+  return prisma.stream.findMany({
+    where: { stationId, status: "ended", startedAt: { not: null } },
+    orderBy: { endedAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      title: true,
+      genre: true,
+      peakViewers: true,
+      totalTips: true,
+      setGrade: true,
+      setScore: true,
+      startedAt: true,
+      endedAt: true,
+      vodUrl: true,
+      playbackUrl: true,
+      ingestKey: true,
+      stationChannel: true,
+      dj: { select: { username: true, displayName: true } },
+    },
+  });
+}
+
 export async function getActiveStationChannelForOwner(ownerId: string) {
   return prisma.stream.findFirst({
     where: {

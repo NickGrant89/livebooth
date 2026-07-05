@@ -16,11 +16,13 @@ import { StationFollowButton } from "@/components/StationFollowButton";
 import { StationFollowerCount } from "@/components/StationFollowerCount";
 import { StationEmbedSection } from "@/components/StationEmbedSection";
 import { StationStakePanel } from "@/components/StationStakePanel";
+import { StationPastBroadcasts } from "@/components/StationPastBroadcasts";
 import { StationFanCta } from "@/components/StationFanCta";
 import { ShareMenu } from "@/components/ShareMenu";
 import {
   getStationBySlug,
   getLiveStreamForStation,
+  getPastBroadcastsForStation,
   getStationStats,
   getTierMeta,
   getNextScheduledResident,
@@ -59,7 +61,10 @@ export default async function StationPage({
   const station = await getStationBySlug(slug);
   if (!station) notFound();
 
-  const liveStream = await getLiveStreamForStation(station.id);
+  const [liveStream, pastBroadcasts] = await Promise.all([
+    getLiveStreamForStation(station.id),
+    getPastBroadcastsForStation(station.id),
+  ]);
   const tierMeta = getTierMeta(station.tier);
   const stats = tierMeta.stationDashboard ? await getStationStats(station.id) : null;
   const nextShow = !liveStream ? getNextScheduledResident(station.residents) : null;
@@ -219,6 +224,8 @@ export default async function StationPage({
           </div>
         </section>
       )}
+
+      <StationPastBroadcasts broadcasts={pastBroadcasts} stationName={station.name} />
 
       {stats && (
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
