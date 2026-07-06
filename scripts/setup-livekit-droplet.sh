@@ -70,22 +70,63 @@ NODE_IP="${LIVEKIT_NODE_IP:-${PUBLIC_IP}}"
 
 find_turn_tls_certs() {
   local domain="$1"
-  local base cert key
-  for base in \
-    "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${domain}" \
-    "/var/lib/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${domain}"; do
-    if [[ -f "${base}/${domain}.crt" && -f "${base}/${domain}.key" ]]; then
-      cert="${base}/${domain}.crt"
-      key="${base}/${domain}.key"
-      echo "${cert}:${key}"
-      return 0
-    fi
-  done
+  local cert key search_dir
+
   if [[ -f "/etc/letsencrypt/live/${domain}/fullchain.pem" && -f "/etc/letsencrypt/live/${domain}/privkey.pem" ]]; then
     echo "/etc/letsencrypt/live/${domain}/fullchain.pem:/etc/letsencrypt/live/${domain}/privkey.pem"
     return 0
   fi
+
+  for search_dir in \
+    /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory \
+    /var/lib/caddy/certificates/acme-v02.api.letsencrypt.org-directory \
+    /root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory; do
+    if [[ -f "${search_dir}/${domain}/${domain}.crt" && -f "${search_dir}/${domain}/${domain}.key" ]]; then
+      echo "${search_dir}/${domain}/${domain}.crt:${search_dir}/${domain}/${domain}.key"
+      return 0
+    fi
+  done
+
+  cert="$(find /var/lib/caddy /root/.local/share/caddy -type f -name "${domain}.crt" 2>/dev/null | head -1)"
+  key="$(find /var/lib/caddy /root/.local/share/caddy -type f -name "${domain}.key" 2>/dev/null | head -1)"
+  if [[ -n "${cert}" && -n "${key}" && -f "${cert}" && -f "${key}" ]]; then
+    echo "${cert}:${key}"
+    return 0
+  fi
+
   return 1
+}
+
+wait_for_https() {
+  local domain="$1"
+  local attempt
+  echo "Waiting for https://${domain}/ (Caddy ACME)…"
+  for attempt in $(seq 1 24); do
+    if curl -sf "https://${domain}/" >/dev/null 2>&1; then
+      echo "HTTPS OK for ${domain}"
+      return 0
+    fi
+    sleep 5
+  done
+  echo "WARN: https://${domain}/ not ready yet (DNS or Caddy ACME)"
+  return 1
+}
+
+install_turn_tls_certs() {
+  local cert_domain="$1"
+  local cert_file key_file
+
+  if ! TURN_CERTS="$(find_turn_tls_certs "${cert_domain}")"; then
+    return 1
+  fi
+
+  cert_file="${TURN_CERTS%%:*}"
+  key_file="${TURN_CERTS##*:}"
+  cp "${cert_file}" "${TURN_CERT_DIR}/fullchain.pem"
+  cp "${key_file}" "${TURN_CERT_DIR}/privkey.pem"
+  chmod 644 "${TURN_CERT_DIR}/fullchain.pem"
+  chmod 600 "${TURN_CERT_DIR}/privkey.pem"
+  return 0
 }
 
 # Caddy + TURN TLS certs before livekit.yaml (mobile needs TURN/TLS on 5349)
@@ -125,21 +166,27 @@ EOF
     caddy validate --config "${CADDYFILE}"
     systemctl reload caddy
     echo "Caddy reloaded (rtc + compositor + turn)"
-    curl -sf "https://${TURN_DOMAIN}/" >/dev/null 2>&1 || true
-    sleep 3
   fi
+  wait_for_https "${TURN_DOMAIN}" || true
+  wait_for_https "${RTC_DOMAIN}" || true
 fi
 
 TURN_CERT_DIR="${RTMP_DIR}/livekit-certs"
 mkdir -p "${TURN_CERT_DIR}"
 TURN_TLS_BLOCK=""
-if TURN_CERTS="$(find_turn_tls_certs "${TURN_DOMAIN}")"; then
-  TURN_CERT_FILE="${TURN_CERTS%%:*}"
-  TURN_KEY_FILE="${TURN_CERTS##*:}"
-  cp "${TURN_CERT_FILE}" "${TURN_CERT_DIR}/fullchain.pem"
-  cp "${TURN_KEY_FILE}" "${TURN_CERT_DIR}/privkey.pem"
-  chmod 644 "${TURN_CERT_DIR}/fullchain.pem"
-  chmod 600 "${TURN_CERT_DIR}/privkey.pem"
+TURN_DOMAIN_EFFECTIVE="${TURN_DOMAIN}"
+
+if install_turn_tls_certs "${TURN_DOMAIN}"; then
+  echo "TURN/TLS certs copied for ${TURN_DOMAIN}"
+elif install_turn_tls_certs "${RTC_DOMAIN}"; then
+  TURN_DOMAIN_EFFECTIVE="${RTC_DOMAIN}"
+  echo "TURN/TLS using ${RTC_DOMAIN} cert (same VPS — mobile connects to ${RTC_DOMAIN}:5349)"
+else
+  echo "WARN: No TLS cert for ${TURN_DOMAIN} or ${RTC_DOMAIN} — mobile/cellular WebRTC may fail"
+  echo "      Run: curl -s https://${RTC_DOMAIN}/ && bash ${0} again"
+fi
+
+if [[ -f "${TURN_CERT_DIR}/fullchain.pem" && -f "${TURN_CERT_DIR}/privkey.pem" ]]; then
   TURN_TLS_BLOCK=$(
     cat << EOF
   tls_port: 5349
@@ -147,9 +194,6 @@ if TURN_CERTS="$(find_turn_tls_certs "${TURN_DOMAIN}")"; then
   key_file: /etc/livekit/certs/privkey.pem
 EOF
   )
-  echo "TURN/TLS certs copied for ${TURN_DOMAIN}"
-else
-  echo "WARN: No TLS cert for ${TURN_DOMAIN} — mobile/cellular WebRTC may fail until Caddy issues one and you re-run this script"
 fi
 
 echo "--- Writing livekit.yaml ---"
@@ -178,7 +222,7 @@ room:
 
 turn:
   enabled: true
-  domain: ${TURN_DOMAIN}
+  domain: ${TURN_DOMAIN_EFFECTIVE}
   udp_port: 3478
 ${TURN_TLS_BLOCK}
 
@@ -209,6 +253,11 @@ sleep 5
 echo "--- Health checks ---"
 curl -sf "http://127.0.0.1:8090/health" && echo " compositor OK" || echo "WARN: compositor not ready"
 curl -sf "http://127.0.0.1:7880" >/dev/null && echo "livekit HTTP OK" || echo "WARN: livekit :7880 not responding"
+if docker logs livebooth-livekit 2>&1 | grep -q "turn.portTLS"; then
+  echo "LiveKit TURN/TLS listening on 5349"
+else
+  echo "WARN: LiveKit TURN/TLS not in logs — check ${RTMP_DIR}/livekit-certs/ and re-run setup"
+fi
 
 if [[ -f "${CADDYFILE}" ]]; then
   if grep -q "${RTC_DOMAIN}" "${CADDYFILE}"; then

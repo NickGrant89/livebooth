@@ -44,7 +44,14 @@ compositor.livebooth.uk {
 
 # LiveKit WebRTC signaling — browsers connect wss://rtc.livebooth.uk
 # DNS: rtc.livebooth.uk → VPS IP (grey cloud / DNS only)
-# Firewall: 7881/tcp, 3478/udp, 50000-50100/udp
+# Firewall: 7881/tcp, 3478/udp, 5349/tcp, 50000-50100/udp
 rtc.livebooth.uk {
 	reverse_proxy 127.0.0.1:7880
+}
+
+# LiveKit TURN TLS cert host — turn.livebooth.uk (mobile/cellular WebRTC)
+# Caddy issues the cert; LiveKit reads it from livekit-certs/ via setup script.
+# Fallback: setup reuses rtc.livebooth.uk cert on port 5349 if turn cert is not ready.
+turn.livebooth.uk {
+	respond "ok" 200
 }
