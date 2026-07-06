@@ -113,7 +113,8 @@ insecure: true
 redis:
   address: redis:6379
 EOF
-chmod 600 "${RTMP_DIR}/egress.yaml"
+# Egress container runs as non-root; 600 (root-only) causes "permission denied" on mount.
+chmod 644 "${RTMP_DIR}/egress.yaml"
 
 echo "--- Starting stack (MediaMTX + compositor + LiveKit + egress) ---"
 cd "${RTMP_DIR}"
@@ -176,6 +177,7 @@ echo "Vercel → Production env:"
 echo "  LIVEKIT_URL=wss://${RTC_DOMAIN}"
 echo "  LIVEKIT_API_KEY=${LIVEKIT_API_KEY}"
 echo "  LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}"
+echo "  LIVEKIT_EGRESS_RTMP_URL=rtmp://mediamtx:1935/live"
 echo "  COLLAB_WEBRTC_ENABLED=true"
 echo "  COMPOSITOR_ENABLED=true"
 echo "  COMPOSITOR_CONTROL_URL=https://${COMPOSITOR_DOMAIN}"

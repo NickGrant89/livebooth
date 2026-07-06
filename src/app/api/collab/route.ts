@@ -13,6 +13,7 @@ import {
   notifyCollabInvite,
 } from "@/lib/notifications";
 import { tryActivateCollabCompositor } from "@/lib/collab-compositor";
+import { isLiveKitConfigured } from "@/lib/livekit";
 import { z } from "zod";
 
 const inviteSchema = z.object({
@@ -90,7 +91,7 @@ export async function GET() {
     }),
   );
 
-  return json({ collabs: withPartner });
+  return json({ collabs: withPartner, webrtcEnabled: isLiveKitConfigured() });
 }
 
 export async function POST(request: Request) {

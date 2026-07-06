@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "./db";
 import { getHlsPlaybackUrl, isLocalRtmpMode } from "./streaming";
 import { hlsManifestReady } from "./hls-playback";
+import { stopCollabWebRtcEgress } from "./livekit-egress";
 
 const COMPOSITOR_CONTROL_URL = process.env.COMPOSITOR_CONTROL_URL?.replace(/\/$/, "");
 const COMPOSITOR_SECRET = process.env.COMPOSITOR_SECRET ?? "";
@@ -122,6 +123,8 @@ export async function deactivateCollabCompositor(collabId: string) {
     select: { compositedIngestKey: true, compositorActive: true },
   });
   if (!collab) return;
+
+  await stopCollabWebRtcEgress(collabId);
 
   if (collab.compositedIngestKey) {
     await stopCollabCompositor(collab.compositedIngestKey);

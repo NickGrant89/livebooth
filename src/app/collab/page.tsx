@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Users, Radio, Check, X, Loader2, Video } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { GoLivePreview } from "@/components/GoLivePreview";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { apiFetch } from "@/lib/fetch-client";
+
+const CollabWebRtcStudio = dynamic(
+  () => import("@/components/CollabWebRtcStudio").then((m) => ({ default: m.CollabWebRtcStudio })),
+  { ssr: false, loading: () => <p className="text-zinc-500 text-sm py-4">Loading WebRTC studio…</p> },
+);
 
 interface PartnerStream {
   id: string;
@@ -45,12 +51,16 @@ export default function CollabPage() {
   const [msgOk, setMsgOk] = useState(true);
   const [loading, setLoading] = useState(false);
   const [rtmpOnline, setRtmpOnline] = useState<boolean | null>(null);
+  const [webrtcEnabled, setWebrtcEnabled] = useState(false);
 
   const loadCollabs = useCallback(() => {
     if (!user) return;
     apiFetch("/api/collab")
       .then((r) => r.json())
-      .then((d) => setCollabs(d.collabs ?? []));
+      .then((d) => {
+        setCollabs(d.collabs ?? []);
+        setWebrtcEnabled(Boolean(d.webrtcEnabled));
+      });
   }, [user]);
 
   useEffect(() => {
@@ -128,6 +138,7 @@ export default function CollabPage() {
   const sent = collabs.filter((c) => c.role === "host" && c.status === "pending");
   const active = collabs.filter((c) => c.status === "active");
   const myPartnerCollab = active.find((c) => c.role === "partner" && c.partnerStream);
+  const myHostCollab = active.find((c) => c.role === "host");
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
@@ -190,6 +201,28 @@ export default function CollabPage() {
         </div>
       )}
 
+      {myHostCollab && webrtcEnabled && (
+        <div className="glass rounded-2xl p-6 mb-8 border border-[#53fc18]/20">
+          <h2 className="font-semibold mb-2 flex items-center gap-2 text-[#53fc18]">
+            <Video className="h-4 w-4" />
+            Host studio · {myHostCollab.streamTitle}
+          </h2>
+          <p className="text-xs text-zinc-500 mb-4">
+            WebRTC collab with @{myHostCollab.partnerUsername} — fans watch{" "}
+            <Link href={`/stream/${myHostCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
+              your booth
+            </Link>
+            .
+          </p>
+          <CollabWebRtcStudio
+            collabId={myHostCollab.id}
+            hostUsername={myHostCollab.hostUsername}
+            role="host"
+            compositorActive={myHostCollab.compositorActive}
+          />
+        </div>
+      )}
+
       {myPartnerCollab?.partnerStream && (
         <div className="glass rounded-2xl p-6 mb-8 border border-[#53fc18]/20">
           <h2 className="font-semibold mb-2 flex items-center gap-2 text-[#53fc18]">
@@ -221,7 +254,38 @@ export default function CollabPage() {
           {myPartnerCollab.hostStream?.status === "preparing" && (
             <p className="text-xs text-amber-400/90 mb-4">Waiting for {myPartnerCollab.host} to go live…</p>
           )}
-          {myPartnerCollab.partnerStream.status === "preparing" ? (
+          {webrtcEnabled && (
+            <div className="mb-4">
+              <CollabWebRtcStudio
+                collabId={myPartnerCollab.id}
+                hostUsername={myPartnerCollab.hostUsername}
+                role="partner"
+                compositorActive={myPartnerCollab.compositorActive}
+              />
+            </div>
+          )}
+          {webrtcEnabled ? (
+            <details className="mb-2 rounded-xl border border-white/10 p-3">
+              <summary className="text-xs text-zinc-400 cursor-pointer">OBS / Larix RTMP (legacy)</summary>
+              <div className="mt-3">
+                {myPartnerCollab.partnerStream.status === "preparing" ? (
+                  <GoLivePreview
+                    title={myPartnerCollab.partnerStream.title}
+                    djName={user.displayName ?? user.username}
+                    playbackUrl={myPartnerCollab.partnerStream.playbackUrl}
+                    rtmpUrl={myPartnerCollab.partnerStream.rtmpUrl}
+                    ingestKey={myPartnerCollab.partnerStream.ingestKey}
+                    ingestMode={myPartnerCollab.partnerStream.ingestMode}
+                    rtmpOnline={rtmpOnline}
+                    onPublish={() => publishPartnerFeed(myPartnerCollab.partnerStream!.id)}
+                    publishing={loading}
+                  />
+                ) : (
+                  <p className="text-sm text-zinc-500">RTMP feed is live.</p>
+                )}
+              </div>
+            </details>
+          ) : myPartnerCollab.partnerStream.status === "preparing" ? (
             <GoLivePreview
               title={myPartnerCollab.partnerStream.title}
               djName={user.displayName ?? user.username}

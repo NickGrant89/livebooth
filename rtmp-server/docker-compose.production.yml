@@ -88,7 +88,7 @@ services:
       - ./recordings:/recordings
     cap_add:
       - SYS_ADMIN
-    shm_size: "512mb"
+    shm_size: "1gb"
     depends_on:
       - livekit
       - redis

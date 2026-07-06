@@ -84,7 +84,8 @@ grep LIVEKIT /opt/livebooth/rtmp-server/.env
 | `LIVEKIT_URL` | `wss://rtc.livebooth.uk` |
 | `LIVEKIT_API_KEY` | from VPS `.env` |
 | `LIVEKIT_API_SECRET` | from VPS `.env` |
-| `COLLAB_WEBRTC_ENABLED` | `true` when ready to switch collab mode |
+| `LIVEKIT_EGRESS_RTMP_URL` | `rtmp://mediamtx:1935/live` (egress → MediaMTX on Docker network) |
+| `COLLAB_WEBRTC_ENABLED` | `true` when ready to enable WebRTC studio on `/collab` |
 | `COMPOSITOR_ENABLED` | `true` (RTMP fallback) |
 | `COMPOSITOR_CONTROL_URL` | `https://compositor.livebooth.uk` |
 | `COMPOSITOR_SECRET` | from VPS `.env` |
@@ -104,13 +105,23 @@ Egress uses headless Chrome — spikes RAM when compositing.
 
 | Piece | Status |
 |-------|--------|
-| VPS LiveKit + egress | **Ready** (this doc) |
+| VPS LiveKit + egress | Deploy + fix egress health (see below) |
 | `src/lib/livekit.ts` | Room tokens |
 | `/api/livekit/token` | Collab join token (auth required) |
-| `/collab` WebRTC UI | **Next** — browser publish + OBS WHIP |
-| Egress → `lb_*_mix` | **Next** — start composite on both joined |
+| `/collab` WebRTC studio | **Browser UI** — host + partner join LiveKit room |
+| `/api/collab/webrtc` | Poll status + start room composite egress |
+| Egress → `lb_*_mix` | Auto-starts when both DJs publish camera |
 
-Until UI ships, keep `COLLAB_WEBRTC_ENABLED` unset and use RTMP collab (working today).
+### WebRTC collab flow (after deploy)
+
+1. Host goes live and accepts partner on **`/collab`** (same as RTMP collab).
+2. Both click **Open WebRTC studio** — browser camera/mic into LiveKit room.
+3. When both publish video, the app starts **room composite egress** → `rtmp://mediamtx:1935/live/lb_{hostKey}_mix`.
+4. Fans watch **`/stream/{hostUsername}`** — same auto-switch to synced mix as RTMP compositor.
+
+RTMP/OBS remains available under **OBS / Larix RTMP (legacy)** on the partner panel.
+
+Until `COLLAB_WEBRTC_ENABLED=true` on Vercel, the studio UI stays hidden and RTMP collab remains default.
 
 ## Troubleshooting
 
@@ -123,13 +134,23 @@ cat /opt/livebooth/rtmp-server/livekit.yaml
 
 Check `node_ip` matches VPS public IP.
 
-**Egress idle / errors**
+**Egress restart loop (`livebooth-egress` Restarting)**
 
 ```bash
-docker logs livebooth-egress --tail 50
+docker logs livebooth-egress --tail 80
 ```
 
-Ensure redis + livekit are healthy: `docker compose -f docker-compose.production.yml ps`
+**`open /etc/egress.yaml: permission denied`** — setup wrote `egress.yaml` as mode `600`; the egress container runs non-root and cannot read it. On the VPS:
+
+```bash
+chmod 644 /opt/livebooth/rtmp-server/egress.yaml
+docker compose -f docker-compose.production.yml --env-file .env up -d egress --force-recreate
+docker logs livebooth-egress --tail 20
+```
+
+You should see egress connect to LiveKit/redis, not permission errors.
+
+**OOM / `/dev/shm` errors** — egress uses headless Chrome. On **2GB VPS**, bump compose `shm_size: 1gb`, add swap, or resize to **4GB+** for production.
 
 **WebRTC connects but no media**
 
