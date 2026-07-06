@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -32,13 +32,13 @@ type TokenPayload = {
 function formatMediaError(err: unknown): string {
   if (err instanceof DOMException) {
     if (err.name === "NotAllowedError") {
-      return "Browser blocked camera/mic — check macOS System Settings → Privacy → Camera/Microphone → Chrome is ON, then reload.";
+      return "Browser blocked camera/mic — allow livebooth.uk in site settings, then tap Turn on camera again.";
     }
     if (err.name === "NotReadableError") {
-      return "Camera is in use — quit OBS, Zoom, FaceTime, and the other /collab studio tab, then try again.";
+      return "Camera is in use — close other tabs/apps using the camera, then try again.";
     }
     if (err.name === "NotFoundError") {
-      return "No camera found — plug in a webcam or pick a device from the Camera menu.";
+      return "No camera found — pick a device from the Camera menu.";
     }
     return `${err.name}: ${err.message}`;
   }
@@ -53,23 +53,15 @@ function formatMediaError(err: unknown): string {
           : "Unknown media error";
 
   if (/DeviceInUse|NotReadable/i.test(msg)) {
-    return "Camera is in use — quit OBS and close the other studio tab (one webcam per machine).";
+    return "Camera is in use — close other tabs/apps using the camera.";
   }
   if (/PermissionDenied|NotAllowed|permission|denied/i.test(msg)) {
-    return "Camera/mic blocked — macOS System Settings → Privacy → Camera/Microphone → enable Chrome, then reload.";
+    return "Camera/mic blocked — allow livebooth.uk in browser settings, then try again.";
   }
   if (/notfound|devicesnotfound|overconstrained/i.test(msg)) {
-    return "No usable camera — pick a device from the Camera menu or plug in a webcam.";
+    return "No usable camera — pick a device from the Camera menu.";
   }
   return msg;
-}
-
-async function requestBrowserMedia(): Promise<void> {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new DOMException("getUserMedia not supported", "NotSupportedError");
-  }
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  stream.getTracks().forEach((track) => track.stop());
 }
 
 function StudioVideoGrid() {
@@ -84,16 +76,11 @@ function StudioVideoGrid() {
   );
 }
 
-function StudioMediaPrompt({
-  onError,
-  onClearError,
-}: {
-  onError: (msg: string) => void;
-  onClearError: () => void;
-}) {
+function StudioMediaPrompt({ onError }: { onError: (msg: string) => void }) {
   const room = useRoomContext();
   const [busy, setBusy] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
+  const enablingRef = useRef(false);
 
   useEffect(() => {
     if (!room) return;
@@ -109,20 +96,24 @@ function StudioMediaPrompt({
   }, [room]);
 
   const enableMedia = useCallback(async () => {
-    if (!room) return;
+    if (!room || enablingRef.current) return;
+    enablingRef.current = true;
     setBusy(true);
-    onClearError();
+    onError("");
     try {
-      await requestBrowserMedia();
+      if (room.state !== ConnectionState.Connected) {
+        throw new Error("Still connecting — wait a moment and try again.");
+      }
       await room.localParticipant.setCameraEnabled(true);
       await room.localParticipant.setMicrophoneEnabled(true);
-      setCameraOn(true);
+      setCameraOn(room.localParticipant.isCameraEnabled);
     } catch (err) {
       onError(formatMediaError(err));
     } finally {
       setBusy(false);
+      enablingRef.current = false;
     }
-  }, [room, onClearError, onError]);
+  }, [room, onError]);
 
   if (cameraOn) return null;
 
@@ -227,7 +218,7 @@ function EgressWatcher({
         );
       } else if (cameras < 2) {
         setStatus(
-          `${cameras}/2 cameras on — click Turn on camera & mic above (both DJs, in this studio tab).`,
+          `${cameras}/2 cameras on — tap Turn on camera & mic above (both DJs, in this studio tab).`,
         );
       } else if (data.canStartEgress) {
         setStatus("Starting synced fan mix…");
@@ -270,12 +261,72 @@ function EgressWatcher({
   );
 }
 
+type StudioRoomProps = {
+  token: string;
+  serverUrl: string;
+  collabId: string;
+  hostUsername: string;
+  compositorActive?: boolean;
+  onError: (msg: string) => void;
+};
+
+/** Inner room — mount once per token so LiveKit does not reconnect on parent re-renders. */
+function StudioRoom({
+  token,
+  serverUrl,
+  collabId,
+  hostUsername,
+  compositorActive,
+  onError,
+}: StudioRoomProps) {
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  const handleRoomError = useCallback((e: Error) => {
+    onErrorRef.current(formatMediaError(e));
+  }, []);
+
+  const handleMediaDeviceFailure = useCallback((failure?: unknown) => {
+    onErrorRef.current(formatMediaError(failure));
+  }, []);
+
+  return (
+    <LiveKitRoom
+      token={token}
+      serverUrl={serverUrl}
+      connect
+      video={false}
+      audio={false}
+      data-lk-theme="default"
+      onError={handleRoomError}
+      onMediaDeviceFailure={handleMediaDeviceFailure}
+    >
+      <div className="p-2">
+        <StudioVideoGrid />
+      </div>
+      <StudioConnectionStatus />
+      <StudioMediaPrompt onError={onError} />
+      <ControlBar controls={{ microphone: true, camera: true, screenShare: false }} />
+      <RoomAudioRenderer />
+      <div className="px-2 pb-2">
+        <EgressWatcher
+          collabId={collabId}
+          compositorActive={compositorActive}
+          hostUsername={hostUsername}
+        />
+      </div>
+    </LiveKitRoom>
+  );
+}
+
 export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorActive }: StudioProps) {
   const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const clearError = useCallback(() => setError(""), []);
+  const reportError = useCallback((msg: string) => {
+    setError(msg);
+  }, []);
 
   async function connect() {
     setLoading(true);
@@ -322,31 +373,15 @@ export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorAct
 
   return (
     <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-black">
-      <LiveKitRoom
+      <StudioRoom
+        key={tokenPayload.token}
         token={tokenPayload.token}
         serverUrl={tokenPayload.url}
-        connect
-        video={false}
-        audio={false}
-        data-lk-theme="default"
-        onError={(e) => setError(formatMediaError(e))}
-        onMediaDeviceFailure={(failure) => setError(formatMediaError(failure))}
-      >
-        <div className="p-2">
-          <StudioVideoGrid />
-        </div>
-        <StudioConnectionStatus />
-        <StudioMediaPrompt onError={setError} onClearError={clearError} />
-        <ControlBar controls={{ microphone: true, camera: true, screenShare: false }} />
-        <RoomAudioRenderer />
-        <div className="px-2 pb-2">
-          <EgressWatcher
-            collabId={collabId}
-            compositorActive={compositorActive}
-            hostUsername={hostUsername}
-          />
-        </div>
-      </LiveKitRoom>
+        collabId={collabId}
+        hostUsername={hostUsername}
+        compositorActive={compositorActive}
+        onError={reportError}
+      />
       {error && <p className="text-xs text-red-400 px-3 pb-3">{error}</p>}
     </div>
   );
