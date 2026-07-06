@@ -10,7 +10,5 @@ export async function GET(
   const { streamId } = await params;
   const state = await getCollabPlaybackState(streamId, { tryActivate: true });
   if (!state) return error("Stream not found", 404);
-  return json(state, {
-    headers: { "Cache-Control": "no-store" },
-  });
+  return json(state);
 }
