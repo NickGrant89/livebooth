@@ -43,39 +43,12 @@ if [[ -z "${SECRET}" ]]; then
   exit 1
 fi
 
-echo "--- Updating docker compose (MediaMTX + compositor) ---"
-cat > "${RTMP_DIR}/docker-compose.production.yml" << 'EOF'
-services:
-  mediamtx:
-    image: bluenviron/mediamtx:1
-    container_name: livebooth-rtmp
-    restart: unless-stopped
-    volumes:
-      - ./recordings:/recordings
-      - ./mediamtx.production.yml:/mediamtx.yml:ro
-      - /etc/ssl/certs:/etc/ssl/certs:ro
-    environment:
-      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
-    ports:
-      - "1935:1935"
-      - "127.0.0.1:8888:8888"
-      - "127.0.0.1:9997:9997"
-    command: /mediamtx.yml
-
-  compositor:
-    build: ./compositor
-    container_name: livebooth-compositor
-    restart: unless-stopped
-    environment:
-      COMPOSITOR_SECRET: ${COMPOSITOR_SECRET:-}
-      MEDIAMTX_RTMP_URL: rtmp://mediamtx:1935/live
-      MEDIAMTX_API_URL: http://mediamtx:9997
-      COMPOSITOR_PORT: 8090
-    ports:
-      - "127.0.0.1:8090:8090"
-    depends_on:
-      - mediamtx
-EOF
+echo "--- Updating docker compose (use repo file — do not overwrite) ---"
+if [[ ! -f "${RTMP_DIR}/docker-compose.production.yml" ]]; then
+  echo "ERROR: Missing ${RTMP_DIR}/docker-compose.production.yml"
+  echo "Run: DROPLET=root@YOUR_VPS bash scripts/deploy-livekit-to-droplet.sh"
+  exit 1
+fi
 
 echo "--- Building and starting containers ---"
 cd "${RTMP_DIR}"

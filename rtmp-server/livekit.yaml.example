@@ -1,0 +1,32 @@
+# LiveKit server — copied to livekit.yaml by scripts/setup-livekit-droplet.sh
+# Do not commit livekit.yaml (contains API secrets).
+
+port: 7880
+bind_addresses:
+  - ""
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: true
+  # node_ip set by setup script (VPS public IP)
+
+redis:
+  address: redis:6379
+
+keys:
+  # LIVEKIT_API_KEY: LIVEKIT_API_SECRET — replaced by setup script
+
+room:
+  auto_create: false
+  empty_timeout: 300
+  max_participants: 10
+
+turn:
+  enabled: true
+  domain: turn.livebooth.uk
+  udp_port: 3478
+
+logging:
+  level: info

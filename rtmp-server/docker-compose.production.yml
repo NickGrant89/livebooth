@@ -1,36 +1,95 @@
-# Production RTMP on a VPS — run from rtmp-server/ on the server:
-#   docker compose -f docker-compose.production.yml up -d
+# Production stack on VPS — run from rtmp-server/:
+#   docker compose -f docker-compose.production.yml --env-file .env up -d
 #
-# Prereqs: mediamtx.production.yml edited (LIVEBOOTH_APP_URL), Caddy/nginx for HTTPS HLS
+# Services: MediaMTX (RTMP/HLS), FFmpeg compositor (RTMP collab), LiveKit + egress (WebRTC collab)
+# Setup: bash /opt/livebooth/setup-livekit-droplet.sh
+
+networks:
+  livebooth:
+    driver: bridge
 
 services:
   mediamtx:
     image: bluenviron/mediamtx:1
     container_name: livebooth-rtmp
     restart: unless-stopped
+    networks:
+      - livebooth
     volumes:
       - ./recordings:/recordings
       - ./mediamtx.production.yml:/mediamtx.yml:ro
-      # MediaMTX image has no CA bundle — needed for HTTPS auth callback to Vercel
       - /etc/ssl/certs:/etc/ssl/certs:ro
     environment:
       SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
     ports:
-      - "1935:1935"              # RTMP ingest (public)
-      - "127.0.0.1:8888:8888"    # HLS — localhost only; reverse-proxy via Caddy
-      - "127.0.0.1:9997:9997"    # MediaMTX API — optional, keep private
+      - "1935:1935"
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:9997:9997"
     command: /mediamtx.yml
 
   compositor:
     build: ./compositor
     container_name: livebooth-compositor
     restart: unless-stopped
+    networks:
+      - livebooth
     environment:
       COMPOSITOR_SECRET: ${COMPOSITOR_SECRET:-}
       MEDIAMTX_RTMP_URL: rtmp://mediamtx:1935/live
       MEDIAMTX_API_URL: http://mediamtx:9997
       COMPOSITOR_PORT: 8090
     ports:
-      - "127.0.0.1:8090:8090"    # Caddy → compositor.livebooth.uk for Vercel callbacks
+      - "127.0.0.1:8090:8090"
     depends_on:
+      - mediamtx
+
+  redis:
+    image: redis:7-alpine
+    container_name: livebooth-redis
+    restart: unless-stopped
+    networks:
+      - livebooth
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  livekit:
+    image: livekit/livekit-server:v1.8.4
+    container_name: livebooth-livekit
+    restart: unless-stopped
+    networks:
+      - livebooth
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "127.0.0.1:7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+      - "50000-50100:50000-50100/udp"
+      - "3478:3478/udp"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  egress:
+    image: livekit/egress:v1.8.4
+    container_name: livebooth-egress
+    restart: unless-stopped
+    networks:
+      - livebooth
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml:ro
+      - ./recordings:/recordings
+    cap_add:
+      - SYS_ADMIN
+    shm_size: "512mb"
+    depends_on:
+      - livekit
+      - redis
       - mediamtx

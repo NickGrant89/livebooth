@@ -8,6 +8,8 @@
 # DNS (all → VPS public IP, grey cloud / DNS only in Cloudflare):
 #   hls.livebooth.uk        — HTTPS HLS playback (Caddy below)
 #   compositor.livebooth.uk — Collab FFmpeg mixer API (Vercel only)
+#   rtc.livebooth.uk        — LiveKit WebRTC signaling (WSS)
+#   turn.livebooth.uk       — LiveKit TURN (UDP 3478)
 #   rtmp.livebooth.uk       — RTMP ingest port 1935 (OBS, no Caddy)
 
 {
@@ -38,4 +40,11 @@ hls.livebooth.uk {
 # DNS: compositor.livebooth.uk → VPS IP (grey cloud / DNS only)
 compositor.livebooth.uk {
 	reverse_proxy 127.0.0.1:8090
+}
+
+# LiveKit WebRTC signaling — browsers connect wss://rtc.livebooth.uk
+# DNS: rtc.livebooth.uk → VPS IP (grey cloud / DNS only)
+# Firewall: 7881/tcp, 3478/udp, 50000-50100/udp
+rtc.livebooth.uk {
+	reverse_proxy 127.0.0.1:7880
 }

@@ -1,0 +1,14 @@
+# LiveKit egress — copied to egress.yaml by scripts/setup-livekit-droplet.sh
+
+log_level: info
+api_key: REPLACE_ME
+api_secret: REPLACE_ME
+ws_url: ws://livekit:7880
+insecure: true
+
+redis:
+  address: redis:6379
+
+# Composite egress can stream to MediaMTX, e.g.:
+# rtmp://mediamtx:1935/live/lb_HOSTKEY_mix
+# Triggered from LiveBooth API when collab WebRTC mode starts.

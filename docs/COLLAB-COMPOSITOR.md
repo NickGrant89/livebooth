@@ -75,6 +75,8 @@ Manual retry: `POST /api/collab/compositor` with `{ "collabId": "…" }`.
 
 If compositor fails, viewers fall back to dual-player PiP (legacy mode).
 
+For **low-latency WebRTC collab** (self-hosted LiveKit on the same VPS), see [COLLAB-LIVEKIT.md](./COLLAB-LIVEKIT.md).
+
 ## OBS requirements
 
 - Both DJs stream to their own RTMP keys from `/collab` or dashboard
