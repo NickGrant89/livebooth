@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { StreamPresence } from "@/components/StreamPresence";
 import { CollabPartnerPip } from "@/components/CollabPartnerPip";
+import { apiFetch } from "@/lib/fetch-client";
 
 interface StreamTheaterProps {
   streamId: string;
@@ -15,6 +16,7 @@ interface StreamTheaterProps {
   demoPlayback?: boolean;
   station?: { slug: string; name: string; avatar: string; avatarUrl?: string | null } | null;
   compositorMixed?: boolean;
+  collabActive?: boolean;
   collabPartner?: {
     name: string;
     playbackUrl: string;
@@ -27,15 +29,52 @@ export function StreamTheater({
   djName,
   streamTitle,
   initialPeak = 0,
-  playbackUrl,
+  playbackUrl: initialPlaybackUrl,
   startedAt,
   demoPlayback = false,
   station,
-  compositorMixed = false,
-  collabPartner,
+  compositorMixed: initialCompositorMixed = false,
+  collabActive = false,
+  collabPartner: initialCollabPartner,
 }: StreamTheaterProps) {
   const [watching, setWatching] = useState(0);
   const [peak, setPeak] = useState(initialPeak);
+  const [playbackUrl, setPlaybackUrl] = useState(initialPlaybackUrl);
+  const [compositorMixed, setCompositorMixed] = useState(initialCompositorMixed);
+  const [collabPartner, setCollabPartner] = useState(initialCollabPartner);
+
+  useEffect(() => {
+    setPlaybackUrl(initialPlaybackUrl);
+    setCompositorMixed(initialCompositorMixed);
+    setCollabPartner(initialCollabPartner);
+  }, [initialPlaybackUrl, initialCompositorMixed, initialCollabPartner]);
+
+  useEffect(() => {
+    if (!collabActive) return;
+
+    let cancelled = false;
+
+    async function syncCollabPlayback() {
+      const res = await apiFetch(`/api/streams/${streamId}/collab-playback`);
+      if (!res.ok || cancelled) return;
+      const data = (await res.json()) as {
+        playbackUrl?: string | null;
+        compositorActive?: boolean;
+        collabPartner?: StreamTheaterProps["collabPartner"];
+      };
+      if (cancelled) return;
+      if (data.playbackUrl) setPlaybackUrl(data.playbackUrl);
+      setCompositorMixed(Boolean(data.compositorActive));
+      setCollabPartner(data.collabPartner ?? null);
+    }
+
+    syncCollabPlayback();
+    const interval = setInterval(syncCollabPlayback, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [collabActive, streamId]);
 
   return (
     <>
