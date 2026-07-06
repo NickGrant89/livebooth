@@ -16,6 +16,7 @@ interface StreamTheaterProps {
   demoPlayback?: boolean;
   station?: { slug: string; name: string; avatar: string; avatarUrl?: string | null } | null;
   compositorMixed?: boolean;
+  compositorPending?: boolean;
   collabActive?: boolean;
   collabPartner?: {
     name: string;
@@ -34,6 +35,7 @@ export function StreamTheater({
   demoPlayback = false,
   station,
   compositorMixed: initialCompositorMixed = false,
+  compositorPending: initialCompositorPending = false,
   collabActive = false,
   collabPartner: initialCollabPartner,
 }: StreamTheaterProps) {
@@ -41,13 +43,15 @@ export function StreamTheater({
   const [peak, setPeak] = useState(initialPeak);
   const [playbackUrl, setPlaybackUrl] = useState(initialPlaybackUrl);
   const [compositorMixed, setCompositorMixed] = useState(initialCompositorMixed);
+  const [compositorPending, setCompositorPending] = useState(initialCompositorPending);
   const [collabPartner, setCollabPartner] = useState(initialCollabPartner);
 
   useEffect(() => {
     setPlaybackUrl(initialPlaybackUrl);
     setCompositorMixed(initialCompositorMixed);
+    setCompositorPending(initialCompositorPending);
     setCollabPartner(initialCollabPartner);
-  }, [initialPlaybackUrl, initialCompositorMixed, initialCollabPartner]);
+  }, [initialPlaybackUrl, initialCompositorMixed, initialCompositorPending, initialCollabPartner]);
 
   useEffect(() => {
     if (!collabActive) return;
@@ -60,11 +64,13 @@ export function StreamTheater({
       const data = (await res.json()) as {
         playbackUrl?: string | null;
         compositorActive?: boolean;
+        compositorPending?: boolean;
         collabPartner?: StreamTheaterProps["collabPartner"];
       };
       if (cancelled) return;
       if (data.playbackUrl) setPlaybackUrl(data.playbackUrl);
       setCompositorMixed(Boolean(data.compositorActive));
+      setCompositorPending(Boolean(data.compositorPending));
       setCollabPartner(data.collabPartner ?? null);
     }
 
@@ -103,6 +109,11 @@ export function StreamTheater({
             ingestKey={collabPartner.ingestKey}
             partnerName={collabPartner.name}
           />
+        )}
+        {compositorPending && !compositorMixed && (
+          <span className="absolute top-14 left-4 z-30 rounded-md bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300 backdrop-blur-sm">
+            Building B2B mix…
+          </span>
         )}
         {compositorMixed && (
           <span className="absolute top-14 left-4 z-30 rounded-md bg-[#53fc18]/20 border border-[#53fc18]/40 px-2 py-0.5 text-[10px] font-bold uppercase text-[#53fc18] backdrop-blur-sm">

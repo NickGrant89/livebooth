@@ -122,6 +122,7 @@ export default async function StreamPage({
               collabPartner={partnerLive}
               collabActive={stream.collab?.status === "active"}
               compositorMixed={Boolean(playbackState?.compositorActive)}
+              compositorPending={Boolean(playbackState?.compositorPending)}
             />
             <StreamInStreamAdBanner
               enabled={platform.inStreamAdEnabled}
