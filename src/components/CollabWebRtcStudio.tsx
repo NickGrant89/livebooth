@@ -11,7 +11,7 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, RoomEvent } from "livekit-client";
+import { Track, RoomEvent, ConnectionState } from "livekit-client";
 import { Camera, Loader2, Radio, Wifi } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/fetch-client";
@@ -30,6 +30,19 @@ type TokenPayload = {
 };
 
 function formatMediaError(err: unknown): string {
+  if (err instanceof DOMException) {
+    if (err.name === "NotAllowedError") {
+      return "Browser blocked camera/mic — check macOS System Settings → Privacy → Camera/Microphone → Chrome is ON, then reload.";
+    }
+    if (err.name === "NotReadableError") {
+      return "Camera is in use — quit OBS, Zoom, FaceTime, and the other /collab studio tab, then try again.";
+    }
+    if (err.name === "NotFoundError") {
+      return "No camera found — plug in a webcam or pick a device from the Camera menu.";
+    }
+    return `${err.name}: ${err.message}`;
+  }
+
   const msg =
     err instanceof Error
       ? err.message
@@ -38,13 +51,25 @@ function formatMediaError(err: unknown): string {
         : err != null
           ? String(err)
           : "Unknown media error";
-  if (/permission|notallowed|denied/i.test(msg)) {
-    return "Camera/mic blocked — allow livebooth.uk in the site lock icon, quit other apps using the webcam, then click Turn on camera & mic.";
+
+  if (/DeviceInUse|NotReadable/i.test(msg)) {
+    return "Camera is in use — quit OBS and close the other studio tab (one webcam per machine).";
+  }
+  if (/PermissionDenied|NotAllowed|permission|denied/i.test(msg)) {
+    return "Camera/mic blocked — macOS System Settings → Privacy → Camera/Microphone → enable Chrome, then reload.";
   }
   if (/notfound|devicesnotfound|overconstrained/i.test(msg)) {
     return "No usable camera — pick a device from the Camera menu or plug in a webcam.";
   }
   return msg;
+}
+
+async function requestBrowserMedia(): Promise<void> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new DOMException("getUserMedia not supported", "NotSupportedError");
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  stream.getTracks().forEach((track) => track.stop());
 }
 
 function StudioVideoGrid() {
@@ -88,8 +113,9 @@ function StudioMediaPrompt({
     setBusy(true);
     onClearError();
     try {
-      await room.localParticipant.setMicrophoneEnabled(true);
+      await requestBrowserMedia();
       await room.localParticipant.setCameraEnabled(true);
+      await room.localParticipant.setMicrophoneEnabled(true);
       setCameraOn(true);
     } catch (err) {
       onError(formatMediaError(err));
@@ -111,11 +137,44 @@ function StudioMediaPrompt({
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
         Turn on camera &amp; mic
       </button>
-      <p className="text-[10px] text-zinc-500 mt-2 text-center">
-        Required for synced B2B mix — both DJs must enable camera in this studio (not OBS).
+      <p className="text-[10px] text-zinc-500 mt-2 text-center space-y-1">
+        <span className="block">
+          Both DJs must join this studio on /collab — host OBS/RTMP does not count.
+        </span>
+        <span className="block">
+          One webcam per machine: use a phone for the second DJ if testing solo on one Mac.
+        </span>
       </p>
     </div>
   );
+}
+
+function StudioConnectionStatus() {
+  const room = useRoomContext();
+  const [state, setState] = useState<ConnectionState | undefined>(room?.state);
+
+  useEffect(() => {
+    if (!room) return;
+    const sync = () => setState(room.state);
+    sync();
+    room.on(RoomEvent.ConnectionStateChanged, sync);
+    return () => {
+      room.off(RoomEvent.ConnectionStateChanged, sync);
+    };
+  }, [room]);
+
+  if (!state || state === ConnectionState.Connected) return null;
+
+  const label =
+    state === ConnectionState.Connecting
+      ? "Connecting to rtc.livebooth.uk…"
+      : state === ConnectionState.Reconnecting
+        ? "Reconnecting…"
+        : state === ConnectionState.Disconnected
+          ? "Disconnected — check Wi‑Fi or try again (mobile needs TURN/TLS on VPS)"
+          : `Connection: ${state}`;
+
+  return <p className="text-xs text-amber-400/90 px-2 pb-1">{label}</p>;
 }
 
 function EgressWatcher({
@@ -276,6 +335,7 @@ export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorAct
         <div className="p-2">
           <StudioVideoGrid />
         </div>
+        <StudioConnectionStatus />
         <StudioMediaPrompt onError={setError} onClearError={clearError} />
         <ControlBar controls={{ microphone: true, camera: true, screenShare: false }} />
         <RoomAudioRenderer />

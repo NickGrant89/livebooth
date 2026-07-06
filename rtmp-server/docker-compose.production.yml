@@ -65,12 +65,14 @@ services:
     command: --config /etc/livekit.yaml
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
+      - ./livekit-certs:/etc/livekit/certs:ro
     ports:
       - "127.0.0.1:7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
       - "50000-50100:50000-50100/udp"
       - "3478:3478/udp"
+      - "5349:5349/tcp"
     depends_on:
       redis:
         condition: service_healthy

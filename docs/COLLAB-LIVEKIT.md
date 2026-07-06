@@ -154,9 +154,17 @@ You should see egress connect to LiveKit/redis, not permission errors.
 
 **WebRTC connects but no media**
 
-- Open UDP `50000-50100` and `3478`
-- Confirm `turn.livebooth.uk` DNS
-- Test from mobile network (NAT) not same Wi‑Fi only
+- Open UDP `50000-50100` and `3478` and TCP `5349` (TURN/TLS for mobile/cellular)
+- Confirm `turn.livebooth.uk` DNS (grey cloud, not proxied)
+- Mobile **must use Safari or Chrome** — in-app browsers (Instagram, Discord) break WebRTC
+- Log in on the phone as the **partner account**, then `/collab` → Open WebRTC studio
+- Run `bash /opt/livebooth/setup-livekit-droplet.sh` after deploy to enable TURN/TLS certs
+
+**Phone joins studio but camera fails**
+
+- iOS: Settings → Safari → Camera/Microphone → Allow for livebooth.uk
+- Android: site permissions in Chrome → Camera + Mic Allow
+- Use **front camera** — some phones default to no device until you pick one in the Camera menu
 
 ## Related
 

@@ -57,3 +57,4 @@ rtmp-server/recordings/**
 !rtmp-server/recordings/.gitkeep
 rtmp-server/livekit.yaml
 rtmp-server/egress.yaml
+rtmp-server/livekit-certs/

@@ -68,6 +68,90 @@ fi
 
 NODE_IP="${LIVEKIT_NODE_IP:-${PUBLIC_IP}}"
 
+find_turn_tls_certs() {
+  local domain="$1"
+  local base cert key
+  for base in \
+    "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${domain}" \
+    "/var/lib/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${domain}"; do
+    if [[ -f "${base}/${domain}.crt" && -f "${base}/${domain}.key" ]]; then
+      cert="${base}/${domain}.crt"
+      key="${base}/${domain}.key"
+      echo "${cert}:${key}"
+      return 0
+    fi
+  done
+  if [[ -f "/etc/letsencrypt/live/${domain}/fullchain.pem" && -f "/etc/letsencrypt/live/${domain}/privkey.pem" ]]; then
+    echo "/etc/letsencrypt/live/${domain}/fullchain.pem:/etc/letsencrypt/live/${domain}/privkey.pem"
+    return 0
+  fi
+  return 1
+}
+
+# Caddy + TURN TLS certs before livekit.yaml (mobile needs TURN/TLS on 5349)
+if [[ -f "${CADDYFILE}" ]]; then
+  CHANGED=0
+  if ! grep -q "${RTC_DOMAIN}" "${CADDYFILE}"; then
+    cat >> "${CADDYFILE}" << EOF
+
+# LiveKit WebRTC signaling (WSS) — ${RTC_DOMAIN}
+${RTC_DOMAIN} {
+	reverse_proxy 127.0.0.1:7880
+}
+EOF
+    CHANGED=1
+  fi
+  if ! grep -q "${COMPOSITOR_DOMAIN}" "${CADDYFILE}"; then
+    cat >> "${CADDYFILE}" << EOF
+
+# RTMP collab compositor API — ${COMPOSITOR_DOMAIN}
+${COMPOSITOR_DOMAIN} {
+	reverse_proxy 127.0.0.1:8090
+}
+EOF
+    CHANGED=1
+  fi
+  if ! grep -q "${TURN_DOMAIN}" "${CADDYFILE}"; then
+    cat >> "${CADDYFILE}" << EOF
+
+# LiveKit TURN TLS cert host — ${TURN_DOMAIN} (mobile/cellular WebRTC)
+${TURN_DOMAIN} {
+	respond "ok" 200
+}
+EOF
+    CHANGED=1
+  fi
+  if [[ "${CHANGED}" -eq 1 ]]; then
+    caddy validate --config "${CADDYFILE}"
+    systemctl reload caddy
+    echo "Caddy reloaded (rtc + compositor + turn)"
+    curl -sf "https://${TURN_DOMAIN}/" >/dev/null 2>&1 || true
+    sleep 3
+  fi
+fi
+
+TURN_CERT_DIR="${RTMP_DIR}/livekit-certs"
+mkdir -p "${TURN_CERT_DIR}"
+TURN_TLS_BLOCK=""
+if TURN_CERTS="$(find_turn_tls_certs "${TURN_DOMAIN}")"; then
+  TURN_CERT_FILE="${TURN_CERTS%%:*}"
+  TURN_KEY_FILE="${TURN_CERTS##*:}"
+  cp "${TURN_CERT_FILE}" "${TURN_CERT_DIR}/fullchain.pem"
+  cp "${TURN_KEY_FILE}" "${TURN_CERT_DIR}/privkey.pem"
+  chmod 644 "${TURN_CERT_DIR}/fullchain.pem"
+  chmod 600 "${TURN_CERT_DIR}/privkey.pem"
+  TURN_TLS_BLOCK=$(
+    cat << EOF
+  tls_port: 5349
+  cert_file: /etc/livekit/certs/fullchain.pem
+  key_file: /etc/livekit/certs/privkey.pem
+EOF
+  )
+  echo "TURN/TLS certs copied for ${TURN_DOMAIN}"
+else
+  echo "WARN: No TLS cert for ${TURN_DOMAIN} — mobile/cellular WebRTC may fail until Caddy issues one and you re-run this script"
+fi
+
 echo "--- Writing livekit.yaml ---"
 cat > "${RTMP_DIR}/livekit.yaml" << EOF
 port: 7880
@@ -96,6 +180,7 @@ turn:
   enabled: true
   domain: ${TURN_DOMAIN}
   udp_port: 3478
+${TURN_TLS_BLOCK}
 
 logging:
   level: info
@@ -126,36 +211,11 @@ curl -sf "http://127.0.0.1:8090/health" && echo " compositor OK" || echo "WARN: 
 curl -sf "http://127.0.0.1:7880" >/dev/null && echo "livekit HTTP OK" || echo "WARN: livekit :7880 not responding"
 
 if [[ -f "${CADDYFILE}" ]]; then
-  CHANGED=0
-  if ! grep -q "${RTC_DOMAIN}" "${CADDYFILE}"; then
-    cat >> "${CADDYFILE}" << EOF
-
-# LiveKit WebRTC signaling (WSS) — ${RTC_DOMAIN}
-${RTC_DOMAIN} {
-	reverse_proxy 127.0.0.1:7880
-}
-EOF
-    CHANGED=1
-  fi
-  if ! grep -q "${COMPOSITOR_DOMAIN}" "${CADDYFILE}"; then
-    cat >> "${CADDYFILE}" << EOF
-
-# RTMP collab compositor API — ${COMPOSITOR_DOMAIN}
-${COMPOSITOR_DOMAIN} {
-	reverse_proxy 127.0.0.1:8090
-}
-EOF
-    CHANGED=1
-  fi
-  if [[ "${CHANGED}" -eq 1 ]]; then
-    caddy validate --config "${CADDYFILE}"
-    systemctl reload caddy
-    echo "Caddy reloaded"
-  else
-    echo "Caddy already configured for LiveKit/compositor"
+  if grep -q "${RTC_DOMAIN}" "${CADDYFILE}"; then
+    echo "Caddy already configured for LiveKit/compositor/turn"
   fi
 else
-  echo "No ${CADDYFILE} — add rtc block manually (see docs/COLLAB-LIVEKIT.md)"
+  echo "No ${CADDYFILE} — add rtc + turn blocks manually (see docs/COLLAB-LIVEKIT.md)"
 fi
 
 echo ""
@@ -163,6 +223,7 @@ echo "=== Firewall (run if ufw enabled) ==="
 echo "  ufw allow 1935/tcp"
 echo "  ufw allow 7881/tcp"
 echo "  ufw allow 3478/udp"
+echo "  ufw allow 5349/tcp"
 echo "  ufw allow 50000:50100/udp"
 echo ""
 
