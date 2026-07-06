@@ -27,7 +27,15 @@ export function getProxiedHlsPlaybackUrl(ingestKey: string): string | null {
 export function upstreamHlsUrl(pathParts: string[], search = ""): string | null {
   if (!HLS_SERVER_URL || !pathParts.length) return null;
   const path = pathParts.map(encodeURIComponent).join("/");
-  return `${HLS_SERVER_URL}/${path}${search}`;
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  params.delete("hlsSession");
+  const qs = params.toString();
+  return `${HLS_SERVER_URL}/${path}${qs ? `?${qs}` : ""}`;
+}
+
+/** Live booth ingest keys use per-URL hlsSession (supports collab dual-player). */
+export function liveStreamUsesQuerySession(pathParts: string[]): boolean {
+  return liveStreamSessionKey(pathParts) !== null;
 }
 
 export function parseHlsSessionCookie(cookieHeader: string | null | undefined): string | null {
@@ -103,9 +111,14 @@ function buildUpstreamCookieHeader(hlsSession: string | null | undefined): strin
 export async function resolveUpstreamHlsSession(
   pathParts: string[],
   clientCookieHeader: string | null | undefined,
+  querySession?: string | null,
 ): Promise<string | null> {
-  const fromClient = parseHlsSessionCookie(clientCookieHeader);
   const streamKey = liveStreamSessionKey(pathParts);
+  if (querySession) {
+    if (streamKey) cacheHlsSession(streamKey, querySession);
+    return querySession;
+  }
+  const fromClient = parseHlsSessionCookie(clientCookieHeader);
   if (fromClient) {
     if (streamKey) cacheHlsSession(streamKey, fromClient);
     return fromClient;
@@ -157,7 +170,11 @@ export async function fetchUpstreamHls(
 }
 
 /** Rewrite playlist segment / variant URIs to stay on /api/hls. */
-export function rewriteM3u8ForProxy(body: string, manifestPath: string): string {
+export function rewriteM3u8ForProxy(
+  body: string,
+  manifestPath: string,
+  hlsSession?: string | null,
+): string {
   const dir = manifestPath.includes("/")
     ? manifestPath.replace(/\/[^/]*$/, "")
     : "";
@@ -167,18 +184,26 @@ export function rewriteM3u8ForProxy(body: string, manifestPath: string): string 
     .map((line) => {
       const uriMatch = line.match(/URI="([^"]+)"/);
       if (uriMatch?.[1]) {
-        const rewritten = toProxyPath(uriMatch[1], dir);
+        const rewritten = toProxyPath(uriMatch[1], dir, hlsSession);
         return line.replace(uriMatch[1], rewritten);
       }
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) return line;
-      return toProxyPath(trimmed, dir);
+      return toProxyPath(trimmed, dir, hlsSession);
     })
     .join("\n");
 }
 
-function toProxyPath(ref: string, dir: string): string {
-  if (ref.startsWith("/api/hls/")) return ref;
+function appendHlsSessionQuery(proxyPath: string, hlsSession?: string | null): string {
+  if (!hlsSession) return proxyPath;
+  const base = proxyPath.split("?")[0]!;
+  return `${base}?hlsSession=${encodeURIComponent(hlsSession)}`;
+}
+
+function toProxyPath(ref: string, dir: string, hlsSession?: string | null): string {
+  if (ref.startsWith("/api/hls/")) {
+    return appendHlsSessionQuery(ref, hlsSession);
+  }
 
   let path: string;
   if (ref.startsWith("http://") || ref.startsWith("https://")) {
@@ -194,7 +219,7 @@ function toProxyPath(ref: string, dir: string): string {
     if (!path.startsWith("/")) path = `/${path}`;
   }
 
-  return `/api/hls${path}`;
+  return appendHlsSessionQuery(`/api/hls${path}`, hlsSession);
 }
 
 export function hlsResponseHeaders(contentType: string): Record<string, string> {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Users, Radio, Check, X, Loader2, Video } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { GoLivePreview } from "@/components/GoLivePreview";
+import { StreamPlayer } from "@/components/StreamPlayer";
 import { apiFetch } from "@/lib/fetch-client";
 
 interface PartnerStream {
@@ -30,6 +31,7 @@ interface Collab {
   role: "host" | "partner";
   canRespond: boolean;
   hostStreamStatus?: string;
+  hostStream?: PartnerStream | null;
   compositorActive?: boolean;
   partnerStream?: PartnerStream | null;
 }
@@ -201,6 +203,24 @@ export default function CollabPage() {
             </Link>
             . You earn {Math.round(myPartnerCollab.splitRatio * 100)}% of tips.
           </p>
+          {myPartnerCollab.hostStream?.status === "live" && (
+            <div className="mb-4 rounded-xl border border-white/10 overflow-hidden bg-black">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 px-3 py-2 border-b border-white/10">
+                Host feed · {myPartnerCollab.host}
+              </p>
+              <StreamPlayer
+                djName={myPartnerCollab.host}
+                streamTitle={myPartnerCollab.hostStream.title}
+                viewers={0}
+                playbackUrl={myPartnerCollab.hostStream.playbackUrl}
+                isLive
+                previewMode
+              />
+            </div>
+          )}
+          {myPartnerCollab.hostStream?.status === "preparing" && (
+            <p className="text-xs text-amber-400/90 mb-4">Waiting for {myPartnerCollab.host} to go live…</p>
+          )}
           {myPartnerCollab.partnerStream.status === "preparing" ? (
             <GoLivePreview
               title={myPartnerCollab.partnerStream.title}

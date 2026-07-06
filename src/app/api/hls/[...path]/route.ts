@@ -3,6 +3,7 @@ import {
   clientHlsSessionSetCookie,
   fetchUpstreamHls,
   hlsResponseHeaders,
+  liveStreamUsesQuerySession,
   readHlsSessionFromHeaders,
   rememberHlsSession,
   resolveUpstreamHlsSession,
@@ -19,7 +20,8 @@ export async function GET(
   const { path: parts } = await params;
   if (!parts?.length) return error("Not found", 404);
 
-  const { search } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const { search } = requestUrl;
   const upstream = upstreamHlsUrl(parts, search);
   if (!upstream) return error("HLS not configured", 503);
 
@@ -27,6 +29,7 @@ export async function GET(
     const hlsSession = await resolveUpstreamHlsSession(
       parts,
       request.headers.get("cookie"),
+      requestUrl.searchParams.get("hlsSession"),
     );
     const res = await fetchUpstreamHls(upstream, { hlsSession });
 
@@ -48,13 +51,19 @@ export async function GET(
     const responseSession = readHlsSessionFromHeaders(res.headers) ?? hlsSession;
     rememberHlsSession(parts, responseSession);
     const headers = hlsResponseHeaders(contentType);
-    if (responseSession) {
+    // Per-stream session lives in manifest/segment query params so collab dual-HLS works.
+    const useQuerySession = Boolean(responseSession && liveStreamUsesQuerySession(parts));
+    if (responseSession && !useQuerySession) {
       headers["Set-Cookie"] = clientHlsSessionSetCookie(responseSession);
     }
 
     if (isManifest) {
       const text = await res.text();
-      const rewritten = rewriteM3u8ForProxy(text, manifestPath);
+      const rewritten = rewriteM3u8ForProxy(
+        text,
+        manifestPath,
+        useQuerySession ? responseSession : null,
+      );
       return new Response(rewritten, {
         status: 200,
         headers,

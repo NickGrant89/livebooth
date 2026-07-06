@@ -74,6 +74,16 @@ export async function GET() {
         role: isPartner ? ("partner" as const) : ("host" as const),
         canRespond: isPartner && c.status === "pending",
         hostStreamStatus: c.stream.status,
+        hostStream:
+          isPartner && c.status === "active"
+            ? serializePartnerStream({
+                id: c.stream.id,
+                ingestKey: c.stream.ingestKey,
+                playbackUrl: c.stream.playbackUrl,
+                title: c.stream.title,
+                status: c.stream.status,
+              })
+            : null,
         compositorActive: c.compositorActive,
         partnerStream: c.partnerStream ? serializePartnerStream(c.partnerStream) : null,
       };
