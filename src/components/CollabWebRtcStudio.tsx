@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -11,8 +11,8 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track } from "livekit-client";
-import { Loader2, Radio, Wifi } from "lucide-react";
+import { Track, RoomEvent } from "livekit-client";
+import { Camera, Loader2, Radio, Wifi } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/fetch-client";
 
@@ -29,6 +29,24 @@ type TokenPayload = {
   room: string;
 };
 
+function formatMediaError(err: unknown): string {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : err != null
+          ? String(err)
+          : "Unknown media error";
+  if (/permission|notallowed|denied/i.test(msg)) {
+    return "Camera/mic blocked — allow livebooth.uk in the site lock icon, quit other apps using the webcam, then click Turn on camera & mic.";
+  }
+  if (/notfound|devicesnotfound|overconstrained/i.test(msg)) {
+    return "No usable camera — pick a device from the Camera menu or plug in a webcam.";
+  }
+  return msg;
+}
+
 function StudioVideoGrid() {
   const tracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: true }],
@@ -38,6 +56,65 @@ function StudioVideoGrid() {
     <GridLayout tracks={tracks} style={{ minHeight: 240 }}>
       <ParticipantTile />
     </GridLayout>
+  );
+}
+
+function StudioMediaPrompt({
+  onError,
+  onClearError,
+}: {
+  onError: (msg: string) => void;
+  onClearError: () => void;
+}) {
+  const room = useRoomContext();
+  const [busy, setBusy] = useState(false);
+  const [cameraOn, setCameraOn] = useState(false);
+
+  useEffect(() => {
+    if (!room) return;
+
+    const sync = () => setCameraOn(room.localParticipant.isCameraEnabled);
+    sync();
+    room.on(RoomEvent.LocalTrackPublished, sync);
+    room.on(RoomEvent.LocalTrackUnpublished, sync);
+    return () => {
+      room.off(RoomEvent.LocalTrackPublished, sync);
+      room.off(RoomEvent.LocalTrackUnpublished, sync);
+    };
+  }, [room]);
+
+  const enableMedia = useCallback(async () => {
+    if (!room) return;
+    setBusy(true);
+    onClearError();
+    try {
+      await room.localParticipant.setMicrophoneEnabled(true);
+      await room.localParticipant.setCameraEnabled(true);
+      setCameraOn(true);
+    } catch (err) {
+      onError(formatMediaError(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [room, onClearError, onError]);
+
+  if (cameraOn) return null;
+
+  return (
+    <div className="px-2 pb-2">
+      <button
+        type="button"
+        onClick={enableMedia}
+        disabled={busy}
+        className="w-full rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 text-sm font-medium text-[#53fc18] hover:bg-[#53fc18]/15 disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+        Turn on camera &amp; mic
+      </button>
+      <p className="text-[10px] text-zinc-500 mt-2 text-center">
+        Required for synced B2B mix — both DJs must enable camera in this studio (not OBS).
+      </p>
+    </div>
   );
 }
 
@@ -67,6 +144,7 @@ function EgressWatcher({
       const res = await apiFetch(`/api/collab/webrtc?collabId=${encodeURIComponent(collabId)}`);
       if (!res.ok || cancelled) return;
       const data = (await res.json()) as {
+        participantCount?: number;
         videoPublishers?: number;
         canStartEgress?: boolean;
         compositorActive?: boolean;
@@ -79,10 +157,19 @@ function EgressWatcher({
         return;
       }
 
+      const inRoom = data.participantCount ?? 0;
+      const cameras = data.videoPublishers ?? 0;
+
       if (!data.egressHealthy) {
         setStatus("Egress service restarting on VPS — fan mix may take a minute.");
-      } else if ((data.videoPublishers ?? 0) < 2) {
-        setStatus("Waiting for both DJs to enable camera in the studio…");
+      } else if (inRoom < 2) {
+        setStatus(
+          `${inRoom}/2 DJs in studio — the other DJ must open WebRTC studio on /collab (host RTMP/OBS does not count).`,
+        );
+      } else if (cameras < 2) {
+        setStatus(
+          `${cameras}/2 cameras on — click Turn on camera & mic above (both DJs, in this studio tab).`,
+        );
       } else if (data.canStartEgress) {
         setStatus("Starting synced fan mix…");
         const start = await apiFetch("/api/collab/webrtc", {
@@ -129,6 +216,8 @@ export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorAct
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const clearError = useCallback(() => setError(""), []);
+
   async function connect() {
     setLoading(true);
     setError("");
@@ -155,7 +244,8 @@ export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorAct
         <p className="text-xs text-zinc-400">
           Join from your browser — camera and mic sync in one room. Fans still watch{" "}
           <span className="text-zinc-300">@{hostUsername}</span>&apos;s booth once the mix starts.
-          {role === "host" && " Go live on your stream first if you have not already."}
+          {role === "host" &&
+            " Host must join this studio too — OBS/RTMP alone does not enter the WebRTC room."}
         </p>
         {error && <p className="text-xs text-red-400">{error}</p>}
         <button
@@ -177,14 +267,16 @@ export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorAct
         token={tokenPayload.token}
         serverUrl={tokenPayload.url}
         connect
-        video
-        audio
+        video={false}
+        audio={false}
         data-lk-theme="default"
-        onError={(e) => setError(e.message)}
+        onError={(e) => setError(formatMediaError(e))}
+        onMediaDeviceFailure={(failure) => setError(formatMediaError(failure))}
       >
         <div className="p-2">
           <StudioVideoGrid />
         </div>
+        <StudioMediaPrompt onError={setError} onClearError={clearError} />
         <ControlBar controls={{ microphone: true, camera: true, screenShare: false }} />
         <RoomAudioRenderer />
         <div className="px-2 pb-2">
