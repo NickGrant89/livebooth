@@ -9,61 +9,55 @@
  * Auth: X-Compositor-Secret header (COMPOSITOR_SECRET env)
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { spawn } from "node:child_process";
+import { createServer } from "node:http";
 
 const PORT = Number(process.env.COMPOSITOR_PORT ?? 8090);
 const SECRET = process.env.COMPOSITOR_SECRET ?? "";
 const RTMP_BASE = (process.env.MEDIAMTX_RTMP_URL ?? "rtmp://127.0.0.1:1935/live").replace(/\/$/, "");
 const API_BASE = (process.env.MEDIAMTX_API_URL ?? "http://127.0.0.1:9997").replace(/\/$/, "");
 
-type Session = {
-  outputKey: string;
-  hostKey: string;
-  partnerKey: string;
-  process: ChildProcess | null;
-  restarting: boolean;
-  stopRequested: boolean;
-};
+/** @typedef {{ outputKey: string, hostKey: string, partnerKey: string, process: import("node:child_process").ChildProcess | null, restarting: boolean, stopRequested: boolean }} Session */
 
-const sessions = new Map<string, Session>();
+/** @type {Map<string, Session>} */
+const sessions = new Map();
 
-function log(msg: string, extra?: Record<string, unknown>) {
+function log(msg, extra) {
   const ts = new Date().toISOString();
   console.log(`[compositor ${ts}] ${msg}`, extra ? JSON.stringify(extra) : "");
 }
 
-function json(res: ServerResponse, status: number, body: unknown) {
+function json(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
+function readBody(req) {
   return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
+    const chunks = [];
     req.on("data", (c) => chunks.push(c));
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
 }
 
-function authorized(req: IncomingMessage): boolean {
+function authorized(req) {
   if (!SECRET) return true;
   return req.headers["x-compositor-secret"] === SECRET;
 }
 
-async function pathReady(pathName: string): Promise<boolean> {
+async function pathReady(pathName) {
   try {
     const res = await fetch(`${API_BASE}/v3/paths/get/${encodeURIComponent(pathName)}`);
     if (!res.ok) return false;
-    const data = (await res.json()) as { ready?: boolean; sourceReady?: boolean };
+    const data = await res.json();
     return Boolean(data.ready ?? data.sourceReady);
   } catch {
     return false;
   }
 }
 
-async function waitForPath(pathName: string, timeoutMs = 90_000): Promise<boolean> {
+async function waitForPath(pathName, timeoutMs = 90_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (await pathReady(pathName)) return true;
@@ -72,7 +66,7 @@ async function waitForPath(pathName: string, timeoutMs = 90_000): Promise<boolea
   return false;
 }
 
-function buildFfmpegArgs(hostKey: string, partnerKey: string, outputKey: string): string[] {
+function buildFfmpegArgs(hostKey, partnerKey, outputKey) {
   const hostUrl = `${RTMP_BASE}/${hostKey}`;
   const partnerUrl = `${RTMP_BASE}/${partnerKey}`;
   const outUrl = `${RTMP_BASE}/${outputKey}`;
@@ -130,7 +124,8 @@ function buildFfmpegArgs(hostKey: string, partnerKey: string, outputKey: string)
   ];
 }
 
-function launchFfmpeg(session: Session) {
+/** @param {Session} session */
+function launchFfmpeg(session) {
   if (session.stopRequested) return;
 
   const args = buildFfmpegArgs(session.hostKey, session.partnerKey, session.outputKey);
@@ -139,7 +134,7 @@ function launchFfmpeg(session: Session) {
   const proc = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
   session.process = proc;
 
-  proc.stderr?.on("data", (buf: Buffer) => {
+  proc.stderr?.on("data", (buf) => {
     const line = buf.toString().trim();
     if (line) log("ffmpeg", { outputKey: session.outputKey, line: line.slice(0, 300) });
   });
@@ -165,9 +160,9 @@ function launchFfmpeg(session: Session) {
   });
 }
 
-async function startSession(hostKey: string, partnerKey: string, outputKey: string) {
+async function startSession(hostKey, partnerKey, outputKey) {
   if (sessions.has(outputKey)) {
-    const existing = sessions.get(outputKey)!;
+    const existing = sessions.get(outputKey);
     if (existing.hostKey === hostKey && existing.partnerKey === partnerKey) {
       return { ok: true, alreadyRunning: true };
     }
@@ -180,7 +175,8 @@ async function startSession(hostKey: string, partnerKey: string, outputKey: stri
     return { ok: false, error: "Host or partner RTMP feed not ready within timeout" };
   }
 
-  const session: Session = {
+  /** @type {Session} */
+  const session = {
     outputKey,
     hostKey,
     partnerKey,
@@ -194,7 +190,7 @@ async function startSession(hostKey: string, partnerKey: string, outputKey: stri
   return { ok: true, alreadyRunning: false };
 }
 
-function stopSession(outputKey: string) {
+function stopSession(outputKey) {
   const session = sessions.get(outputKey);
   if (!session) return { ok: true, found: false };
   session.stopRequested = true;
@@ -208,7 +204,7 @@ function stopSession(outputKey: string) {
   return { ok: true, found: true };
 }
 
-async function handleRequest(req: IncomingMessage, res: ServerResponse) {
+async function handleRequest(req, res) {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${PORT}`);
 
   if (req.method === "GET" && url.pathname === "/health") {
@@ -221,11 +217,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
   if (req.method === "POST" && url.pathname === "/start") {
     try {
-      const body = JSON.parse(await readBody(req)) as {
-        hostKey?: string;
-        partnerKey?: string;
-        outputKey?: string;
-      };
+      const body = JSON.parse(await readBody(req));
       if (!body.hostKey || !body.partnerKey || !body.outputKey) {
         return json(res, 400, { error: "hostKey, partnerKey, outputKey required" });
       }
@@ -238,7 +230,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
   if (req.method === "POST" && url.pathname === "/stop") {
     try {
-      const body = JSON.parse(await readBody(req)) as { outputKey?: string };
+      const body = JSON.parse(await readBody(req));
       if (!body.outputKey) return json(res, 400, { error: "outputKey required" });
       const result = stopSession(body.outputKey);
       return json(res, 200, result);
