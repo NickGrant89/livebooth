@@ -15,6 +15,8 @@ import {
   RoomEvent,
   ConnectionState,
   VideoPresets,
+  createLocalTracks,
+  type LocalTrack,
   type Room,
   type RoomOptions,
 } from "livekit-client";
@@ -36,6 +38,8 @@ type TokenPayload = {
   room: string;
 };
 
+type JoinPhase = "idle" | "joining" | "live";
+
 const ROOM_OPTIONS: RoomOptions = {
   disconnectOnPageLeave: false,
   adaptiveStream: false,
@@ -48,36 +52,18 @@ const ROOM_OPTIONS: RoomOptions = {
   },
 };
 
-function isConnectionError(err: unknown): boolean {
-  const msg =
-    err instanceof Error ? err.message : typeof err === "string" ? err : String(err ?? "");
-  return /connect|signal|websocket|room disconnected|negotiation|ice|pc connection|timeout/i.test(
-    msg,
-  );
-}
-
-async function enableCameraWithFallback(room: Room) {
-  try {
-    await room.localParticipant.setCameraEnabled(true);
-  } catch (first) {
-    if (first instanceof DOMException && first.name === "OverconstrainedError") {
-      await room.localParticipant.setCameraEnabled(true, { facingMode: "user" });
-      return;
-    }
-    throw first;
-  }
-}
+const JOIN_TIMEOUT_MS = 25_000;
 
 function formatMediaError(err: unknown): string {
   if (err instanceof DOMException) {
     if (err.name === "NotAllowedError") {
-      return "Browser blocked camera/mic — allow livebooth.uk in site settings, then tap Turn on camera again.";
+      return "Camera/mic blocked — tap Join again and choose Allow when Safari asks.";
     }
     if (err.name === "NotReadableError") {
-      return "Camera is in use — close other tabs/apps using the camera, then try again.";
+      return "Camera is in use — close other apps using the camera, then tap Join again.";
     }
     if (err.name === "NotFoundError") {
-      return "No camera found — pick a device from the Camera menu.";
+      return "No camera found on this device.";
     }
     return `${err.name}: ${err.message}`;
   }
@@ -89,35 +75,66 @@ function formatMediaError(err: unknown): string {
         ? err
         : err != null
           ? String(err)
-          : "Unknown media error";
+          : "Unknown error";
 
-  if (/DeviceInUse|NotReadable/i.test(msg)) {
-    return "Camera is in use — close other tabs/apps using the camera.";
+  if (/timed out/i.test(msg)) {
+    return "Join timed out — check Wi‑Fi, allow camera/mic, then tap Join again.";
   }
   if (/PermissionDenied|NotAllowed|permission|denied/i.test(msg)) {
-    return "Camera/mic blocked — allow livebooth.uk in browser settings, then try again.";
-  }
-  if (/notfound|devicesnotfound|overconstrained/i.test(msg)) {
-    return "No usable camera — pick a device from the Camera menu.";
+    return "Camera/mic blocked — allow livebooth.uk in browser settings, then tap Join again.";
   }
   return msg;
 }
 
-function StudioVideoGrid() {
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms);
+    promise
+      .then((v) => {
+        clearTimeout(timer);
+        resolve(v);
+      })
+      .catch((e) => {
+        clearTimeout(timer);
+        reject(e);
+      });
+  });
+}
+
+function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !track || track.kind !== Track.Kind.Video) return;
+    track.attach(el);
+    return () => {
+      track.detach(el);
+    };
+  }, [track]);
+
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      muted
+      playsInline
+      className="w-full h-full object-cover rounded-lg bg-zinc-900"
+      style={{ minHeight: 240, transform: "scaleX(-1)" }}
+    />
+  );
+}
+
+function StudioVideoGrid({ localPreviewTrack }: { localPreviewTrack: LocalTrack | null }) {
   const tracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: false }],
     { onlySubscribed: false },
   );
+
   if (tracks.length === 0) {
-    return (
-      <div
-        className="flex items-center justify-center rounded-lg bg-zinc-900 text-zinc-500 text-xs"
-        style={{ minHeight: 240 }}
-      >
-        Camera preview appears here once enabled
-      </div>
-    );
+    return <LocalPreviewVideo track={localPreviewTrack} />;
   }
+
   return (
     <GridLayout tracks={tracks} style={{ minHeight: 240 }}>
       <ParticipantTile />
@@ -125,226 +142,103 @@ function StudioVideoGrid() {
   );
 }
 
-function StudioControls({
+function TrackPublisher({
+  tracks,
   onError,
-  onClearError,
+  onPublished,
 }: {
+  tracks: LocalTrack[];
   onError: (msg: string) => void;
-  onClearError: () => void;
+  onPublished: () => void;
 }) {
   const room = useRoomContext();
-  const [busy, setBusy] = useState(false);
-  const [cameraOn, setCameraOn] = useState(false);
-  const [micOn, setMicOn] = useState(false);
-  const [cameraStarting, setCameraStarting] = useState(false);
-  const [cameraDropped, setCameraDropped] = useState(false);
-  const togglingRef = useRef(false);
-  const unpublishGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cameraIntentRef = useRef(false);
-  const reenableBusyRef = useRef(false);
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (!room || doneRef.current) return;
+
+    let cancelled = false;
+
+    async function publish() {
+      if (room!.state !== ConnectionState.Connected) return;
+
+      try {
+        for (const track of tracks) {
+          if (cancelled) return;
+          await room!.localParticipant.publishTrack(track, {
+            source: track.kind === Track.Kind.Video ? Track.Source.Camera : Track.Source.Microphone,
+          });
+        }
+        if (!cancelled) {
+          doneRef.current = true;
+          onPublished();
+        }
+      } catch (err) {
+        if (!cancelled) onError(formatMediaError(err));
+      }
+    }
+
+    if (room.state === ConnectionState.Connected) {
+      void publish();
+    } else {
+      const onConnected = () => void publish();
+      room.on(RoomEvent.Connected, onConnected);
+      return () => {
+        cancelled = true;
+        room.off(RoomEvent.Connected, onConnected);
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [room, tracks, onError, onPublished]);
+
+  return null;
+}
+
+function StudioControls() {
+  const room = useRoomContext();
+  const [micOn, setMicOn] = useState(true);
+  const [cameraOn, setCameraOn] = useState(true);
+  const busyRef = useRef(false);
 
   useEffect(() => {
     if (!room) return;
-
     const sync = () => {
-      if (unpublishGraceRef.current) return;
-      const on = room.localParticipant.isCameraEnabled;
-      setCameraOn(on);
       setMicOn(room.localParticipant.isMicrophoneEnabled);
-      if (on) {
-        setCameraStarting(false);
-        setCameraDropped(false);
-      }
+      setCameraOn(room.localParticipant.isCameraEnabled);
     };
-
-    const onUnpublished = () => {
-      if (!cameraIntentRef.current) {
-        sync();
-        return;
-      }
-      if (room.localParticipant.isCameraEnabled) {
-        sync();
-        return;
-      }
-      if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
-      unpublishGraceRef.current = setTimeout(() => {
-        unpublishGraceRef.current = null;
-        if (room.localParticipant.isCameraEnabled) {
-          sync();
-          return;
-        }
-        setCameraOn(false);
-        setCameraStarting(false);
-        setCameraDropped(true);
-      }, 4000);
-    };
-
-    const reenableAfterReconnect = async () => {
-      if (!cameraIntentRef.current || reenableBusyRef.current) return;
-      if (room.state !== ConnectionState.Connected) return;
-      if (room.localParticipant.isCameraEnabled) return;
-      reenableBusyRef.current = true;
-      setCameraStarting(true);
-      setCameraDropped(false);
-      try {
-        await enableCameraWithFallback(room);
-        if (cameraIntentRef.current) {
-          await room.localParticipant.setMicrophoneEnabled(true);
-        }
-      } catch (err) {
-        onError(formatMediaError(err));
-      } finally {
-        reenableBusyRef.current = false;
-        setCameraStarting(false);
-        setCameraOn(room.localParticipant.isCameraEnabled);
-        setMicOn(room.localParticipant.isMicrophoneEnabled);
-      }
-    };
-
-    const onReconnecting = () => setCameraStarting(true);
-
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
-    room.on(RoomEvent.LocalTrackUnpublished, onUnpublished);
-    room.on(RoomEvent.Reconnecting, onReconnecting);
-    room.on(RoomEvent.Reconnected, reenableAfterReconnect);
-
+    room.on(RoomEvent.LocalTrackUnpublished, sync);
     return () => {
       room.off(RoomEvent.LocalTrackPublished, sync);
-      room.off(RoomEvent.LocalTrackUnpublished, onUnpublished);
-      room.off(RoomEvent.Reconnecting, onReconnecting);
-      room.off(RoomEvent.Reconnected, reenableAfterReconnect);
-      if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
+      room.off(RoomEvent.LocalTrackUnpublished, sync);
     };
-  }, [room, onError]);
-
-  const enableMedia = useCallback(async () => {
-    if (!room || togglingRef.current) return;
-    togglingRef.current = true;
-    setBusy(true);
-    onClearError();
-    try {
-      if (room.state !== ConnectionState.Connected) {
-        throw new Error("Still connecting — wait a moment and try again.");
-      }
-      setCameraStarting(true);
-      cameraIntentRef.current = true;
-      setCameraDropped(false);
-      await enableCameraWithFallback(room);
-      await room.localParticipant.setMicrophoneEnabled(true);
-      if (unpublishGraceRef.current) {
-        clearTimeout(unpublishGraceRef.current);
-        unpublishGraceRef.current = null;
-      }
-      setCameraOn(room.localParticipant.isCameraEnabled);
-      setMicOn(room.localParticipant.isMicrophoneEnabled);
-      setCameraStarting(false);
-    } catch (err) {
-      setCameraStarting(false);
-      onError(formatMediaError(err));
-    } finally {
-      setBusy(false);
-      togglingRef.current = false;
-    }
-  }, [room, onClearError, onError]);
-
-  const toggleCamera = useCallback(async () => {
-    if (!room || togglingRef.current || busy) return;
-    togglingRef.current = true;
-    onClearError();
-    try {
-      const next = !room.localParticipant.isCameraEnabled;
-      if (next) {
-        setCameraStarting(true);
-        cameraIntentRef.current = true;
-        setCameraDropped(false);
-        await enableCameraWithFallback(room);
-        setCameraStarting(false);
-      } else {
-        cameraIntentRef.current = false;
-        setCameraDropped(false);
-        await room.localParticipant.setCameraEnabled(false);
-      }
-      if (unpublishGraceRef.current) {
-        clearTimeout(unpublishGraceRef.current);
-        unpublishGraceRef.current = null;
-      }
-      setCameraOn(room.localParticipant.isCameraEnabled);
-    } catch (err) {
-      setCameraStarting(false);
-      onError(formatMediaError(err));
-    } finally {
-      togglingRef.current = false;
-    }
-  }, [room, busy, onClearError, onError]);
+  }, [room]);
 
   const toggleMic = useCallback(async () => {
-    if (!room || togglingRef.current || busy) return;
-    togglingRef.current = true;
-    onClearError();
+    if (!room || busyRef.current) return;
+    busyRef.current = true;
     try {
-      const next = !room.localParticipant.isMicrophoneEnabled;
-      await room.localParticipant.setMicrophoneEnabled(next);
+      await room.localParticipant.setMicrophoneEnabled(!room.localParticipant.isMicrophoneEnabled);
       setMicOn(room.localParticipant.isMicrophoneEnabled);
-    } catch (err) {
-      onError(formatMediaError(err));
     } finally {
-      togglingRef.current = false;
+      busyRef.current = false;
     }
-  }, [room, busy, onClearError, onError]);
+  }, [room]);
 
-  if (!cameraOn && !cameraStarting && !cameraIntentRef.current) {
-    return (
-      <div className="px-2 pb-2 space-y-2">
-        <button
-          type="button"
-          onClick={enableMedia}
-          disabled={busy}
-          className="w-full rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 text-sm font-medium text-[#53fc18] hover:bg-[#53fc18]/15 disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-          Turn on camera &amp; mic
-        </button>
-        <p className="text-[10px] text-zinc-500 text-center">
-          Both DJs must join this studio on /collab with camera on (OBS alone does not count).
-        </p>
-      </div>
-    );
-  }
-
-  if (cameraStarting) {
-    return (
-      <div className="px-2 pb-2 space-y-2">
-        <p className="text-xs text-amber-400/90 text-center py-2 flex items-center justify-center gap-2">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Starting camera… allow access if prompted
-        </p>
-        {cameraDropped && (
-          <p className="text-[10px] text-zinc-500 text-center">
-            Reconnecting studio — camera will resume automatically.
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  if (cameraDropped && !cameraOn) {
-    return (
-      <div className="px-2 pb-2 space-y-2">
-        <p className="text-xs text-amber-400/90 text-center">
-          Camera dropped — tap below to turn it back on.
-        </p>
-        <button
-          type="button"
-          onClick={enableMedia}
-          disabled={busy}
-          className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200"
-        >
-          Retry camera
-        </button>
-      </div>
-    );
-  }
+  const toggleCamera = useCallback(async () => {
+    if (!room || busyRef.current) return;
+    busyRef.current = true;
+    try {
+      await room.localParticipant.setCameraEnabled(!room.localParticipant.isCameraEnabled);
+      setCameraOn(room.localParticipant.isCameraEnabled);
+    } finally {
+      busyRef.current = false;
+    }
+  }, [room]);
 
   return (
     <div className="px-2 pb-2 flex gap-2">
@@ -386,11 +280,11 @@ function StudioConnectionStatus() {
 
   const label =
     state === ConnectionState.Connecting
-      ? "Connecting to rtc.livebooth.uk…"
+      ? "Connecting to studio…"
       : state === ConnectionState.Reconnecting
         ? "Reconnecting…"
         : state === ConnectionState.Disconnected
-          ? "Disconnected — check Wi‑Fi and reload /collab"
+          ? "Disconnected — reload /collab and tap Join again"
           : `Connection: ${state}`;
 
   return <p className="text-xs text-amber-400/90 px-2 pb-1">{label}</p>;
@@ -401,21 +295,36 @@ function EgressWatcher({
   compositorActive,
   hostUsername,
   hostStreamLive,
+  role,
 }: {
   collabId: string;
   compositorActive?: boolean;
   hostUsername: string;
   hostStreamLive?: boolean;
+  role: "host" | "partner";
 }) {
   const room = useRoomContext();
   const [status, setStatus] = useState("");
   const [mixActive, setMixActive] = useState(Boolean(compositorActive));
+  const [localCamera, setLocalCamera] = useState(false);
   const egressBusyRef = useRef(false);
   const lastEgressAttemptRef = useRef(0);
 
   useEffect(() => {
     setMixActive(Boolean(compositorActive));
   }, [compositorActive]);
+
+  useEffect(() => {
+    if (!room) return;
+    const sync = () => setLocalCamera(room.localParticipant.isCameraEnabled);
+    sync();
+    room.on(RoomEvent.LocalTrackPublished, sync);
+    room.on(RoomEvent.LocalTrackUnpublished, sync);
+    return () => {
+      room.off(RoomEvent.LocalTrackPublished, sync);
+      room.off(RoomEvent.LocalTrackUnpublished, sync);
+    };
+  }, [room]);
 
   useEffect(() => {
     if (!room) return;
@@ -426,8 +335,8 @@ function EgressWatcher({
       const res = await apiFetch(`/api/collab/webrtc?collabId=${encodeURIComponent(collabId)}`);
       if (!res.ok || cancelled) return;
       const data = (await res.json()) as {
-        participantCount?: number;
         connectedDjs?: number;
+        participantCount?: number;
         videoPublishers?: number;
         hostInStudio?: boolean;
         partnerInStudio?: boolean;
@@ -439,28 +348,36 @@ function EgressWatcher({
       if (data.compositorActive) {
         setMixActive(true);
         setStatus("Fan stream is live on the host booth.");
-        egressBusyRef.current = false;
         return;
       }
 
-      const djs = data.connectedDjs ?? data.participantCount ?? 0;
+      const hostOk =
+        data.hostInStudio ?? (role === "host" && room!.state === ConnectionState.Connected);
+      const partnerOk =
+        data.partnerInStudio ?? (role === "partner" && room!.state === ConnectionState.Connected);
       const cameras = data.videoPublishers ?? 0;
-      const hostOk = data.hostInStudio ?? djs >= 1;
-      const partnerOk = data.partnerInStudio ?? djs >= 2;
 
+      if (!localCamera) {
+        setStatus("Turn your camera on using the Camera button below.");
+        return;
+      }
+      if (!hostOk) {
+        setStatus("Waiting for host to join this studio on /collab (Mac or phone).");
+        return;
+      }
+      if (!partnerOk) {
+        setStatus("Waiting for partner to join /collab on their phone and tap Join.");
+        return;
+      }
+      if (cameras < 2) {
+        setStatus(`${cameras}/2 cameras on — both DJs need camera enabled.`);
+        return;
+      }
       if (!data.egressHealthy) {
-        setStatus("Egress service restarting on VPS — fan mix may take a minute.");
-      } else if (!hostOk) {
-        setStatus("Host: open WebRTC studio here and tap Turn on camera & mic.");
-      } else if (!partnerOk) {
-        setStatus(
-          "Partner: must open /collab on their phone, Open WebRTC studio, and turn camera on (OBS does not count).",
-        );
-      } else if (cameras < 2) {
-        setStatus(
-          `${cameras}/2 cameras on — both DJs tap Turn on camera & mic and keep this tab open.`,
-        );
-      } else if (data.canStartEgress) {
+        setStatus("Mix server warming up — may take a minute.");
+        return;
+      }
+      if (data.canStartEgress) {
         const now = Date.now();
         if (egressBusyRef.current || now - lastEgressAttemptRef.current < 15_000) {
           setStatus("Starting synced fan mix…");
@@ -478,20 +395,17 @@ function EgressWatcher({
           const body = (await start.json()) as { egress?: { active?: boolean; reason?: string } };
           if (body.egress?.active) {
             setMixActive(true);
-            setStatus(
-              body.egress.reason === "activated_pending_hls"
-                ? "Fan mix started — HLS may take a few seconds on the booth page."
-                : "Fan stream is live on the host booth.",
-            );
+            setStatus("Fan mix is live — open the booth page to watch.");
           } else {
-            setStatus(`Mix failed (${body.egress?.reason ?? "retry"}) — check VPS egress logs.`);
+            setStatus(`Mix failed (${body.egress?.reason ?? "retry"}) — wait and keep both cameras on.`);
           }
         } else {
-          setStatus("Could not start fan mix — try again in a few seconds.");
+          setStatus("Could not start mix — keep both cameras on and wait.");
         }
-      } else {
-        setStatus(`${djs}/2 DJs connected · ${cameras}/2 cameras on — waiting to start mix…`);
+        return;
       }
+
+      setStatus(`${cameras}/2 cameras · waiting to start mix…`);
     }
 
     tick();
@@ -500,30 +414,28 @@ function EgressWatcher({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [room, collabId]);
+  }, [room, collabId, role, localCamera]);
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs space-y-1">
       {mixActive ? (
-        <p className="text-[#53fc18] font-medium">B2B mix · synced audio (WebRTC)</p>
+        <p className="text-[#53fc18] font-medium">B2B mix live</p>
       ) : (
-        <p className="text-amber-400/90 font-medium">
-          {status || "Studio connected — waiting for both DJs with cameras on…"}
-        </p>
-      )}
-      {mixActive && status && <p className="text-zinc-500">{status}</p>}
-      {!hostStreamLive && (
-        <p className="text-amber-400/90">
-          Host must publish from Go Live before fans can watch the booth page.
-        </p>
+        <p className="text-amber-400/90 font-medium">{status || "Connected — waiting for both DJs…"}</p>
       )}
       {hostStreamLive ? (
         <Link href={`/stream/${hostUsername}`} className="text-[#53fc18] hover:underline inline-block">
           Open fan booth →
         </Link>
-      ) : (
-        <span className="text-zinc-600 inline-block">Open fan booth (publish first)</span>
-      )}
+      ) : role === "host" ? (
+        <p className="text-zinc-500">
+          Optional: publish from{" "}
+          <Link href="/go-live" className="text-[#53fc18] hover:underline">
+            Go Live
+          </Link>{" "}
+          so fans see the LIVE badge (mix works without OBS).
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -533,9 +445,13 @@ type StudioRoomProps = {
   token: string;
   serverUrl: string;
   hostUsername: string;
+  role: "host" | "partner";
   compositorActive?: boolean;
   hostStreamLive?: boolean;
+  localTracks: LocalTrack[];
+  localPreviewTrack: LocalTrack | null;
   onError: (msg: string) => void;
+  onPublished: () => void;
 };
 
 function StudioRoom({
@@ -543,31 +459,14 @@ function StudioRoom({
   token,
   serverUrl,
   hostUsername,
+  role,
   compositorActive,
   hostStreamLive,
+  localTracks,
+  localPreviewTrack,
   onError,
+  onPublished,
 }: StudioRoomProps) {
-  const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
-
-  const reportError = useCallback((msg: string) => {
-    onErrorRef.current(msg);
-  }, []);
-
-  const clearError = useCallback(() => {
-    onErrorRef.current("");
-  }, []);
-
-  const handleRoomError = useCallback((e: Error) => {
-    if (isConnectionError(e)) return;
-    onErrorRef.current(formatMediaError(e));
-  }, []);
-
-  const handleMediaDeviceFailure = useCallback((failure?: unknown) => {
-    if (isConnectionError(failure)) return;
-    onErrorRef.current(formatMediaError(failure));
-  }, []);
-
   return (
     <LiveKitRoom
       token={token}
@@ -577,14 +476,15 @@ function StudioRoom({
       audio={false}
       options={ROOM_OPTIONS}
       data-lk-theme="default"
-      onError={handleRoomError}
-      onMediaDeviceFailure={handleMediaDeviceFailure}
+      onError={(e) => onError(formatMediaError(e))}
+      onMediaDeviceFailure={(f) => onError(formatMediaError(f))}
     >
+      <TrackPublisher tracks={localTracks} onError={onError} onPublished={onPublished} />
       <div className="p-2">
-        <StudioVideoGrid />
+        <StudioVideoGrid localPreviewTrack={localPreviewTrack} />
       </div>
       <StudioConnectionStatus />
-      <StudioControls onError={reportError} onClearError={clearError} />
+      <StudioControls />
       <RoomAudioRenderer />
       <div className="px-2 pb-2">
         <EgressWatcher
@@ -592,6 +492,7 @@ function StudioRoom({
           compositorActive={compositorActive}
           hostUsername={hostUsername}
           hostStreamLive={hostStreamLive}
+          role={role}
         />
       </div>
     </LiveKitRoom>
@@ -605,57 +506,111 @@ export function CollabWebRtcStudio({
   compositorActive,
   hostStreamLive,
 }: StudioProps) {
+  const [phase, setPhase] = useState<JoinPhase>("idle");
   const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
+  const [localTracks, setLocalTracks] = useState<LocalTrack[]>([]);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const studioInstanceIdRef = useRef(
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID().slice(0, 8)
       : `${Date.now().toString(36)}`,
   );
+  const tracksRef = useRef<LocalTrack[]>([]);
 
-  const reportError = useCallback((msg: string) => {
-    setError(msg);
+  const stopTracks = useCallback(() => {
+    for (const track of tracksRef.current) {
+      track.stop();
+    }
+    tracksRef.current = [];
+    setLocalTracks([]);
   }, []);
 
-  async function connect() {
-    setLoading(true);
+  const reportError = useCallback(
+    (msg: string) => {
+      setError(msg);
+      setPhase("idle");
+      setTokenPayload(null);
+      stopTracks();
+    },
+    [stopTracks],
+  );
+
+  async function joinStudio() {
+    setPhase("joining");
     setError("");
-    const res = await apiFetch("/api/livekit/token", {
-      method: "POST",
-      body: JSON.stringify({ collabId, studioInstanceId: studioInstanceIdRef.current }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error ?? "Could not join studio");
-      return;
+    stopTracks();
+
+    try {
+      const tracks = await withTimeout(
+        createLocalTracks({
+          audio: true,
+          video: { facingMode: "user" },
+        }),
+        JOIN_TIMEOUT_MS,
+        "Camera/mic",
+      );
+
+      tracksRef.current = tracks;
+      setLocalTracks(tracks);
+
+      const res = await withTimeout(
+        apiFetch("/api/livekit/token", {
+          method: "POST",
+          body: JSON.stringify({ collabId, studioInstanceId: studioInstanceIdRef.current }),
+        }),
+        15_000,
+        "Studio login",
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not join studio");
+      }
+
+      setTokenPayload(data as TokenPayload);
+      setPhase("live");
+    } catch (err) {
+      stopTracks();
+      setTokenPayload(null);
+      setPhase("idle");
+      setError(formatMediaError(err));
     }
-    setTokenPayload(data as TokenPayload);
   }
 
-  if (!tokenPayload) {
+  const localPreviewTrack =
+    localTracks.find((t) => t.kind === Track.Kind.Video) ?? null;
+
+  if (phase !== "live" || !tokenPayload) {
     return (
       <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4 space-y-3">
         <p className="text-sm font-medium text-[#53fc18] flex items-center gap-2">
           <Wifi className="h-4 w-4" />
-          WebRTC studio · low latency
+          {role === "host" ? "Host" : "Partner"} collab studio
         </p>
         <p className="text-xs text-zinc-400">
-          Join from your browser — camera and mic sync in one room. Fans still watch{" "}
-          <span className="text-zinc-300">@{hostUsername}</span>&apos;s booth once the mix starts.
-          {role === "host" &&
-            " Host must join this studio too — OBS/RTMP alone does not enter the WebRTC room."}
+          One tap joins the studio and turns on camera + mic.{" "}
+          {role === "host"
+            ? "Do this on your Mac — OBS does not count."
+            : "Do this on your phone — keep this tab open."}
         </p>
+        {phase === "joining" && (
+          <div className="rounded-lg bg-black/40 p-3 text-center">
+            <Loader2 className="h-6 w-6 animate-spin text-[#53fc18] mx-auto mb-2" />
+            <p className="text-xs text-amber-200">Allow camera &amp; mic when your browser asks…</p>
+          </div>
+        )}
         {error && <p className="text-xs text-red-400">{error}</p>}
         <button
           type="button"
-          onClick={connect}
-          disabled={loading}
-          className="btn-primary rounded-xl px-4 py-2.5 text-sm disabled:opacity-50 flex items-center gap-2"
+          onClick={joinStudio}
+          disabled={phase === "joining"}
+          className="btn-primary w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}
-          Open WebRTC studio
+          {phase === "joining" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Radio className="h-4 w-4" />
+          )}
+          {phase === "joining" ? "Joining studio…" : "Join collab studio (camera + mic)"}
         </button>
       </div>
     );
@@ -669,9 +624,13 @@ export function CollabWebRtcStudio({
         token={tokenPayload.token}
         serverUrl={tokenPayload.url}
         hostUsername={hostUsername}
+        role={role}
         compositorActive={compositorActive}
         hostStreamLive={hostStreamLive}
+        localTracks={localTracks}
+        localPreviewTrack={localPreviewTrack}
         onError={reportError}
+        onPublished={() => setError("")}
       />
       {error && <p className="text-xs text-red-400 px-3 pb-3">{error}</p>}
     </div>

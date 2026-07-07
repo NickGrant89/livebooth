@@ -164,15 +164,13 @@ export default function CollabPage() {
 
       {myHostCollab && webrtcEnabled && (
         <div className="rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 mb-6 text-sm">
-          <p className="text-[#53fc18] font-semibold">Active collab — host WebRTC studio is below</p>
+          <p className="text-[#53fc18] font-semibold">Step 1 — tap the green button below</p>
           <p className="text-xs text-zinc-400 mt-1">
-            Scroll to <strong className="text-zinc-200">Host studio</strong>, click{" "}
-            <strong className="text-zinc-200">Open WebRTC studio</strong>, then{" "}
-            <strong className="text-zinc-200">Turn on camera &amp; mic</strong>. Your partner must do the
-            same on their phone.
+            <strong className="text-zinc-200">Join collab studio (camera + mic)</strong> — one tap,
+            allow camera when asked. Your partner does the same on their phone.
           </p>
           <Link href="#host-studio" className="text-xs text-[#53fc18] hover:underline mt-2 inline-block">
-            Jump to host studio ↓
+            Jump to join button ↓
           </Link>
         </div>
       )}
@@ -218,12 +216,12 @@ export default function CollabPage() {
             .
           </p>
           {myHostCollab.hostStreamStatus !== "live" && (
-            <p className="text-xs text-amber-400/90 mb-4">
-              Publish your stream from{" "}
+            <p className="text-xs text-zinc-500 mb-4">
+              Tip: you can join the studio first. Publish from{" "}
               <Link href="/go-live" className="text-[#53fc18] hover:underline">
                 Go Live
               </Link>{" "}
-              so fans can watch on your booth page.
+              when ready so fans see the LIVE badge.
             </p>
           )}
           <CollabWebRtcStudio
@@ -327,7 +325,19 @@ export default function CollabPage() {
             )}
             . You earn {Math.round(myPartnerCollab.splitRatio * 100)}% of tips.
           </p>
-          {myPartnerCollab.hostStream?.status === "live" && (
+          {webrtcEnabled && (
+            <div className="mb-4">
+              <CollabWebRtcStudio
+                key={myPartnerCollab.id}
+                collabId={myPartnerCollab.id}
+                hostUsername={myPartnerCollab.hostUsername}
+                role="partner"
+                compositorActive={myPartnerCollab.compositorActive}
+                hostStreamLive={myPartnerCollab.hostStream?.status === "live"}
+              />
+            </div>
+          )}
+          {!webrtcEnabled && myPartnerCollab.hostStream?.status === "live" && (
             <div className="mb-4 rounded-xl border border-white/10 overflow-hidden bg-black">
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 px-3 py-2 border-b border-white/10">
                 Host feed · {myPartnerCollab.host}
@@ -342,20 +352,8 @@ export default function CollabPage() {
               />
             </div>
           )}
-          {myPartnerCollab.hostStream?.status === "preparing" && (
+          {!webrtcEnabled && myPartnerCollab.hostStream?.status === "preparing" && (
             <p className="text-xs text-amber-400/90 mb-4">Waiting for {myPartnerCollab.host} to go live…</p>
-          )}
-          {webrtcEnabled && (
-            <div className="mb-4">
-              <CollabWebRtcStudio
-                key={myPartnerCollab.id}
-                collabId={myPartnerCollab.id}
-                hostUsername={myPartnerCollab.hostUsername}
-                role="partner"
-                compositorActive={myPartnerCollab.compositorActive}
-                hostStreamLive={myPartnerCollab.hostStream?.status === "live"}
-              />
-            </div>
           )}
           {webrtcEnabled ? (
             <details className="mb-2 rounded-xl border border-white/10 p-3">
