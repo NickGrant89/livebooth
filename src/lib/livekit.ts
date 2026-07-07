@@ -62,6 +62,7 @@ export async function createCollabParticipantToken(options: {
     token: await at.toJwt(),
     url: LIVEKIT_URL!,
     role: options.role,
+    identity,
   };
 }
 
@@ -101,6 +102,7 @@ export async function createSandboxParticipantToken(options: {
     room,
     token: await at.toJwt(),
     url: LIVEKIT_URL!,
+    identity,
   };
 }
 

@@ -43,12 +43,13 @@ export async function GET(request: Request) {
       enabled: true,
       room,
       participantCount: participants.length,
-      participants: participants.map((p) => ({
+        participants: participants.map((p) => ({
         identity: p.identity,
         name: p.name,
         role: collabRoleFromIdentity(p.identity),
         tracks: p.tracks.length,
         hasVideo: p.tracks.some((t) => t.type === TrackType.VIDEO),
+        hasAudio: p.tracks.some((t) => t.type === TrackType.AUDIO),
       })),
     });
   } catch (err) {
