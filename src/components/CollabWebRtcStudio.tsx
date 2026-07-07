@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, createContext, useCo
 import {
   LiveKitRoom,
   RoomAudioRenderer,
+  VideoTrack,
   useConnectionState,
   useRoomContext,
   useParticipants,
@@ -20,6 +21,7 @@ import {
   createLocalTracks,
   type LocalTrack,
   type RemoteParticipant,
+  type RemoteTrackPublication,
   type RoomOptions,
   type VideoCaptureOptions,
 } from "livekit-client";
@@ -182,11 +184,53 @@ function stopLocalTracks(tracks: LocalTrack[]) {
   }
 }
 
+function subscribeRemotePublication(pub: RemoteTrackPublication) {
+  if (!pub.isSubscribed) {
+    void pub.setSubscribed(true);
+  }
+}
+
 function subscribeRemoteParticipants(room: Room) {
   for (const participant of room.remoteParticipants.values()) {
     for (const pub of participant.trackPublications.values()) {
-      pub.setSubscribed(true);
+      subscribeRemotePublication(pub);
     }
+  }
+}
+
+async function publishPreviewTracks(room: Room, previewTracks: LocalTrack[]) {
+  for (const track of previewTracks) {
+    const source =
+      track.kind === Track.Kind.Video ? Track.Source.Camera : Track.Source.Microphone;
+    const existing = room.localParticipant.getTrackPublication(source);
+    if (existing?.track) continue;
+    await room.localParticipant.publishTrack(track, { source, simulcast: false });
+  }
+}
+
+async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]) {
+  await publishPreviewTracks(room, previewTracks);
+
+  const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+  if (!camPub?.track) {
+    for (const track of previewTracks) {
+      if (track.kind === Track.Kind.Video) track.stop();
+    }
+    await room.localParticipant.setCameraEnabled(true, videoCaptureForPublish());
+  }
+
+  const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+  if (!micPub?.track) {
+    for (const track of previewTracks) {
+      if (track.kind === Track.Kind.Audio) track.stop();
+    }
+    await room.localParticipant.setMicrophoneEnabled(true);
+  }
+
+  try {
+    await room.startAudio();
+  } catch {
+    /* iOS may need extra tap */
   }
 }
 
@@ -246,32 +290,33 @@ function LocalCameraFromRoom() {
 function PublishAcquiredTracks({ onError }: { onError: (msg: string) => void }) {
   const room = useRoomContext();
   const previewTracks = usePreviewTracks();
-  const publishedRef = useRef(false);
+  const publishAttemptRef = useRef(0);
 
   useEffect(() => {
-    if (!room || room.state !== ConnectionState.Connected || publishedRef.current) return;
+    if (!room || room.state !== ConnectionState.Connected) return;
     if (previewTracks.length === 0) return;
 
-    publishedRef.current = true;
+    const attemptId = ++publishAttemptRef.current;
     let cancelled = false;
 
     (async () => {
       try {
-        for (const track of previewTracks) {
-          if (cancelled) return;
-          const source =
-            track.kind === Track.Kind.Video ? Track.Source.Camera : Track.Source.Microphone;
-          const existing = room.localParticipant.getTrackPublication(source);
-          if (existing?.track) continue;
-          await room.localParticipant.publishTrack(track, { source });
-        }
-        try {
-          await room.startAudio();
-        } catch {
-          /* iOS may need extra tap */
+        await ensureLocalMediaPublished(room, previewTracks);
+        if (cancelled || attemptId !== publishAttemptRef.current) return;
+
+        const camLive = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+        if (!camLive) {
+          onError("Camera preview works but publish failed — tap Camera below.");
         }
       } catch (err) {
-        if (!cancelled) onError(formatMediaError(err));
+        if (cancelled || attemptId !== publishAttemptRef.current) return;
+        try {
+          await room.localParticipant.setCameraEnabled(true, videoCaptureForPublish());
+          await room.localParticipant.setMicrophoneEnabled(true);
+          await room.startAudio().catch(() => {});
+        } catch {
+          onError(formatMediaError(err));
+        }
       }
     })();
 
@@ -283,54 +328,70 @@ function PublishAcquiredTracks({ onError }: { onError: (msg: string) => void }) 
   return null;
 }
 
-function RemoteParticipantVideo({
+function LocalPublishBadge() {
+  const room = useRoomContext();
+  const [cameraLive, setCameraLive] = useState(false);
+
+  useEffect(() => {
+    if (!room) return;
+    const sync = () => {
+      setCameraLive(Boolean(room.localParticipant.getTrackPublication(Track.Source.Camera)?.track));
+    };
+    sync();
+    room.on(RoomEvent.LocalTrackPublished, sync);
+    room.on(RoomEvent.LocalTrackUnpublished, sync);
+    return () => {
+      room.off(RoomEvent.LocalTrackPublished, sync);
+      room.off(RoomEvent.LocalTrackUnpublished, sync);
+    };
+  }, [room]);
+
+  if (cameraLive) {
+    return <p className="text-[10px] text-[#53fc18] px-2">Your camera is live to the room</p>;
+  }
+  return (
+    <p className="text-[10px] text-amber-400/90 px-2">
+      Publishing camera to room… tap Camera below if this stays more than a few seconds.
+    </p>
+  );
+}
+
+function RemoteWaitingTile({
   participant,
   name,
 }: {
-  participant: import("livekit-client").RemoteParticipant;
+  participant: RemoteParticipant;
   name: string;
 }) {
   const [, refresh] = useState(0);
-  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
 
   useEffect(() => {
+    const subscribeCamera = () => {
+      const pub = participant.getTrackPublication(Track.Source.Camera);
+      if (pub) subscribeRemotePublication(pub);
+    };
+    subscribeCamera();
     const bump = () => refresh((n) => n + 1);
+    participant.on(ParticipantEvent.TrackPublished, subscribeCamera);
     participant.on(ParticipantEvent.TrackSubscribed, bump);
-    participant.on(ParticipantEvent.TrackPublished, bump);
     participant.on(ParticipantEvent.TrackUnsubscribed, bump);
     return () => {
+      participant.off(ParticipantEvent.TrackPublished, subscribeCamera);
       participant.off(ParticipantEvent.TrackSubscribed, bump);
-      participant.off(ParticipantEvent.TrackPublished, bump);
       participant.off(ParticipantEvent.TrackUnsubscribed, bump);
     };
   }, [participant]);
 
-  const videoTrack = participant.getTrackPublication(Track.Source.Camera)?.track;
-
-  useEffect(() => {
-    if (!videoEl || !videoTrack || videoTrack.kind !== Track.Kind.Video) return;
-    videoTrack.attach(videoEl);
-    void videoEl.play().catch(() => {});
-    return () => {
-      videoTrack.detach(videoEl);
-    };
-  }, [videoTrack, videoEl]);
+  const camPub = participant.getTrackPublication(Track.Source.Camera);
+  let hint = "waiting for camera…";
+  if (camPub && !camPub.isSubscribed) hint = "connecting video…";
+  else if (camPub?.isMuted) hint = "camera off";
 
   return (
     <div className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]">
-      {videoTrack ? (
-        <video
-          ref={setVideoEl}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover min-h-[120px]"
-        />
-      ) : (
-        <div className="min-h-[120px] flex items-center justify-center text-zinc-500 text-xs px-2 text-center">
-          {name} in room — waiting for camera…
-        </div>
-      )}
+      <div className="min-h-[120px] flex items-center justify-center text-zinc-500 text-xs px-2 text-center">
+        {name} in room — {hint}
+      </div>
       <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
         {name}
       </span>
@@ -344,6 +405,9 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
   const total = participants.length;
   const remote = participants.filter((p) => !p.isLocal);
   const [serverCount, setServerCount] = useState<number | null>(null);
+  const [serverParticipants, setServerParticipants] = useState<
+    { name?: string; hasVideo?: boolean }[]
+  >([]);
   const [copied, setCopied] = useState(false);
 
   const roomLabel = collabId ? `collab-${collabId}` : room.name;
@@ -354,8 +418,12 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
     async function poll() {
       const res = await apiFetch(`/api/livekit/room-status?collabId=${encodeURIComponent(collabId!)}`);
       if (!res.ok || cancelled) return;
-      const data = (await res.json()) as { participantCount?: number };
+      const data = (await res.json()) as {
+        participantCount?: number;
+        participants?: { name?: string; hasVideo?: boolean }[];
+      };
       setServerCount(data.participantCount ?? null);
+      setServerParticipants(data.participants ?? []);
     }
     poll();
     const t = setInterval(poll, 5000);
@@ -385,6 +453,15 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
         <p className="text-zinc-600 font-mono text-[10px]">
           server sees {serverCount} participant{serverCount === 1 ? "" : "s"} · room {roomLabel} ·{" "}
           {room.state}
+          {serverParticipants.length > 0 && (
+            <>
+              {" "}
+              ·{" "}
+              {serverParticipants
+                .map((p) => `${p.name ?? "?"}:${p.hasVideo ? "cam" : "no-cam"}`)
+                .join(" · ")}
+            </>
+          )}
         </p>
       )}
       {mode === "collab" && collabId && (
@@ -413,15 +490,35 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
 function StudioVideoLayout() {
   const participants = useParticipants();
   const remoteParticipants = participants.filter(
-    (p): p is import("livekit-client").RemoteParticipant => !p.isLocal,
+    (p): p is RemoteParticipant => !p.isLocal,
   );
+  const remoteCameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: true }).filter(
+    (t) => !t.participant.isLocal,
+  );
+  const remoteWithVideo = new Set(remoteCameraTracks.map((t) => t.participant.identity));
 
   return (
     <div className="space-y-2">
       <LocalCameraFromRoom />
-      {remoteParticipants.map((p) => (
-        <RemoteParticipantVideo key={p.identity} participant={p} name={p.name || p.identity} />
+      {remoteCameraTracks.map((trackRef) => (
+        <div
+          key={trackRef.participant.identity}
+          className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]"
+        >
+          <VideoTrack
+            trackRef={trackRef}
+            className="w-full h-full object-cover min-h-[120px]"
+          />
+          <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
+            {trackRef.participant.name || trackRef.participant.identity}
+          </span>
+        </div>
       ))}
+      {remoteParticipants
+        .filter((p) => !remoteWithVideo.has(p.identity))
+        .map((p) => (
+          <RemoteWaitingTile key={p.identity} participant={p} name={p.name || p.identity} />
+        ))}
     </div>
   );
 }
@@ -558,7 +655,7 @@ function EgressWatcher({
         return;
       }
 
-      if (!hasPublishedCamera(room, previewTracks)) {
+      if (!room.localParticipant.getTrackPublication(Track.Source.Camera)?.track) {
         setStatus("Publishing camera — allow access if prompted, or tap Camera below.");
         return;
       }
@@ -640,15 +737,26 @@ function RemoteTrackSubscriber() {
     const subscribeAll = () => subscribeRemoteParticipants(room);
     const onParticipant = (participant: RemoteParticipant) => {
       if (participant.isLocal) return;
-      participant.trackPublications.forEach((pub) => pub.setSubscribed(true));
+      participant.trackPublications.forEach((pub) => subscribeRemotePublication(pub));
+    };
+    const onTrackPublished = (
+      publication: RemoteTrackPublication,
+      participant: RemoteParticipant,
+    ) => {
+      if (participant.isLocal) return;
+      subscribeRemotePublication(publication);
     };
 
     subscribeAll();
+    room.on(RoomEvent.Connected, subscribeAll);
     room.on(RoomEvent.ParticipantConnected, onParticipant);
+    room.on(RoomEvent.TrackPublished, onTrackPublished);
     room.on(RoomEvent.Reconnected, subscribeAll);
 
     return () => {
+      room.off(RoomEvent.Connected, subscribeAll);
       room.off(RoomEvent.ParticipantConnected, onParticipant);
+      room.off(RoomEvent.TrackPublished, onTrackPublished);
       room.off(RoomEvent.Reconnected, subscribeAll);
     };
   }, [room]);
@@ -703,6 +811,7 @@ function StudioRoom({
           {state === ConnectionState.Connected && (
             <RoomPresencePanel mode={mode} collabId={collabId} />
           )}
+          {state === ConnectionState.Connected && <LocalPublishBadge />}
           <div className="p-2">
             <StudioVideoLayout />
           </div>
