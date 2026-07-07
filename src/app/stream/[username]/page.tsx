@@ -25,6 +25,7 @@ import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { streamMetadata } from "@/lib/metadata-share";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { StreamInStreamAdBanner } from "@/components/StreamInStreamAdBanner";
+import { StreamNotLiveView } from "@/components/StreamNotLiveView";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +68,15 @@ export default async function StreamPage({
       station: true,
     },
   });
-  if (!stream) redirect(`/dj/${username}`);
+  if (!stream) {
+    return (
+      <StreamNotLiveView
+        djName={dj.displayName}
+        username={username}
+        isHost={session?.id === dj.id}
+      />
+    );
+  }
 
   const playbackState = await getCollabPlaybackState(stream.id, { tryActivate: true });
 

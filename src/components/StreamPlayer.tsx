@@ -78,6 +78,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const [playbackError, setPlaybackError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [awaitingVideo, setAwaitingVideo] = useState(false);
+  const [liveNoSignal, setLiveNoSignal] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -123,6 +124,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     vodFallbackTriedRef.current = false;
     setPlaybackError(false);
     setAwaitingVideo(false);
+    setLiveNoSignal(false);
     setIsLoading(!isLive && !previewMode);
 
     const isFile =
@@ -256,6 +258,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
     if (Hls.isSupported()) {
       setIsLoading(!previewMode);
+      if (isLive && mediaMtxHls) setAwaitingVideo(true);
+      let manifestFailures = 0;
+      let hlsStopped = false;
       const hls = new Hls(
         mediaMtxHls
           ? createMediaMtxHlsConfig()
@@ -290,6 +295,22 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
         console.error("[hls]", data.type, data.details, playbackUrl);
+        if (
+          isLive &&
+          data.type === Hls.ErrorTypes.NETWORK_ERROR &&
+          data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR
+        ) {
+          manifestFailures += 1;
+          if (manifestFailures >= 6) {
+            hlsStopped = true;
+            setLiveNoSignal(true);
+            setAwaitingVideo(true);
+            setIsLoading(false);
+            setPlaybackError(false);
+            hls.destroy();
+            return;
+          }
+        }
         if (
           previewMode &&
           data.type === Hls.ErrorTypes.NETWORK_ERROR &&
@@ -338,7 +359,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         video.removeEventListener("playing", onPlaying);
         video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("waiting", onWaiting);
-        hls.destroy();
+        if (!hlsStopped) hls.destroy();
       };
     }
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -469,23 +490,29 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             className="absolute inset-0 h-full w-full object-cover"
           />
           <StreamVideoWatermark />
-          {isLoading && !playbackError && !previewMode && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
+          {(!playbackError && (isLoading || awaitingVideo)) && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px] px-6 text-center">
               <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
               <span className="mt-3 text-xs font-medium text-zinc-300">
-                {isLive ? "Connecting stream…" : "Loading replay…"}
+                {liveNoSignal
+                  ? "Waiting for broadcast signal…"
+                  : previewMode && awaitingVideo
+                    ? "Waiting for video frames…"
+                    : previewMode
+                      ? "Buffering preview…"
+                      : isLive
+                        ? "Connecting stream…"
+                        : "Loading replay…"}
               </span>
+              {liveNoSignal && isLive && (
+                <span className="mt-2 text-[10px] text-zinc-500 max-w-xs">
+                  The booth is live but no video has reached the server yet. Host: stream from OBS on Go
+                  Live, or finish the WebRTC B2B mix on /collab.
+                </span>
+              )}
             </div>
           )}
-          {previewMode && (isLoading || awaitingVideo) && !playbackError && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
-              <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
-              <span className="mt-3 text-xs font-medium text-zinc-300">
-                {awaitingVideo ? "Waiting for video frames…" : "Buffering preview…"}
-              </span>
-            </div>
-          )}
-          {muted && !playbackError && !awaitingVideo && (!isLive || previewMode || !isLoading) && (
+          {muted && !playbackError && !isLoading && !awaitingVideo && (!isLive || previewMode) && (
             <button
               type="button"
               onClick={unmute}

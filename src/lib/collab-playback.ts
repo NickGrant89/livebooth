@@ -54,6 +54,22 @@ async function resolveLiveCollabPlayback(
     return { playbackUrl: hostUrl, compositorActive: false, compositorPending: false };
   }
 
+  const hostHasSignal = hostUrl ? await hlsManifestReady(hostUrl) : false;
+
+  // WebRTC collab: fans watch egress mix, not host OBS — show building overlay until mix or host RTMP is ready.
+  if (
+    isLiveKitConfigured() &&
+    !collab.compositorActive &&
+    !hostHasSignal &&
+    collab.partnerStream?.status === "live"
+  ) {
+    return {
+      playbackUrl: hostUrl,
+      compositorActive: false,
+      compositorPending: true,
+    };
+  }
+
   if (collab.compositorActive && collab.compositedIngestKey) {
     if (await mixManifestReady(collab.compositedIngestKey)) {
       return {

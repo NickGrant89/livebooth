@@ -209,17 +209,31 @@ export default function CollabPage() {
           </h2>
           <p className="text-xs text-zinc-500 mb-4">
             WebRTC collab with @{myHostCollab.partnerUsername} — fans watch{" "}
-            <Link href={`/stream/${myHostCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
-              your booth
-            </Link>
+            {myHostCollab.hostStreamStatus === "live" ? (
+              <Link href={`/stream/${myHostCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
+                your booth
+              </Link>
+            ) : (
+              <span className="text-zinc-400">your booth (publish from Go Live first)</span>
+            )}
             .
           </p>
+          {myHostCollab.hostStreamStatus !== "live" && (
+            <p className="text-xs text-amber-400/90 mb-4">
+              Publish your stream from{" "}
+              <Link href="/go-live" className="text-[#53fc18] hover:underline">
+                Go Live
+              </Link>{" "}
+              so fans can watch on your booth page.
+            </p>
+          )}
           <CollabWebRtcStudio
             key={myHostCollab.id}
             collabId={myHostCollab.id}
             hostUsername={myHostCollab.hostUsername}
             role="host"
             compositorActive={myHostCollab.compositorActive}
+            hostStreamLive={myHostCollab.hostStreamStatus === "live"}
           />
         </div>
       )}
@@ -232,9 +246,13 @@ export default function CollabPage() {
           </h2>
           <p className="text-xs text-zinc-500 mb-4">
             Stream from your location — your video appears on{" "}
-            <Link href={`/stream/${myPartnerCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
-              @{myPartnerCollab.hostUsername}&apos;s booth
-            </Link>
+            {myPartnerCollab.hostStream?.status === "live" ? (
+              <Link href={`/stream/${myPartnerCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
+                @{myPartnerCollab.hostUsername}&apos;s booth
+              </Link>
+            ) : (
+              <span className="text-zinc-400">@{myPartnerCollab.hostUsername}&apos;s booth (host must publish first)</span>
+            )}
             . You earn {Math.round(myPartnerCollab.splitRatio * 100)}% of tips.
           </p>
           {myPartnerCollab.hostStream?.status === "live" && (
@@ -263,6 +281,7 @@ export default function CollabPage() {
                 hostUsername={myPartnerCollab.hostUsername}
                 role="partner"
                 compositorActive={myPartnerCollab.compositorActive}
+                hostStreamLive={myPartnerCollab.hostStream?.status === "live"}
               />
             </div>
           )}
@@ -302,12 +321,16 @@ export default function CollabPage() {
           ) : (
             <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4">
               <p className="text-sm text-[#53fc18] font-medium">Your collab feed is live</p>
-              <Link
-                href={`/stream/${myPartnerCollab.hostUsername}`}
-                className="text-xs text-zinc-400 hover:text-[#53fc18] mt-2 inline-block"
-              >
-                View combined booth →
-              </Link>
+              {myPartnerCollab.hostStream?.status === "live" ? (
+                <Link
+                  href={`/stream/${myPartnerCollab.hostUsername}`}
+                  className="text-xs text-zinc-400 hover:text-[#53fc18] mt-2 inline-block"
+                >
+                  View combined booth →
+                </Link>
+              ) : (
+                <p className="text-xs text-amber-400/90 mt-2">Waiting for host to publish the booth stream…</p>
+              )}
             </div>
           )}
         </div>
@@ -337,9 +360,13 @@ export default function CollabPage() {
                 )}
                 <Link
                   href={`/stream/${c.hostUsername}`}
-                  className="text-xs text-[#53fc18] hover:underline mt-1 inline-block"
+                  className={`text-xs mt-1 inline-block ${
+                    c.hostStreamStatus === "live"
+                      ? "text-[#53fc18] hover:underline"
+                      : "text-zinc-600 pointer-events-none"
+                  }`}
                 >
-                  View stream →
+                  {c.hostStreamStatus === "live" ? "View stream →" : "View stream (host must publish first)"}
                 </Link>
               </div>
             ))}

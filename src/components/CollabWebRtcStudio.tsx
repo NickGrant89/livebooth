@@ -10,7 +10,14 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, RoomEvent, ConnectionState, type RoomOptions } from "livekit-client";
+import {
+  Track,
+  RoomEvent,
+  ConnectionState,
+  VideoPresets,
+  type Room,
+  type RoomOptions,
+} from "livekit-client";
 import { Camera, Loader2, Mic, MicOff, Radio, VideoOff, Wifi } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/fetch-client";
@@ -20,6 +27,7 @@ type StudioProps = {
   hostUsername: string;
   role: "host" | "partner";
   compositorActive?: boolean;
+  hostStreamLive?: boolean;
 };
 
 type TokenPayload = {
@@ -32,7 +40,33 @@ const ROOM_OPTIONS: RoomOptions = {
   disconnectOnPageLeave: false,
   adaptiveStream: true,
   dynacast: true,
+  videoCaptureDefaults: {
+    resolution: VideoPresets.h540.resolution,
+  },
+  publishDefaults: {
+    videoSimulcastLayers: [VideoPresets.h540, VideoPresets.h216],
+  },
 };
+
+function isConnectionError(err: unknown): boolean {
+  const msg =
+    err instanceof Error ? err.message : typeof err === "string" ? err : String(err ?? "");
+  return /connect|signal|websocket|room disconnected|negotiation|ice|pc connection|timeout/i.test(
+    msg,
+  );
+}
+
+async function enableCameraWithFallback(room: Room) {
+  try {
+    await room.localParticipant.setCameraEnabled(true);
+  } catch (first) {
+    if (first instanceof DOMException && first.name === "OverconstrainedError") {
+      await room.localParticipant.setCameraEnabled(true, { facingMode: "user" });
+      return;
+    }
+    throw first;
+  }
+}
 
 function formatMediaError(err: unknown): string {
   if (err instanceof DOMException) {
@@ -92,21 +126,39 @@ function StudioControls({
   const [busy, setBusy] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
   const [micOn, setMicOn] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
   const togglingRef = useRef(false);
+  const unpublishGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!room) return;
 
     const sync = () => {
+      if (unpublishGraceRef.current) return;
       setCameraOn(room.localParticipant.isCameraEnabled);
       setMicOn(room.localParticipant.isMicrophoneEnabled);
+      if (room.localParticipant.isCameraEnabled) {
+        setCameraStarting(false);
+      }
     };
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
-    room.on(RoomEvent.LocalTrackUnpublished, sync);
+    room.on(RoomEvent.LocalTrackUnpublished, () => {
+      if (!room.localParticipant.isCameraEnabled) {
+        if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
+        unpublishGraceRef.current = setTimeout(() => {
+          unpublishGraceRef.current = null;
+          setCameraOn(false);
+          setCameraStarting(false);
+        }, 2500);
+      } else {
+        sync();
+      }
+    });
     return () => {
       room.off(RoomEvent.LocalTrackPublished, sync);
       room.off(RoomEvent.LocalTrackUnpublished, sync);
+      if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
     };
   }, [room]);
 
@@ -119,11 +171,18 @@ function StudioControls({
       if (room.state !== ConnectionState.Connected) {
         throw new Error("Still connecting — wait a moment and try again.");
       }
-      await room.localParticipant.setCameraEnabled(true, { facingMode: "user" });
+      setCameraStarting(true);
+      await enableCameraWithFallback(room);
       await room.localParticipant.setMicrophoneEnabled(true);
+      if (unpublishGraceRef.current) {
+        clearTimeout(unpublishGraceRef.current);
+        unpublishGraceRef.current = null;
+      }
       setCameraOn(room.localParticipant.isCameraEnabled);
       setMicOn(room.localParticipant.isMicrophoneEnabled);
+      setCameraStarting(false);
     } catch (err) {
+      setCameraStarting(false);
       onError(formatMediaError(err));
     } finally {
       setBusy(false);
@@ -137,9 +196,20 @@ function StudioControls({
     onClearError();
     try {
       const next = !room.localParticipant.isCameraEnabled;
-      await room.localParticipant.setCameraEnabled(next, next ? { facingMode: "user" } : undefined);
+      if (next) {
+        setCameraStarting(true);
+        await enableCameraWithFallback(room);
+        setCameraStarting(false);
+      } else {
+        await room.localParticipant.setCameraEnabled(false);
+      }
+      if (unpublishGraceRef.current) {
+        clearTimeout(unpublishGraceRef.current);
+        unpublishGraceRef.current = null;
+      }
       setCameraOn(room.localParticipant.isCameraEnabled);
     } catch (err) {
+      setCameraStarting(false);
       onError(formatMediaError(err));
     } finally {
       togglingRef.current = false;
@@ -161,7 +231,7 @@ function StudioControls({
     }
   }, [room, busy, onClearError, onError]);
 
-  if (!cameraOn) {
+  if (!cameraOn && !cameraStarting) {
     return (
       <div className="px-2 pb-2 space-y-2">
         <button
@@ -175,6 +245,17 @@ function StudioControls({
         </button>
         <p className="text-[10px] text-zinc-500 text-center">
           Both DJs must join this studio on /collab with camera on (OBS alone does not count).
+        </p>
+      </div>
+    );
+  }
+
+  if (cameraStarting) {
+    return (
+      <div className="px-2 pb-2">
+        <p className="text-xs text-amber-400/90 text-center py-2 flex items-center justify-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Starting camera… allow access if prompted
         </p>
       </div>
     );
@@ -234,10 +315,12 @@ function EgressWatcher({
   collabId,
   compositorActive,
   hostUsername,
+  hostStreamLive,
 }: {
   collabId: string;
   compositorActive?: boolean;
   hostUsername: string;
+  hostStreamLive?: boolean;
 }) {
   const room = useRoomContext();
   const [status, setStatus] = useState("");
@@ -327,9 +410,18 @@ function EgressWatcher({
         <p className="text-amber-400/90">Studio connected — building fan mix…</p>
       )}
       {status && <p className="text-zinc-500">{status}</p>}
-      <Link href={`/stream/${hostUsername}`} className="text-[#53fc18] hover:underline inline-block">
-        Open fan booth →
-      </Link>
+      {!hostStreamLive && (
+        <p className="text-amber-400/90">
+          Host must publish from Go Live before fans can watch the booth page.
+        </p>
+      )}
+      {hostStreamLive ? (
+        <Link href={`/stream/${hostUsername}`} className="text-[#53fc18] hover:underline inline-block">
+          Open fan booth →
+        </Link>
+      ) : (
+        <span className="text-zinc-600 inline-block">Open fan booth (publish first)</span>
+      )}
     </div>
   );
 }
@@ -340,6 +432,7 @@ type StudioRoomProps = {
   serverUrl: string;
   hostUsername: string;
   compositorActive?: boolean;
+  hostStreamLive?: boolean;
   onError: (msg: string) => void;
 };
 
@@ -349,6 +442,7 @@ function StudioRoom({
   serverUrl,
   hostUsername,
   compositorActive,
+  hostStreamLive,
   onError,
 }: StudioRoomProps) {
   const onErrorRef = useRef(onError);
@@ -363,10 +457,12 @@ function StudioRoom({
   }, []);
 
   const handleRoomError = useCallback((e: Error) => {
+    if (isConnectionError(e)) return;
     onErrorRef.current(formatMediaError(e));
   }, []);
 
   const handleMediaDeviceFailure = useCallback((failure?: unknown) => {
+    if (isConnectionError(failure)) return;
     onErrorRef.current(formatMediaError(failure));
   }, []);
 
@@ -393,13 +489,20 @@ function StudioRoom({
           collabId={collabId}
           compositorActive={compositorActive}
           hostUsername={hostUsername}
+          hostStreamLive={hostStreamLive}
         />
       </div>
     </LiveKitRoom>
   );
 }
 
-export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorActive }: StudioProps) {
+export function CollabWebRtcStudio({
+  collabId,
+  hostUsername,
+  role,
+  compositorActive,
+  hostStreamLive,
+}: StudioProps) {
   const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -460,6 +563,7 @@ export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorAct
         serverUrl={tokenPayload.url}
         hostUsername={hostUsername}
         compositorActive={compositorActive}
+        hostStreamLive={hostStreamLive}
         onError={reportError}
       />
       {error && <p className="text-xs text-red-400 px-3 pb-3">{error}</p>}
