@@ -6,13 +6,12 @@ import {
   RoomAudioRenderer,
   GridLayout,
   ParticipantTile,
-  ControlBar,
   useRoomContext,
   useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, RoomEvent, ConnectionState } from "livekit-client";
-import { Camera, Loader2, Radio, Wifi } from "lucide-react";
+import { Track, RoomEvent, ConnectionState, type RoomOptions } from "livekit-client";
+import { Camera, Loader2, Mic, MicOff, Radio, VideoOff, Wifi } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/fetch-client";
 
@@ -27,6 +26,12 @@ type TokenPayload = {
   token: string;
   url: string;
   room: string;
+};
+
+const ROOM_OPTIONS: RoomOptions = {
+  disconnectOnPageLeave: false,
+  adaptiveStream: true,
+  dynacast: true,
 };
 
 function formatMediaError(err: unknown): string {
@@ -76,16 +81,26 @@ function StudioVideoGrid() {
   );
 }
 
-function StudioMediaPrompt({ onError }: { onError: (msg: string) => void }) {
+function StudioControls({
+  onError,
+  onClearError,
+}: {
+  onError: (msg: string) => void;
+  onClearError: () => void;
+}) {
   const room = useRoomContext();
   const [busy, setBusy] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
-  const enablingRef = useRef(false);
+  const [micOn, setMicOn] = useState(false);
+  const togglingRef = useRef(false);
 
   useEffect(() => {
     if (!room) return;
 
-    const sync = () => setCameraOn(room.localParticipant.isCameraEnabled);
+    const sync = () => {
+      setCameraOn(room.localParticipant.isCameraEnabled);
+      setMicOn(room.localParticipant.isMicrophoneEnabled);
+    };
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
     room.on(RoomEvent.LocalTrackUnpublished, sync);
@@ -96,46 +111,93 @@ function StudioMediaPrompt({ onError }: { onError: (msg: string) => void }) {
   }, [room]);
 
   const enableMedia = useCallback(async () => {
-    if (!room || enablingRef.current) return;
-    enablingRef.current = true;
+    if (!room || togglingRef.current) return;
+    togglingRef.current = true;
     setBusy(true);
-    onError("");
+    onClearError();
     try {
       if (room.state !== ConnectionState.Connected) {
         throw new Error("Still connecting — wait a moment and try again.");
       }
-      await room.localParticipant.setCameraEnabled(true);
+      await room.localParticipant.setCameraEnabled(true, { facingMode: "user" });
       await room.localParticipant.setMicrophoneEnabled(true);
       setCameraOn(room.localParticipant.isCameraEnabled);
+      setMicOn(room.localParticipant.isMicrophoneEnabled);
     } catch (err) {
       onError(formatMediaError(err));
     } finally {
       setBusy(false);
-      enablingRef.current = false;
+      togglingRef.current = false;
     }
-  }, [room, onError]);
+  }, [room, onClearError, onError]);
 
-  if (cameraOn) return null;
+  const toggleCamera = useCallback(async () => {
+    if (!room || togglingRef.current || busy) return;
+    togglingRef.current = true;
+    onClearError();
+    try {
+      const next = !room.localParticipant.isCameraEnabled;
+      await room.localParticipant.setCameraEnabled(next, next ? { facingMode: "user" } : undefined);
+      setCameraOn(room.localParticipant.isCameraEnabled);
+    } catch (err) {
+      onError(formatMediaError(err));
+    } finally {
+      togglingRef.current = false;
+    }
+  }, [room, busy, onClearError, onError]);
+
+  const toggleMic = useCallback(async () => {
+    if (!room || togglingRef.current || busy) return;
+    togglingRef.current = true;
+    onClearError();
+    try {
+      const next = !room.localParticipant.isMicrophoneEnabled;
+      await room.localParticipant.setMicrophoneEnabled(next);
+      setMicOn(room.localParticipant.isMicrophoneEnabled);
+    } catch (err) {
+      onError(formatMediaError(err));
+    } finally {
+      togglingRef.current = false;
+    }
+  }, [room, busy, onClearError, onError]);
+
+  if (!cameraOn) {
+    return (
+      <div className="px-2 pb-2 space-y-2">
+        <button
+          type="button"
+          onClick={enableMedia}
+          disabled={busy}
+          className="w-full rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 text-sm font-medium text-[#53fc18] hover:bg-[#53fc18]/15 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+          Turn on camera &amp; mic
+        </button>
+        <p className="text-[10px] text-zinc-500 text-center">
+          Both DJs must join this studio on /collab with camera on (OBS alone does not count).
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="px-2 pb-2">
+    <div className="px-2 pb-2 flex gap-2">
       <button
         type="button"
-        onClick={enableMedia}
-        disabled={busy}
-        className="w-full rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 text-sm font-medium text-[#53fc18] hover:bg-[#53fc18]/15 disabled:opacity-50 flex items-center justify-center gap-2"
+        onClick={toggleMic}
+        className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs flex items-center justify-center gap-2"
       >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-        Turn on camera &amp; mic
+        {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 text-red-400" />}
+        Mic
       </button>
-      <p className="text-[10px] text-zinc-500 mt-2 text-center space-y-1">
-        <span className="block">
-          Both DJs must join this studio on /collab — host OBS/RTMP does not count.
-        </span>
-        <span className="block">
-          One webcam per machine: use a phone for the second DJ if testing solo on one Mac.
-        </span>
-      </p>
+      <button
+        type="button"
+        onClick={toggleCamera}
+        className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs flex items-center justify-center gap-2"
+      >
+        {cameraOn ? <Camera className="h-4 w-4" /> : <VideoOff className="h-4 w-4 text-red-400" />}
+        Camera
+      </button>
     </div>
   );
 }
@@ -162,7 +224,7 @@ function StudioConnectionStatus() {
       : state === ConnectionState.Reconnecting
         ? "Reconnecting…"
         : state === ConnectionState.Disconnected
-          ? "Disconnected — check Wi‑Fi or try again (mobile needs TURN/TLS on VPS)"
+          ? "Disconnected — check Wi‑Fi and reload /collab"
           : `Connection: ${state}`;
 
   return <p className="text-xs text-amber-400/90 px-2 pb-1">{label}</p>;
@@ -180,6 +242,8 @@ function EgressWatcher({
   const room = useRoomContext();
   const [status, setStatus] = useState("");
   const [mixActive, setMixActive] = useState(Boolean(compositorActive));
+  const egressBusyRef = useRef(false);
+  const lastEgressAttemptRef = useRef(0);
 
   useEffect(() => {
     setMixActive(Boolean(compositorActive));
@@ -204,6 +268,7 @@ function EgressWatcher({
       if (data.compositorActive) {
         setMixActive(true);
         setStatus("Fan stream is live on the host booth.");
+        egressBusyRef.current = false;
         return;
       }
 
@@ -214,18 +279,26 @@ function EgressWatcher({
         setStatus("Egress service restarting on VPS — fan mix may take a minute.");
       } else if (inRoom < 2) {
         setStatus(
-          `${inRoom}/2 DJs in studio — the other DJ must open WebRTC studio on /collab (host RTMP/OBS does not count).`,
+          `${inRoom}/2 DJs in studio — the other DJ must open WebRTC studio on /collab (host OBS/RTMP does not count).`,
         );
       } else if (cameras < 2) {
         setStatus(
           `${cameras}/2 cameras on — tap Turn on camera & mic above (both DJs, in this studio tab).`,
         );
       } else if (data.canStartEgress) {
+        const now = Date.now();
+        if (egressBusyRef.current || now - lastEgressAttemptRef.current < 15_000) {
+          setStatus("Starting synced fan mix…");
+          return;
+        }
+        egressBusyRef.current = true;
+        lastEgressAttemptRef.current = now;
         setStatus("Starting synced fan mix…");
         const start = await apiFetch("/api/collab/webrtc", {
           method: "POST",
           body: JSON.stringify({ collabId }),
         });
+        egressBusyRef.current = false;
         if (start.ok) {
           const body = (await start.json()) as { egress?: { active?: boolean; reason?: string } };
           if (body.egress?.active) {
@@ -262,25 +335,32 @@ function EgressWatcher({
 }
 
 type StudioRoomProps = {
+  collabId: string;
   token: string;
   serverUrl: string;
-  collabId: string;
   hostUsername: string;
   compositorActive?: boolean;
   onError: (msg: string) => void;
 };
 
-/** Inner room — mount once per token so LiveKit does not reconnect on parent re-renders. */
 function StudioRoom({
+  collabId,
   token,
   serverUrl,
-  collabId,
   hostUsername,
   compositorActive,
   onError,
 }: StudioRoomProps) {
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+
+  const reportError = useCallback((msg: string) => {
+    onErrorRef.current(msg);
+  }, []);
+
+  const clearError = useCallback(() => {
+    onErrorRef.current("");
+  }, []);
 
   const handleRoomError = useCallback((e: Error) => {
     onErrorRef.current(formatMediaError(e));
@@ -297,6 +377,7 @@ function StudioRoom({
       connect
       video={false}
       audio={false}
+      options={ROOM_OPTIONS}
       data-lk-theme="default"
       onError={handleRoomError}
       onMediaDeviceFailure={handleMediaDeviceFailure}
@@ -305,8 +386,7 @@ function StudioRoom({
         <StudioVideoGrid />
       </div>
       <StudioConnectionStatus />
-      <StudioMediaPrompt onError={onError} />
-      <ControlBar controls={{ microphone: true, camera: true, screenShare: false }} />
+      <StudioControls onError={reportError} onClearError={clearError} />
       <RoomAudioRenderer />
       <div className="px-2 pb-2">
         <EgressWatcher
@@ -374,10 +454,10 @@ export function CollabWebRtcStudio({ collabId, hostUsername, role, compositorAct
   return (
     <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-black">
       <StudioRoom
-        key={tokenPayload.token}
+        key={collabId}
+        collabId={collabId}
         token={tokenPayload.token}
         serverUrl={tokenPayload.url}
-        collabId={collabId}
         hostUsername={hostUsername}
         compositorActive={compositorActive}
         onError={reportError}

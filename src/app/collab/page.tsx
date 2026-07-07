@@ -215,6 +215,7 @@ export default function CollabPage() {
             .
           </p>
           <CollabWebRtcStudio
+            key={myHostCollab.id}
             collabId={myHostCollab.id}
             hostUsername={myHostCollab.hostUsername}
             role="host"
@@ -257,6 +258,7 @@ export default function CollabPage() {
           {webrtcEnabled && (
             <div className="mb-4">
               <CollabWebRtcStudio
+                key={myPartnerCollab.id}
                 collabId={myPartnerCollab.id}
                 hostUsername={myPartnerCollab.hostUsername}
                 role="partner"

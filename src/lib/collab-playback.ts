@@ -2,7 +2,6 @@ import "server-only";
 
 import { prisma } from "./db";
 import {
-  deactivateCollabCompositor,
   resolveCollabViewerPlaybackUrl,
   tryActivateCollabCompositor,
 } from "./collab-compositor";
@@ -21,23 +20,11 @@ export type CollabPlaybackState = {
   } | null;
 };
 
+/** Mix HLS manifest check — used before switching fan playback to lb_*_mix. */
 async function mixManifestReady(compositedIngestKey: string): Promise<boolean> {
   const mixUrl = getHlsPlaybackUrl(compositedIngestKey);
   if (!mixUrl) return false;
   return hlsManifestReady(mixUrl);
-}
-
-/** Clear compositor flag when mix never appeared (stale WebRTC/FFmpeg attempt). */
-async function clearStaleCompositorIfNeeded(
-  collabId: string,
-  compositedIngestKey: string,
-  compositorStartedAt: Date | null,
-) {
-  if (!compositorStartedAt) return;
-  const ageMs = Date.now() - compositorStartedAt.getTime();
-  if (ageMs < 45_000) return;
-  if (await mixManifestReady(compositedIngestKey)) return;
-  await deactivateCollabCompositor(collabId);
 }
 
 async function resolveLiveCollabPlayback(
@@ -76,12 +63,7 @@ async function resolveLiveCollabPlayback(
       };
     }
 
-    await clearStaleCompositorIfNeeded(
-      collab.id,
-      collab.compositedIngestKey,
-      collab.compositorStartedAt,
-    );
-
+    // Mix flagged in DB but HLS not ready yet — keep host feed, do not tear down egress.
     return {
       playbackUrl: hostUrl,
       compositorActive: false,

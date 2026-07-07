@@ -111,6 +111,15 @@ export function StreamTheater({
           />
         )}
         {compositorPending && !compositorMixed && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 px-6 text-center pointer-events-none">
+            <p className="text-sm font-semibold text-amber-200">Building synced B2B mix</p>
+            <p className="mt-2 text-xs text-zinc-400 max-w-sm">
+              Both DJs need camera on in the /collab WebRTC studio. If you only use browser collab,
+              keep this page open — video appears when the mix is ready.
+            </p>
+          </div>
+        )}
+        {compositorPending && !compositorMixed && (
           <span className="absolute top-14 left-4 z-30 rounded-md bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300 backdrop-blur-sm">
             Building B2B mix…
           </span>
