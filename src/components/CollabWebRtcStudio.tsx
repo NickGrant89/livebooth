@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, createContext, useContext } from "react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -16,9 +16,11 @@ import {
   ParticipantEvent,
   VideoPresets,
   Room,
+  createLocalTracks,
   type LocalTrack,
   type RemoteParticipant,
   type RoomOptions,
+  type VideoCaptureOptions,
 } from "livekit-client";
 import { Camera, Loader2, Mic, MicOff, Radio, VideoOff, Wifi } from "lucide-react";
 import Link from "next/link";
@@ -135,6 +137,50 @@ function joinStepLabel(step: JoinStep): string {
   }
 }
 
+function videoCaptureForPublish(): VideoCaptureOptions | undefined {
+  return isMobileDevice() ? { facingMode: "user" } : undefined;
+}
+
+async function acquireLocalTracks(): Promise<LocalTrack[]> {
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    throw new Error("Camera requires HTTPS — use https://livebooth.uk");
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error("Camera not supported — use Safari or Chrome.");
+  }
+
+  try {
+    return await createLocalTracks({
+      audio: true,
+      video: isMobileDevice() ? { facingMode: "user" } : true,
+    });
+  } catch (first) {
+    if (isMobileDevice()) {
+      return createLocalTracks({ audio: true, video: true });
+    }
+    throw first;
+  }
+}
+
+function localCameraTrack(room: Room | undefined, previewTracks: LocalTrack[]): LocalTrack | null {
+  const published = room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+  if (published) return published as LocalTrack;
+  return previewTracks.find((t) => t.kind === Track.Kind.Video) ?? null;
+}
+
+function hasPublishedCamera(room: Room | undefined, previewTracks: LocalTrack[]): boolean {
+  return Boolean(
+    room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track ??
+      previewTracks.some((t) => t.kind === Track.Kind.Video),
+  );
+}
+
+function stopLocalTracks(tracks: LocalTrack[]) {
+  for (const track of tracks) {
+    track.stop();
+  }
+}
+
 function subscribeRemoteParticipants(room: Room) {
   for (const participant of room.remoteParticipants.values()) {
     for (const pub of participant.trackPublications.values()) {
@@ -178,8 +224,15 @@ function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
   );
 }
 
+const PreviewTracksContext = createContext<LocalTrack[]>([]);
+
+function usePreviewTracks() {
+  return useContext(PreviewTracksContext);
+}
+
 function LocalCameraFromRoom() {
   const room = useRoomContext();
+  const previewTracks = usePreviewTracks();
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -193,8 +246,49 @@ function LocalCameraFromRoom() {
     };
   }, [room]);
 
-  const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track ?? null;
-  return <LocalPreviewVideo track={track as LocalTrack | null} />;
+  const track = localCameraTrack(room, previewTracks);
+  return <LocalPreviewVideo track={track} />;
+}
+
+/** Publish tracks acquired during the Join click (browser requires user gesture for camera). */
+function PublishAcquiredTracks({ onError }: { onError: (msg: string) => void }) {
+  const room = useRoomContext();
+  const previewTracks = usePreviewTracks();
+  const publishedRef = useRef(false);
+
+  useEffect(() => {
+    if (!room || room.state !== ConnectionState.Connected || publishedRef.current) return;
+    if (previewTracks.length === 0) return;
+
+    publishedRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        for (const track of previewTracks) {
+          if (cancelled) return;
+          const source =
+            track.kind === Track.Kind.Video ? Track.Source.Camera : Track.Source.Microphone;
+          const existing = room.localParticipant.getTrackPublication(source);
+          if (existing?.track) continue;
+          await room.localParticipant.publishTrack(track, { source });
+        }
+        try {
+          await room.startAudio();
+        } catch {
+          /* iOS may need extra tap */
+        }
+      } catch (err) {
+        if (!cancelled) onError(formatMediaError(err));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [room, previewTracks, onError]);
+
+  return null;
 }
 
 function RemoteParticipantVideo({
@@ -320,14 +414,17 @@ function StudioVideoLayout() {
 
 function StudioControls() {
   const room = useRoomContext();
+  const previewTracks = usePreviewTracks();
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
 
   useEffect(() => {
     if (!room) return;
     const sync = () => {
-      setMicOn(room.localParticipant.isMicrophoneEnabled);
-      setCameraOn(room.localParticipant.isCameraEnabled);
+      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      setMicOn(Boolean(micPub?.track && !micPub.isMuted));
+      setCameraOn(Boolean(camPub?.track && !camPub.isMuted));
     };
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
@@ -338,22 +435,33 @@ function StudioControls() {
     };
   }, [room]);
 
+  const micPreview = previewTracks.find((t) => t.kind === Track.Kind.Audio);
+  const camPreview = previewTracks.find((t) => t.kind === Track.Kind.Video);
+  const micLive = micOn || Boolean(micPreview);
+  const camLive = cameraOn || Boolean(camPreview);
+
   return (
     <div className="px-2 pb-2 flex gap-2">
       <button
         type="button"
-        onClick={() => void room.localParticipant.setMicrophoneEnabled(!micOn).then(() => setMicOn(!micOn))}
+        onClick={() =>
+          void room.localParticipant.setMicrophoneEnabled(!micLive).then(() => setMicOn(!micLive))
+        }
         className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs flex items-center justify-center gap-2"
       >
-        {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 text-red-400" />}
+        {micLive ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 text-red-400" />}
         Mic
       </button>
       <button
         type="button"
-        onClick={() => void room.localParticipant.setCameraEnabled(!cameraOn).then(() => setCameraOn(!cameraOn))}
+        onClick={() =>
+          void room.localParticipant
+            .setCameraEnabled(!camLive, videoCaptureForPublish())
+            .then(() => setCameraOn(!camLive))
+        }
         className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs flex items-center justify-center gap-2"
       >
-        {cameraOn ? <Camera className="h-4 w-4" /> : <VideoOff className="h-4 w-4 text-red-400" />}
+        {camLive ? <Camera className="h-4 w-4" /> : <VideoOff className="h-4 w-4 text-red-400" />}
         Camera
       </button>
     </div>
@@ -389,14 +497,17 @@ function EgressWatcher({
   hostUsername,
   hostStreamLive,
   role,
+  onPublishError,
 }: {
   collabId: string;
   compositorActive?: boolean;
   hostUsername: string;
   hostStreamLive?: boolean;
   role: "host" | "partner";
+  onPublishError?: (msg: string) => void;
 }) {
   const room = useRoomContext();
+  const previewTracks = usePreviewTracks();
   const [status, setStatus] = useState("");
   const [mixActive, setMixActive] = useState(Boolean(compositorActive));
   const [debug, setDebug] = useState("");
@@ -433,8 +544,8 @@ function EgressWatcher({
         return;
       }
 
-      if (!room!.localParticipant.isCameraEnabled) {
-        setStatus("Turn camera on with the button below.");
+      if (!hasPublishedCamera(room, previewTracks)) {
+        setStatus("Publishing camera — allow access if prompted, or tap Camera below.");
         return;
       }
       if (!data.hostInStudio) {
@@ -486,7 +597,7 @@ function EgressWatcher({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [room, collabId, role]);
+  }, [room, collabId, role, previewTracks, onPublishError]);
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs space-y-1">
@@ -552,6 +663,7 @@ function StudioRoom({
   hostStreamLive,
   connectionNotice,
   connectingLabel,
+  onPublishError,
 }: {
   mode: "collab" | "sandbox";
   collabId?: string;
@@ -561,33 +673,44 @@ function StudioRoom({
   hostStreamLive?: boolean;
   connectionNotice?: string;
   connectingLabel: string;
+  onPublishError: (msg: string) => void;
 }) {
   const state = useConnectionState();
+  const previewTracks = usePreviewTracks();
+  const showVideo = state === ConnectionState.Connected || previewTracks.length > 0;
 
   return (
     <>
       <RemoteTrackSubscriber />
+      <PublishAcquiredTracks onError={onPublishError} />
       <StudioConnectingOverlay label={connectingLabel} />
-      {state === ConnectionState.Connected && (
+      {showVideo && (
         <>
-          <RoomPresencePanel mode={mode} collabId={collabId} />
+          {state === ConnectionState.Connected && (
+            <RoomPresencePanel mode={mode} collabId={collabId} />
+          )}
           <div className="p-2">
             <StudioVideoLayout />
           </div>
-          <StudioConnectionStatus notice={connectionNotice} />
-          <StudioControls />
-          <RoomAudioRenderer />
-          {mode === "collab" && collabId && hostUsername && role ? (
-            <div className="px-2 pb-2">
-              <EgressWatcher
-                collabId={collabId}
-                compositorActive={compositorActive}
-                hostUsername={hostUsername}
-                hostStreamLive={hostStreamLive}
-                role={role}
-              />
-            </div>
-          ) : null}
+          {state === ConnectionState.Connected && (
+            <>
+              <StudioConnectionStatus notice={connectionNotice} />
+              <StudioControls />
+              <RoomAudioRenderer />
+              {mode === "collab" && collabId && hostUsername && role ? (
+                <div className="px-2 pb-2">
+                  <EgressWatcher
+                    collabId={collabId}
+                    compositorActive={compositorActive}
+                    hostUsername={hostUsername}
+                    hostStreamLive={hostStreamLive}
+                    role={role}
+                    onPublishError={onPublishError}
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
         </>
       )}
     </>
@@ -608,6 +731,7 @@ export function CollabWebRtcStudio({
   const [phase, setPhase] = useState<JoinPhase>("idle");
   const [joinStep, setJoinStep] = useState<JoinStep>("login");
   const [session, setSession] = useState<StudioSession | null>(null);
+  const [previewTracks, setPreviewTracks] = useState<LocalTrack[]>([]);
   const [error, setError] = useState("");
   const [connectionNotice, setConnectionNotice] = useState("");
   const [mediaError, setMediaError] = useState("");
@@ -619,12 +743,9 @@ export function CollabWebRtcStudio({
   const attemptRef = useRef(0);
   const fetchingRef = useRef(false);
   const connectedRef = useRef(false);
+  const previewTracksRef = useRef<LocalTrack[]>([]);
 
   const roomOptions = useMemo(() => roomOptionsForDevice(), []);
-  const videoOption = useMemo(
-    () => (isMobileDevice() ? ({ facingMode: "user" } as const) : true),
-    [],
-  );
   const connectOptions = useMemo(
     () => ({
       autoSubscribe: true,
@@ -644,6 +765,9 @@ export function CollabWebRtcStudio({
   const endSession = useCallback(() => {
     attemptRef.current += 1;
     connectedRef.current = false;
+    stopLocalTracks(previewTracksRef.current);
+    previewTracksRef.current = [];
+    setPreviewTracks([]);
     setSession(null);
     setPhaseSafe("idle");
     setConnectionNotice("");
@@ -661,9 +785,24 @@ export function CollabWebRtcStudio({
     setError("");
     setConnectionNotice("");
     setMediaError("");
+    stopLocalTracks(previewTracksRef.current);
+    previewTracksRef.current = [];
+    setPreviewTracks([]);
     setSession(null);
 
+    let acquiredTracks: LocalTrack[] = [];
+
     try {
+      // Camera/mic must be requested on the Join click — before any other await.
+      setJoinStep("camera");
+      acquiredTracks = await acquireLocalTracks();
+      if (attempt !== attemptRef.current) {
+        stopLocalTracks(acquiredTracks);
+        return;
+      }
+      previewTracksRef.current = acquiredTracks;
+      setPreviewTracks(acquiredTracks);
+
       const tokenEndpoint = mode === "sandbox" ? "/api/livekit/sandbox" : "/api/livekit/token";
       const tokenBody =
         mode === "sandbox"
@@ -687,6 +826,9 @@ export function CollabWebRtcStudio({
       setSession({ ...data, sessionKey: Date.now() });
     } catch (err) {
       if (attempt !== attemptRef.current) return;
+      stopLocalTracks(acquiredTracks);
+      previewTracksRef.current = [];
+      setPreviewTracks([]);
       setPhaseSafe("idle");
       setError(formatMediaError(err));
     } finally {
@@ -703,9 +845,17 @@ export function CollabWebRtcStudio({
         </p>
         <p className="text-xs text-zinc-400">
           {mode === "collab"
-            ? "Step 4 — joins the shared collab room with your partner. Stop Step 2a camera first if it is running."
-            : "Solo test only — stop Step 2a camera before joining. Use Step 4 to connect with your partner."}
+            ? "Step 4 — tap Join and choose Allow for camera + mic when prompted."
+            : "Solo test — tap Join and Allow camera/mic. Use Step 4 to connect with your partner."}
         </p>
+        {phase === "joining" && previewTracks.length > 0 && (
+          <div className="rounded-lg overflow-hidden border border-[#53fc18]/30">
+            <LocalPreviewVideo
+              track={previewTracks.find((t) => t.kind === Track.Kind.Video) ?? null}
+            />
+            <p className="text-[10px] text-center text-[#53fc18] py-1 bg-black/40">Camera OK — connecting…</p>
+          </div>
+        )}
         {phase === "joining" && (
           <div className="rounded-lg bg-black/40 p-3 text-center">
             <Loader2 className="h-6 w-6 animate-spin text-[#53fc18] mx-auto mb-2" />
@@ -732,55 +882,58 @@ export function CollabWebRtcStudio({
 
   return (
     <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-black">
-      <LiveKitRoom
-        key={session.sessionKey}
-        serverUrl={session.url}
-        token={session.token}
-        connect
-        video={videoOption}
-        audio
-        options={roomOptions}
-        connectOptions={connectOptions}
-        onConnected={() => {
-          connectedRef.current = true;
-          setJoinStep("done");
-          setPhaseSafe("live");
-          setConnectionNotice("");
-          setError("");
-        }}
-        onDisconnected={() => {
-          if (connectedRef.current) {
-            setConnectionNotice("Connection dropped — keep this tab open or tap Reconnect.");
-          }
-        }}
-        onError={(err) => {
-          setError(formatMediaError(err));
-          if (!connectedRef.current) {
-            endSession();
-          }
-        }}
-        onMediaDeviceFailure={() => {
-          setMediaError("Camera/mic failed — check permissions, stop Step 2a, then tap Reconnect.");
-        }}
-      >
-        <StudioRoom
-          mode={mode}
-          collabId={collabId}
-          hostUsername={hostUsername}
-          role={role}
-          compositorActive={compositorActive}
-          hostStreamLive={hostStreamLive}
-          connectionNotice={connectionNotice || mediaError || undefined}
-          connectingLabel={joinStepLabel(joinStep === "login" ? "connect" : joinStep)}
-        />
-        <StudioFooter
-          onReconnect={joinStudio}
-          onLeave={() => {
-            endSession();
+      <PreviewTracksContext.Provider value={previewTracks}>
+        <LiveKitRoom
+          key={session.sessionKey}
+          serverUrl={session.url}
+          token={session.token}
+          connect
+          video={false}
+          audio={false}
+          options={roomOptions}
+          connectOptions={connectOptions}
+          onConnected={() => {
+            connectedRef.current = true;
+            setJoinStep("done");
+            setPhaseSafe("live");
+            setConnectionNotice("");
             setError("");
           }}
-        />
-      </LiveKitRoom>
+          onDisconnected={() => {
+            if (connectedRef.current) {
+              setConnectionNotice("Connection dropped — keep this tab open or tap Reconnect.");
+            }
+          }}
+          onError={(err) => {
+            setError(formatMediaError(err));
+            if (!connectedRef.current) {
+              endSession();
+            }
+          }}
+          onMediaDeviceFailure={() => {
+            setMediaError("Camera/mic failed — tap Reconnect and Allow when prompted.");
+          }}
+        >
+          <StudioRoom
+            mode={mode}
+            collabId={collabId}
+            hostUsername={hostUsername}
+            role={role}
+            compositorActive={compositorActive}
+            hostStreamLive={hostStreamLive}
+            connectionNotice={connectionNotice || mediaError || undefined}
+            connectingLabel={joinStepLabel(joinStep === "login" ? "connect" : joinStep)}
+            onPublishError={setMediaError}
+          />
+          <StudioFooter
+            onReconnect={joinStudio}
+            onLeave={() => {
+              endSession();
+              setError("");
+            }}
+          />
+        </LiveKitRoom>
+      </PreviewTracksContext.Provider>
     </div>
   );
 }
