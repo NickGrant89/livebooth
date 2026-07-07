@@ -4,10 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
-  GridLayout,
-  ParticipantTile,
   useRoomContext,
-  useTracks,
+  useParticipants,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import {
@@ -19,6 +17,7 @@ import {
   Room,
   type LocalTrack,
   type RoomOptions,
+  type VideoCaptureOptions,
 } from "livekit-client";
 import { Camera, Loader2, Mic, MicOff, Radio, VideoOff, Wifi } from "lucide-react";
 import Link from "next/link";
@@ -128,44 +127,134 @@ function localCameraLive(room: Room | null): boolean {
   return Boolean(pub?.track && !pub.isMuted);
 }
 
-function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
-  const ref = useRef<HTMLVideoElement>(null);
+function videoConstraints(): boolean | VideoCaptureOptions {
+  if (typeof navigator === "undefined") return true;
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  return isMobile ? { facingMode: "user" } : true;
+}
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !track || track.kind !== Track.Kind.Video) return;
-    track.attach(el);
+async function acquireLocalTracks(): Promise<LocalTrack[]> {
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    throw new Error("Camera requires HTTPS — use https://livebooth.uk");
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error("Camera not supported in this browser — use Safari or Chrome.");
+  }
+
+  try {
+    return await createLocalTracks({
+      audio: true,
+      video: videoConstraints(),
+    });
+  } catch (first) {
+    // Mac/desktop fallback — strict facingMode can fail on external webcams
+    if (videoConstraints() !== true) {
+      return createLocalTracks({ audio: true, video: true });
+    }
+    throw first;
+  }
+}
+
+function attachTrackToVideo(track: LocalTrack | null, el: HTMLVideoElement | null) {
+  if (!el || !track || track.kind !== Track.Kind.Video) return () => {};
+
+  const mediaStream =
+    "mediaStream" in track && track.mediaStream instanceof MediaStream
+      ? track.mediaStream
+      : null;
+
+  if (mediaStream) {
+    el.srcObject = mediaStream;
+    void el.play().catch(() => {});
     return () => {
-      track.detach(el);
+      el.srcObject = null;
     };
-  }, [track]);
+  }
+
+  track.attach(el);
+  void el.play().catch(() => {});
+  return () => {
+    track.detach(el);
+  };
+}
+
+function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+
+  useEffect(() => attachTrackToVideo(track, videoEl), [track, videoEl]);
 
   return (
     <video
-      ref={ref}
+      ref={setVideoEl}
       autoPlay
       muted
       playsInline
       className="w-full h-full object-cover rounded-lg bg-zinc-900"
-      style={{ minHeight: 240, transform: "scaleX(-1)" }}
+      style={{ minHeight: 200, transform: "scaleX(-1)" }}
     />
   );
 }
 
-function StudioVideoGrid({ localPreviewTrack }: { localPreviewTrack: LocalTrack | null }) {
-  const tracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: false }],
-    { onlySubscribed: false },
-  );
+function RemoteParticipantVideo({
+  publication,
+  name,
+}: {
+  publication: import("livekit-client").TrackPublication | undefined;
+  name: string;
+}) {
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
 
-  if (tracks.length === 0) {
-    return <LocalPreviewVideo track={localPreviewTrack} />;
-  }
+  useEffect(() => {
+    const videoTrack = publication?.track;
+    if (!videoEl || !videoTrack || videoTrack.kind !== Track.Kind.Video) return;
+    videoTrack.attach(videoEl);
+    void videoEl.play().catch(() => {});
+    return () => {
+      videoTrack.detach(videoEl);
+    };
+  }, [publication, videoEl]);
+
+  if (!publication?.track) return null;
 
   return (
-    <GridLayout tracks={tracks} style={{ minHeight: 240 }}>
-      <ParticipantTile />
-    </GridLayout>
+    <div className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]">
+      <video
+        ref={setVideoEl}
+        autoPlay
+        playsInline
+        muted
+        className="w-full h-full object-cover min-h-[120px]"
+      />
+      <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
+        {name}
+      </span>
+    </div>
+  );
+}
+
+function StudioVideoLayout({ localPreviewTrack }: { localPreviewTrack: LocalTrack | null }) {
+  const participants = useParticipants();
+
+  const remoteWithCamera = participants
+    .filter((p) => !p.isLocal)
+    .map((p) => ({
+      id: p.identity,
+      name: p.name || p.identity,
+      camera: p.getTrackPublication(Track.Source.Camera),
+    }))
+    .filter((p) => p.camera?.track);
+
+  return (
+    <div className="space-y-2">
+      <LocalPreviewVideo track={localPreviewTrack} />
+      {remoteWithCamera.length > 0 && (
+        <div className={`grid gap-2 ${remoteWithCamera.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {remoteWithCamera.map((p) => (
+            <RemoteParticipantVideo key={p.id} publication={p.camera} name={p.name} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -449,7 +538,7 @@ function StudioRoom({
       onDisconnected={() => onError("Studio disconnected — tap Join again.")}
     >
       <div className="p-2">
-        <StudioVideoGrid localPreviewTrack={localPreviewTrack} />
+        <StudioVideoLayout localPreviewTrack={localPreviewTrack} />
       </div>
       <StudioConnectionStatus />
       <StudioControls />
@@ -543,14 +632,7 @@ export function CollabWebRtcStudio({
     let activeRoom: Room | null = null;
 
     try {
-      const tracks = await withTimeout(
-        createLocalTracks({
-          audio: true,
-          video: { facingMode: "user" },
-        }),
-        JOIN_TIMEOUT_MS,
-        "Camera/mic",
-      );
+      const tracks = await withTimeout(acquireLocalTracks(), JOIN_TIMEOUT_MS, "Camera/mic");
 
       tracksRef.current = tracks;
       setLocalTracks(tracks);
@@ -603,7 +685,10 @@ export function CollabWebRtcStudio({
       }
 
       if (!localCameraLive(activeRoom)) {
-        throw new Error("Camera published but not live — tap Join again.");
+        const pub = activeRoom.localParticipant.getTrackPublication(Track.Source.Camera);
+        if (!pub?.track) {
+          throw new Error("Camera published but not live — tap Join again.");
+        }
       }
 
       setJoinStep("done");
@@ -644,9 +729,17 @@ export function CollabWebRtcStudio({
               }`}
         </p>
         {phase === "joining" && (
-          <div className="rounded-lg bg-black/40 p-3 text-center">
-            <Loader2 className="h-6 w-6 animate-spin text-[#53fc18] mx-auto mb-2" />
-            <p className="text-xs text-amber-200">{joinStepLabel(joinStep)}</p>
+          <div className="space-y-3">
+            {localPreviewTrack && (
+              <div className="rounded-lg overflow-hidden border border-[#53fc18]/30">
+                <LocalPreviewVideo track={localPreviewTrack} />
+                <p className="text-[10px] text-center text-[#53fc18] py-1 bg-black/40">Camera OK — connecting…</p>
+              </div>
+            )}
+            <div className="rounded-lg bg-black/40 p-3 text-center">
+              <Loader2 className="h-6 w-6 animate-spin text-[#53fc18] mx-auto mb-2" />
+              <p className="text-xs text-amber-200">{joinStepLabel(joinStep)}</p>
+            </div>
           </div>
         )}
         {error && <p className="text-xs text-red-400">{error}</p>}

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
+import { CameraProbe } from "@/components/CameraProbe";
 
 const CollabWebRtcStudio = dynamic(
   () => import("@/components/CollabWebRtcStudio").then((m) => ({ default: m.CollabWebRtcStudio })),
@@ -189,17 +190,19 @@ export default function CollabTestPage() {
 
       <section className="glass rounded-2xl p-5 mb-6 border border-[#53fc18]/20">
         <h2 className="font-semibold text-sm uppercase tracking-wider text-[#53fc18] mb-2">
-          Step 2 · Test camera only
+          Step 2 · Test camera
         </h2>
-        <p className="text-xs text-zinc-500 mb-4">
-          No partner, no invite — just you and LiveKit. If this fails, fix camera permissions or
-          server config before trying a full collab.
-        </p>
-        {diag?.webrtcEnabled ? (
-          <CollabWebRtcStudio mode="sandbox" />
-        ) : (
-          <p className="text-sm text-amber-400/90">WebRTC is off on this server — cannot test.</p>
-        )}
+        <CameraProbe />
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <p className="text-xs text-zinc-500 mb-3">
+            Step 2b — same camera through LiveKit (studio path). Only try this if Step 2a works.
+          </p>
+          {diag?.webrtcEnabled ? (
+            <CollabWebRtcStudio mode="sandbox" />
+          ) : (
+            <p className="text-sm text-amber-400/90">WebRTC is off on this server — cannot test.</p>
+          )}
+        </div>
       </section>
 
       <section className="glass rounded-2xl p-5 mb-6 border border-white/10">
@@ -307,7 +310,8 @@ export default function CollabTestPage() {
 
       <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs text-zinc-500 space-y-1">
         <p className="font-medium text-zinc-400">Testing checklist</p>
-        <p>1. Step 2 passes → your browser + LiveKit work.</p>
+        <p>1. Step 2a passes → browser allows camera.</p>
+        <p>2. Step 2b passes → LiveKit studio path works.</p>
         <p>2. Host: Quick setup with partner username.</p>
         <p>3. Partner: open copied link, Accept, tap Join.</p>
         <p>4. Host: tap Join on Mac. Wait for “2/2 cameras” then fan mix.</p>
