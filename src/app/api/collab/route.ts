@@ -246,7 +246,9 @@ export async function PUT(request: Request) {
   const stream = await publishStreamSession(streamId, auth.id);
   if (!stream) return error("Could not publish partner feed", 400);
 
-  const compositor = await tryActivateCollabCompositor(collab.id);
+  const compositor = isLiveKitConfigured()
+    ? null
+    : await tryActivateCollabCompositor(collab.id);
 
   return json({ stream: serializePartnerStream(stream), compositor });
 }

@@ -3,6 +3,20 @@ export function localHlsPlaybackPath(ingestKey: string): string {
   return `/api/hls/live/${encodeURIComponent(ingestKey)}/index.m3u8`;
 }
 
+const HLS_SERVER_URL = process.env.HLS_SERVER_URL?.replace(/\/$/, "");
+
+/** Direct MediaMTX manifest URL for server-side readiness checks (bypasses /api/hls proxy). */
+export function upstreamHlsManifestUrl(ingestKey: string): string | null {
+  if (!HLS_SERVER_URL || !ingestKey) return null;
+  return `${HLS_SERVER_URL}/live/${encodeURIComponent(ingestKey)}/index.m3u8`;
+}
+
+export async function upstreamIngestManifestReady(ingestKey: string): Promise<boolean> {
+  const url = upstreamHlsManifestUrl(ingestKey);
+  if (!url) return false;
+  return hlsManifestReady(url);
+}
+
 /** LiveBooth ingest via MediaMTX (LL-HLS fMP4 through /api/hls proxy). */
 export function isProxiedMediaMtxHls(url: string): boolean {
   return url.includes("/api/hls/live/") || /hls\.livebooth\.uk\/live\//.test(url);
@@ -96,9 +110,23 @@ function resolveManifestReference(manifestUrl: string, ref: string): string {
 export async function hlsManifestReady(url: string, depth = 0): Promise<boolean> {
   if (depth > 3) return false;
   try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return false;
-    const text = await res.text();
+    let text: string;
+    if (HLS_SERVER_URL && url.startsWith(HLS_SERVER_URL)) {
+      const { fetchUpstreamHls } = await import("./hls-proxy");
+      const res = await fetchUpstreamHls(url, { timeoutMs: 8000 });
+      if (!res.ok) return false;
+      text = await res.text();
+    } else if (url.startsWith("/api/hls/")) {
+      const origin = (process.env.NEXT_PUBLIC_APP_URL ?? "https://livebooth.uk").replace(/\/$/, "");
+      const res = await fetch(`${origin}${url}`, { cache: "no-store" });
+      if (!res.ok) return false;
+      text = await res.text();
+    } else {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return false;
+      text = await res.text();
+    }
+
     if (hlsManifestBodyReady(text)) return true;
 
     if (text.includes("#EXT-X-STREAM-INF")) {

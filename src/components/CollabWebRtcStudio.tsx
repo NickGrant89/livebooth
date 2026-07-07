@@ -208,14 +208,12 @@ function StudioControls({
     room.on(RoomEvent.LocalTrackUnpublished, onUnpublished);
     room.on(RoomEvent.Reconnecting, onReconnecting);
     room.on(RoomEvent.Reconnected, reenableAfterReconnect);
-    room.on(RoomEvent.Connected, reenableAfterReconnect);
 
     return () => {
       room.off(RoomEvent.LocalTrackPublished, sync);
       room.off(RoomEvent.LocalTrackUnpublished, onUnpublished);
       room.off(RoomEvent.Reconnecting, onReconnecting);
       room.off(RoomEvent.Reconnected, reenableAfterReconnect);
-      room.off(RoomEvent.Connected, reenableAfterReconnect);
       if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
     };
   }, [room, onError]);
@@ -429,7 +427,10 @@ function EgressWatcher({
       if (!res.ok || cancelled) return;
       const data = (await res.json()) as {
         participantCount?: number;
+        connectedDjs?: number;
         videoPublishers?: number;
+        hostInStudio?: boolean;
+        partnerInStudio?: boolean;
         canStartEgress?: boolean;
         compositorActive?: boolean;
         egressHealthy?: boolean;
@@ -442,14 +443,18 @@ function EgressWatcher({
         return;
       }
 
-      const inRoom = data.participantCount ?? 0;
+      const djs = data.connectedDjs ?? data.participantCount ?? 0;
       const cameras = data.videoPublishers ?? 0;
+      const hostOk = data.hostInStudio ?? djs >= 1;
+      const partnerOk = data.partnerInStudio ?? djs >= 2;
 
       if (!data.egressHealthy) {
         setStatus("Egress service restarting on VPS — fan mix may take a minute.");
-      } else if (inRoom < 2) {
+      } else if (!hostOk) {
+        setStatus("Host: open WebRTC studio here and tap Turn on camera & mic.");
+      } else if (!partnerOk) {
         setStatus(
-          `${inRoom}/2 DJs in studio — the other DJ must open WebRTC studio on /collab (host OBS/RTMP does not count).`,
+          "Partner: must open /collab on their phone, Open WebRTC studio, and turn camera on (OBS does not count).",
         );
       } else if (cameras < 2) {
         setStatus(
@@ -485,7 +490,7 @@ function EgressWatcher({
           setStatus("Could not start fan mix — try again in a few seconds.");
         }
       } else {
-        setStatus(`${inRoom}/2 DJs · ${cameras}/2 cameras — waiting to start mix…`);
+        setStatus(`${djs}/2 DJs connected · ${cameras}/2 cameras on — waiting to start mix…`);
       }
     }
 

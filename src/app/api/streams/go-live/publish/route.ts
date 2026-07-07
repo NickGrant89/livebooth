@@ -1,5 +1,6 @@
 import { publishStreamSession, getRtmpIngestUrl, getIngestModeForStream, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { tryActivateCollabCompositor } from "@/lib/collab-compositor";
+import { isLiveKitConfigured } from "@/lib/livekit";
 import { evaluateAchievements } from "@/lib/achievements";
 import {
   notifyFollowersGoLive,
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       where: { streamId: stream.id },
     });
     const compositor =
-      hostCollab?.status === "active"
+      hostCollab?.status === "active" && !isLiveKitConfigured()
         ? await tryActivateCollabCompositor(hostCollab.id)
         : null;
 

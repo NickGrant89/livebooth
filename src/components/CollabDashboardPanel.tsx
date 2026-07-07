@@ -72,7 +72,10 @@ export function CollabDashboardPanel({ streamId }: { streamId: string }) {
           {collab.status === "active" ? (
             <>
               Active with <strong className="text-white">{collab.partner}</strong>
-              {collab.status === "active" && " — partner video shows when they go live"}
+              {" — "}
+              <Link href="/collab#host-studio" className="text-[#53fc18] hover:underline">
+                open host WebRTC studio
+              </Link>
             </>
           ) : (
             <>Waiting for @{collab.partnerUsername} to accept</>

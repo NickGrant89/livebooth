@@ -14,6 +14,7 @@ import {
   isLiveKitConfigured,
 } from "./livekit";
 import { hlsManifestReady } from "./hls-playback";
+import { summarizeCollabRoomParticipants, collabRoleFromIdentity } from "./livekit-room-stats";
 
 function compositedIngestKey(hostIngestKey: string): string {
   return `${hostIngestKey}_mix`;
@@ -38,7 +39,10 @@ function getEgressClient() {
 export type CollabWebRtcStatus = {
   room: string;
   participantCount: number;
+  connectedDjs: number;
   videoPublishers: number;
+  hostInStudio: boolean;
+  partnerInStudio: boolean;
   compositorActive: boolean;
   canStartEgress: boolean;
   egressHealthy: boolean;
@@ -62,23 +66,32 @@ export async function getCollabWebRtcStatus(collabId: string): Promise<CollabWeb
     participants = [];
   }
 
-  const videoPublishers = participants.filter((p) =>
-    p.tracks.some((t) => t.type === TrackType.VIDEO),
-  ).length;
+  const { connectedDjs, videoPublishers } = summarizeCollabRoomParticipants(
+    participants,
+    TrackType.VIDEO,
+  );
+  const hostInStudio = participants.some(
+    (p) => collabRoleFromIdentity(p.identity) === "host",
+  );
+  const partnerInStudio = participants.some(
+    (p) => collabRoleFromIdentity(p.identity) === "partner",
+  );
 
   let egressHealthy = true;
   try {
     const egress = getEgressClient();
-    const active = await egress.listEgress({ roomName: room, active: true });
-    egressHealthy = active.length >= 0;
+    await egress.listEgress({ roomName: room, active: true });
   } catch {
     egressHealthy = false;
   }
 
   return {
     room,
-    participantCount: participants.length,
+    participantCount: connectedDjs,
+    connectedDjs,
     videoPublishers,
+    hostInStudio,
+    partnerInStudio,
     compositorActive: collab.compositorActive,
     canStartEgress: videoPublishers >= 2 && !collab.compositorActive,
     egressHealthy,

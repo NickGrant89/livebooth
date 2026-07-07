@@ -60,6 +60,10 @@ export default function CollabPage() {
       .then((d) => {
         setCollabs(d.collabs ?? []);
         setWebrtcEnabled(Boolean(d.webrtcEnabled));
+      })
+      .catch(() => {
+        setCollabs([]);
+        setWebrtcEnabled(false);
       });
   }, [user]);
 
@@ -158,6 +162,104 @@ export default function CollabPage() {
         mixes video and audio into one synced booth on the host page. Tips split by your chosen ratio.
       </p>
 
+      {myHostCollab && webrtcEnabled && (
+        <div className="rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 mb-6 text-sm">
+          <p className="text-[#53fc18] font-semibold">Active collab — host WebRTC studio is below</p>
+          <p className="text-xs text-zinc-400 mt-1">
+            Scroll to <strong className="text-zinc-200">Host studio</strong>, click{" "}
+            <strong className="text-zinc-200">Open WebRTC studio</strong>, then{" "}
+            <strong className="text-zinc-200">Turn on camera &amp; mic</strong>. Your partner must do the
+            same on their phone.
+          </p>
+          <Link href="#host-studio" className="text-xs text-[#53fc18] hover:underline mt-2 inline-block">
+            Jump to host studio ↓
+          </Link>
+        </div>
+      )}
+
+      {myHostCollab && !webrtcEnabled && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 mb-6 text-sm text-amber-200/90">
+          WebRTC studio is off on this server — use Go Live + OBS for the host feed and RTMP on /collab
+          for your partner.
+        </div>
+      )}
+
+      {myHostCollab && !webrtcEnabled && (
+        <div className="glass rounded-2xl p-6 mb-8 border border-amber-500/30">
+          <h2 className="font-semibold mb-2 flex items-center gap-2 text-amber-300">
+            <Video className="h-4 w-4" />
+            Host studio · {myHostCollab.streamTitle}
+          </h2>
+          <p className="text-sm text-zinc-400">
+            WebRTC studio is not enabled on this deployment. Stream from{" "}
+            <Link href="/go-live" className="text-[#53fc18] hover:underline">
+              Go Live
+            </Link>{" "}
+            with OBS instead, and ask your partner to use RTMP on /collab.
+          </p>
+        </div>
+      )}
+
+      {myHostCollab && webrtcEnabled && (
+        <div id="host-studio" className="glass rounded-2xl p-6 mb-8 border border-[#53fc18]/20">
+          <h2 className="font-semibold mb-2 flex items-center gap-2 text-[#53fc18]">
+            <Video className="h-4 w-4" />
+            Host studio · {myHostCollab.streamTitle}
+          </h2>
+          <p className="text-xs text-zinc-500 mb-4">
+            WebRTC collab with @{myHostCollab.partnerUsername} — fans watch{" "}
+            {myHostCollab.hostStreamStatus === "live" ? (
+              <Link href={`/stream/${myHostCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
+                your booth
+              </Link>
+            ) : (
+              <span className="text-zinc-400">your booth (publish from Go Live first)</span>
+            )}
+            .
+          </p>
+          {myHostCollab.hostStreamStatus !== "live" && (
+            <p className="text-xs text-amber-400/90 mb-4">
+              Publish your stream from{" "}
+              <Link href="/go-live" className="text-[#53fc18] hover:underline">
+                Go Live
+              </Link>{" "}
+              so fans can watch on your booth page.
+            </p>
+          )}
+          <CollabWebRtcStudio
+            key={myHostCollab.id}
+            collabId={myHostCollab.id}
+            hostUsername={myHostCollab.hostUsername}
+            role="host"
+            compositorActive={myHostCollab.compositorActive}
+            hostStreamLive={myHostCollab.hostStreamStatus === "live"}
+          />
+        </div>
+      )}
+
+      {sent.length > 0 && !myHostCollab && (
+        <section className="mb-8">
+          <h2 className="font-semibold text-zinc-400 text-sm uppercase tracking-wider mb-3">
+            Sent invites (waiting)
+          </h2>
+          <div className="space-y-2">
+            {sent.map((c) => (
+              <div key={c.id} className="glass rounded-xl p-4">
+                <p className="font-medium">{c.streamTitle}</p>
+                <p className="text-sm text-zinc-500">
+                  Waiting for @{c.partnerUsername} to accept ({Math.round(c.splitRatio * 100)}% partner
+                  split)
+                </p>
+                <p className="text-xs text-amber-400/90 mt-2">
+                  Host WebRTC studio appears here after they accept — you cannot open it until the collab is
+                  active.
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {user.role === "dj" && !myPartnerCollab && (
         <div className="glass rounded-2xl p-6 mb-8">
           <h2 className="font-semibold mb-4 flex items-center gap-2">
@@ -205,43 +307,6 @@ export default function CollabPage() {
           {msg && (
             <p className={`text-sm mt-2 ${msgOk ? "text-[#53fc18]" : "text-red-400"}`}>{msg}</p>
           )}
-        </div>
-      )}
-
-      {myHostCollab && webrtcEnabled && (
-        <div className="glass rounded-2xl p-6 mb-8 border border-[#53fc18]/20">
-          <h2 className="font-semibold mb-2 flex items-center gap-2 text-[#53fc18]">
-            <Video className="h-4 w-4" />
-            Host studio · {myHostCollab.streamTitle}
-          </h2>
-          <p className="text-xs text-zinc-500 mb-4">
-            WebRTC collab with @{myHostCollab.partnerUsername} — fans watch{" "}
-            {myHostCollab.hostStreamStatus === "live" ? (
-              <Link href={`/stream/${myHostCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
-                your booth
-              </Link>
-            ) : (
-              <span className="text-zinc-400">your booth (publish from Go Live first)</span>
-            )}
-            .
-          </p>
-          {myHostCollab.hostStreamStatus !== "live" && (
-            <p className="text-xs text-amber-400/90 mb-4">
-              Publish your stream from{" "}
-              <Link href="/go-live" className="text-[#53fc18] hover:underline">
-                Go Live
-              </Link>{" "}
-              so fans can watch on your booth page.
-            </p>
-          )}
-          <CollabWebRtcStudio
-            key={myHostCollab.id}
-            collabId={myHostCollab.id}
-            hostUsername={myHostCollab.hostUsername}
-            role="host"
-            compositorActive={myHostCollab.compositorActive}
-            hostStreamLive={myHostCollab.hostStreamStatus === "live"}
-          />
         </div>
       )}
 
@@ -359,11 +424,31 @@ export default function CollabPage() {
                 {c.role === "host" && c.compositorActive && (
                   <p className="text-xs text-[#53fc18] mt-1">Synced B2B mix active — one stream for fans</p>
                 )}
-                {c.role === "host" && !c.compositorActive && c.partnerStream?.status === "live" && (
+                {c.role === "host" && !c.compositorActive && webrtcEnabled && (
+                  <p className="text-xs text-amber-400/90 mt-1">
+                    Open host WebRTC studio below — both DJs need camera on (OBS alone does not count).
+                  </p>
+                )}
+                {c.role === "host" && !c.compositorActive && !webrtcEnabled && c.partnerStream?.status === "live" && (
                   <p className="text-xs text-amber-400/90 mt-1">Building synced mix… (PiP fallback until ready)</p>
                 )}
-                {c.role === "host" && c.partnerStream?.status === "preparing" && (
-                  <p className="text-xs text-amber-400/90 mt-1">Waiting for partner OBS feed…</p>
+                {c.role === "host" && !webrtcEnabled && c.partnerStream?.status === "preparing" && (
+                  <p className="text-xs text-amber-400/90 mt-1">Waiting for partner RTMP feed…</p>
+                )}
+                {c.role === "host" && c.status === "active" && webrtcEnabled && (
+                  <Link href="#host-studio" className="text-xs text-[#53fc18] hover:underline mt-2 inline-block">
+                    Open host WebRTC studio ↓
+                  </Link>
+                )}
+                {c.role === "host" && c.status === "active" && !webrtcEnabled && (
+                  <p className="text-xs text-amber-400/90 mt-2">
+                    WebRTC studio unavailable — use Go Live + OBS on this deployment.
+                  </p>
+                )}
+                {c.role === "host" && c.status === "pending" && (
+                  <p className="text-xs text-amber-400/90 mt-2">
+                    Waiting for partner to accept — host WebRTC studio unlocks after that.
+                  </p>
                 )}
                 <Link
                   href={`/stream/${c.hostUsername}`}
@@ -422,23 +507,14 @@ export default function CollabPage() {
         </section>
       )}
 
-      {sent.length > 0 && (
-        <section className="mb-8">
-          <h2 className="font-semibold text-zinc-400 text-sm uppercase tracking-wider mb-3">
-            Sent invites (waiting)
-          </h2>
-          <div className="space-y-2">
-            {sent.map((c) => (
-              <div key={c.id} className="glass rounded-xl p-4">
-                <p className="font-medium">{c.streamTitle}</p>
-                <p className="text-sm text-zinc-500">
-                  Waiting for @{c.partnerUsername} to accept ({Math.round(c.splitRatio * 100)}% partner
-                  split)
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+      {user.role === "dj" && user.liveStream && !myHostCollab && !myPartnerCollab && active.length === 0 && sent.length === 0 && (
+        <div className="glass rounded-xl p-4 mb-8 border border-white/10">
+          <p className="text-sm text-zinc-400">
+            <strong className="text-zinc-200">To open WebRTC as host:</strong> invite a partner above → they
+            accept on /collab → a <span className="text-[#53fc18]">Host studio</span> card appears on this
+            page with <span className="text-zinc-300">Open WebRTC studio</span>.
+          </p>
+        </div>
       )}
 
       {collabs.length === 0 && (

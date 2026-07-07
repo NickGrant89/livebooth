@@ -5,7 +5,7 @@ import {
   resolveCollabViewerPlaybackUrl,
   tryActivateCollabCompositor,
 } from "./collab-compositor";
-import { hlsManifestReady } from "./hls-playback";
+import { hlsManifestReady, upstreamIngestManifestReady } from "./hls-playback";
 import { getHlsPlaybackUrl } from "./streaming";
 import { isLiveKitConfigured } from "./livekit";
 
@@ -20,8 +20,9 @@ export type CollabPlaybackState = {
   } | null;
 };
 
-/** Mix HLS manifest check — used before switching fan playback to lb_*_mix. */
+/** Mix HLS manifest check — direct upstream URL so Vercel server checks work reliably. */
 async function mixManifestReady(compositedIngestKey: string): Promise<boolean> {
+  if (await upstreamIngestManifestReady(compositedIngestKey)) return true;
   const mixUrl = getHlsPlaybackUrl(compositedIngestKey);
   if (!mixUrl) return false;
   return hlsManifestReady(mixUrl);
@@ -54,20 +55,23 @@ async function resolveLiveCollabPlayback(
     return { playbackUrl: hostUrl, compositorActive: false, compositorPending: false };
   }
 
-  const hostHasSignal = hostUrl ? await hlsManifestReady(hostUrl) : false;
+  const hostHasSignal = stream.ingestKey
+    ? await upstreamIngestManifestReady(stream.ingestKey)
+    : hostUrl
+      ? await hlsManifestReady(hostUrl)
+      : false;
 
-  // WebRTC collab: fans watch egress mix, not host OBS — show building overlay until mix or host RTMP is ready.
-  if (
-    isLiveKitConfigured() &&
-    !collab.compositorActive &&
-    !hostHasSignal &&
-    collab.partnerStream?.status === "live"
-  ) {
-    return {
-      playbackUrl: hostUrl,
-      compositorActive: false,
-      compositorPending: true,
-    };
+  // WebRTC collab: fans watch egress mix — show building overlay until mix is publishing.
+  if (isLiveKitConfigured() && !collab.compositorActive) {
+    const mixKey = stream.ingestKey ? `${stream.ingestKey}_mix` : null;
+    const mixReady = mixKey ? await mixManifestReady(mixKey) : false;
+    if (!mixReady && !hostHasSignal) {
+      return {
+        playbackUrl: hostUrl,
+        compositorActive: false,
+        compositorPending: true,
+      };
+    }
   }
 
   if (collab.compositorActive && collab.compositedIngestKey) {
@@ -79,10 +83,10 @@ async function resolveLiveCollabPlayback(
       };
     }
 
-    // Mix flagged in DB but HLS not ready yet — keep host feed, do not tear down egress.
+    // Mix flagged in DB but HLS not ready yet — still serve mix URL so player can retry.
     return {
-      playbackUrl: hostUrl,
-      compositorActive: false,
+      playbackUrl: getHlsPlaybackUrl(collab.compositedIngestKey),
+      compositorActive: true,
       compositorPending: true,
     };
   }
