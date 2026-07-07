@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
 
 /** Raw getUserMedia test — no LiveKit. Isolates browser camera permissions. */
-export function CameraProbe() {
+export function CameraProbe({ paused = false }: { paused?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "live" | "error">("idle");
@@ -19,6 +19,10 @@ export function CameraProbe() {
   }, []);
 
   useEffect(() => () => stop(), [stop]);
+
+  useEffect(() => {
+    if (paused && status === "live") stop();
+  }, [paused, status, stop]);
 
   async function start() {
     setStatus("loading");

@@ -194,7 +194,7 @@ export default function CollabTestPage() {
         <h2 className="font-semibold text-sm uppercase tracking-wider text-[#53fc18] mb-2">
           Step 2 · Test camera
         </h2>
-        <CameraProbe />
+        <CameraProbe paused={Boolean(diag?.studioReady || studioLive)} />
         <div className="mt-4 pt-4 border-t border-white/10">
           <p className="text-xs text-zinc-500 mb-3">
             Step 2b — same camera through LiveKit (studio path). Only try this if Step 2a works.

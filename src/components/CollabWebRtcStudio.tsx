@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  LiveKitRoom,
   RoomAudioRenderer,
-  RoomContext,
+  useConnectionState,
   useRoomContext,
   useParticipants,
 } from "@livekit/components-react";
@@ -16,8 +17,8 @@ import {
   VideoPresets,
   Room,
   type LocalTrack,
+  type RemoteParticipant,
   type RoomOptions,
-  type VideoCaptureOptions,
 } from "livekit-client";
 import { Camera, Loader2, Mic, MicOff, Radio, VideoOff, Wifi } from "lucide-react";
 import Link from "next/link";
@@ -67,10 +68,6 @@ function roomOptionsForDevice(): RoomOptions {
 
 function joinTimeoutMs(): number {
   return isMobileDevice() ? JOIN_TIMEOUT_MOBILE_MS : JOIN_TIMEOUT_MS;
-}
-
-function videoCaptureOptions(): VideoCaptureOptions | undefined {
-  return isMobileDevice() ? { facingMode: "user" } : undefined;
 }
 
 function formatMediaError(err: unknown): string {
@@ -508,48 +505,96 @@ function EgressWatcher({
   );
 }
 
+/** Subscribe to all remote tracks — LiveKitRoom autoSubscribe can miss late joiners. */
+function RemoteTrackSubscriber() {
+  const room = useRoomContext();
+
+  useEffect(() => {
+    if (!room) return;
+
+    const subscribeAll = () => subscribeRemoteParticipants(room);
+    const onParticipant = (participant: RemoteParticipant) => {
+      if (participant.isLocal) return;
+      participant.trackPublications.forEach((pub) => pub.setSubscribed(true));
+    };
+
+    subscribeAll();
+    room.on(RoomEvent.ParticipantConnected, onParticipant);
+    room.on(RoomEvent.Reconnected, subscribeAll);
+
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, onParticipant);
+      room.off(RoomEvent.Reconnected, subscribeAll);
+    };
+  }, [room]);
+
+  return null;
+}
+
+function StudioConnectingOverlay({ label }: { label: string }) {
+  const state = useConnectionState();
+  if (state === ConnectionState.Connected) return null;
+
+  return (
+    <div className="rounded-lg bg-black/40 p-3 text-center mx-2 mt-2">
+      <Loader2 className="h-6 w-6 animate-spin text-[#53fc18] mx-auto mb-2" />
+      <p className="text-xs text-amber-200">{label}</p>
+    </div>
+  );
+}
+
 function StudioRoom({
   mode,
   collabId,
-  room,
   hostUsername,
   role,
   compositorActive,
   hostStreamLive,
   connectionNotice,
+  connectingLabel,
 }: {
   mode: "collab" | "sandbox";
   collabId?: string;
-  room: Room;
   hostUsername?: string;
   role?: "host" | "partner";
   compositorActive?: boolean;
   hostStreamLive?: boolean;
   connectionNotice?: string;
+  connectingLabel: string;
 }) {
+  const state = useConnectionState();
+
   return (
-    <RoomContext.Provider value={room}>
-      <RoomPresencePanel mode={mode} collabId={collabId} />
-      <div className="p-2">
-        <StudioVideoLayout />
-      </div>
-      <StudioConnectionStatus notice={connectionNotice} />
-      <StudioControls />
-      <RoomAudioRenderer />
-      {mode === "collab" && collabId && hostUsername && role ? (
-        <div className="px-2 pb-2">
-          <EgressWatcher
-            collabId={collabId}
-            compositorActive={compositorActive}
-            hostUsername={hostUsername}
-            hostStreamLive={hostStreamLive}
-            role={role}
-          />
-        </div>
-      ) : null}
-    </RoomContext.Provider>
+    <>
+      <RemoteTrackSubscriber />
+      <StudioConnectingOverlay label={connectingLabel} />
+      {state === ConnectionState.Connected && (
+        <>
+          <RoomPresencePanel mode={mode} collabId={collabId} />
+          <div className="p-2">
+            <StudioVideoLayout />
+          </div>
+          <StudioConnectionStatus notice={connectionNotice} />
+          <StudioControls />
+          <RoomAudioRenderer />
+          {mode === "collab" && collabId && hostUsername && role ? (
+            <div className="px-2 pb-2">
+              <EgressWatcher
+                collabId={collabId}
+                compositorActive={compositorActive}
+                hostUsername={hostUsername}
+                hostStreamLive={hostStreamLive}
+                role={role}
+              />
+            </div>
+          ) : null}
+        </>
+      )}
+    </>
   );
 }
+
+type StudioSession = TokenPayload & { sessionKey: number };
 
 export function CollabWebRtcStudio({
   mode = "collab",
@@ -562,54 +607,61 @@ export function CollabWebRtcStudio({
 }: StudioProps) {
   const [phase, setPhase] = useState<JoinPhase>("idle");
   const [joinStep, setJoinStep] = useState<JoinStep>("login");
-  const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
-  const [room, setRoom] = useState<Room | null>(null);
+  const [session, setSession] = useState<StudioSession | null>(null);
   const [error, setError] = useState("");
   const [connectionNotice, setConnectionNotice] = useState("");
+  const [mediaError, setMediaError] = useState("");
   const studioInstanceIdRef = useRef(
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID().slice(0, 8)
       : `${Date.now().toString(36)}`,
   );
-  const roomRef = useRef<Room | null>(null);
-  const phaseRef = useRef<JoinPhase>("idle");
+  const attemptRef = useRef(0);
+  const fetchingRef = useRef(false);
+  const connectedRef = useRef(false);
+
+  const roomOptions = useMemo(() => roomOptionsForDevice(), []);
+  const videoOption = useMemo(
+    () => (isMobileDevice() ? ({ facingMode: "user" } as const) : true),
+    [],
+  );
+  const connectOptions = useMemo(
+    () => ({
+      autoSubscribe: true,
+      peerConnectionTimeout: joinTimeoutMs(),
+    }),
+    [],
+  );
 
   const setPhaseSafe = useCallback(
     (next: JoinPhase) => {
-      phaseRef.current = next;
       setPhase(next);
       onPhaseChange?.(next);
     },
     [onPhaseChange],
   );
 
-  const leaveRoom = useCallback(() => {
-    const r = roomRef.current;
-    roomRef.current = null;
-    setRoom(null);
-    setTokenPayload(null);
-    if (r) void r.disconnect(true);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      const r = roomRef.current;
-      if (r) void r.disconnect(true);
-    };
-  }, []);
+  const endSession = useCallback(() => {
+    attemptRef.current += 1;
+    connectedRef.current = false;
+    setSession(null);
+    setPhaseSafe("idle");
+    setConnectionNotice("");
+    setMediaError("");
+  }, [setPhaseSafe]);
 
   async function joinStudio() {
-    if (phaseRef.current === "joining") return;
+    if (fetchingRef.current) return;
 
+    const attempt = ++attemptRef.current;
+    fetchingRef.current = true;
+    connectedRef.current = false;
     setPhaseSafe("joining");
     setJoinStep("login");
     setError("");
     setConnectionNotice("");
-
-    if (roomRef.current) leaveRoom();
-
-    const timeoutMs = joinTimeoutMs();
-    let activeRoom: Room | null = null;
+    setMediaError("");
+    setSession(null);
 
     try {
       const tokenEndpoint = mode === "sandbox" ? "/api/livekit/sandbox" : "/api/livekit/token";
@@ -629,79 +681,20 @@ export function CollabWebRtcStudio({
       );
       const data = (await res.json()) as TokenPayload & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Could not join studio");
+      if (attempt !== attemptRef.current) return;
 
       setJoinStep("connect");
-      activeRoom = new Room(roomOptionsForDevice());
-      roomRef.current = activeRoom;
-
-      activeRoom.on(RoomEvent.Reconnecting, () => {
-        setConnectionNotice("Reconnecting — keep this tab open…");
-      });
-      activeRoom.on(RoomEvent.Reconnected, () => {
-        setConnectionNotice("");
-        subscribeRemoteParticipants(activeRoom!);
-      });
-      activeRoom.on(RoomEvent.Disconnected, () => {
-        // Do not tear down — mobile often drops briefly then reconnects.
-        setConnectionNotice("Connection dropped — reconnecting… keep this tab open.");
-      });
-      activeRoom.on(RoomEvent.ParticipantConnected, (participant) => {
-        if ("isLocal" in participant && participant.isLocal) return;
-        participant.trackPublications.forEach((pub) => pub.setSubscribed(true));
-      });
-
-      if (typeof activeRoom.prepareConnection === "function") {
-        try {
-          await activeRoom.prepareConnection(data.url, data.token);
-        } catch {
-          /* optional prefetch */
-        }
-      }
-
-      await withTimeout(
-        activeRoom.connect(data.url, data.token, { autoSubscribe: true }),
-        timeoutMs,
-        "LiveKit connect",
-      );
-
-      if (activeRoom.state !== ConnectionState.Connected) {
-        throw new Error(`Room not connected (state=${activeRoom.state})`);
-      }
-
-      subscribeRemoteParticipants(activeRoom);
-
-      setJoinStep("camera");
-      await activeRoom.localParticipant.setCameraEnabled(true, videoCaptureOptions());
-      await activeRoom.localParticipant.setMicrophoneEnabled(true);
-
-      const cam = activeRoom.localParticipant.getTrackPublication(Track.Source.Camera);
-      if (!cam?.track) {
-        throw new Error("Camera did not start — check permissions and tap Join again.");
-      }
-
-      try {
-        await activeRoom.startAudio();
-      } catch {
-        /* ok on iOS */
-      }
-
-      setJoinStep("done");
-      setTokenPayload(data);
-      setRoom(activeRoom);
-      setPhaseSafe("live");
+      setSession({ ...data, sessionKey: Date.now() });
     } catch (err) {
-      if (activeRoom) {
-        void activeRoom.disconnect(true);
-        if (roomRef.current === activeRoom) roomRef.current = null;
-      }
-      setRoom(null);
-      setTokenPayload(null);
+      if (attempt !== attemptRef.current) return;
       setPhaseSafe("idle");
       setError(formatMediaError(err));
+    } finally {
+      fetchingRef.current = false;
     }
   }
 
-  if (phase !== "live" || !tokenPayload || !room) {
+  if (!session) {
     return (
       <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4 space-y-3">
         <p className="text-sm font-medium text-[#53fc18] flex items-center gap-2">
@@ -710,8 +703,8 @@ export function CollabWebRtcStudio({
         </p>
         <p className="text-xs text-zinc-400">
           {mode === "collab"
-            ? "Step 4 — joins the shared collab room with your partner (not the solo sandbox above)."
-            : "Solo test only — use Step 4 to connect with your partner."}
+            ? "Step 4 — joins the shared collab room with your partner. Stop Step 2a camera first if it is running."
+            : "Solo test only — stop Step 2a camera before joining. Use Step 4 to connect with your partner."}
         </p>
         {phase === "joining" && (
           <div className="rounded-lg bg-black/40 p-3 text-center">
@@ -739,39 +732,76 @@ export function CollabWebRtcStudio({
 
   return (
     <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-black">
-      <StudioRoom
-        mode={mode}
-        collabId={collabId}
-        room={room}
-        hostUsername={hostUsername}
-        role={role}
-        compositorActive={compositorActive}
-        hostStreamLive={hostStreamLive}
-        connectionNotice={connectionNotice}
-      />
-      <div className="px-3 pb-3 flex items-center justify-between gap-3">
-        {room.state === ConnectionState.Disconnected && (
-          <button
-            type="button"
-            onClick={joinStudio}
-            className="text-xs text-[#53fc18] hover:underline"
-          >
-            Reconnect studio
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            leaveRoom();
-            setPhaseSafe("idle");
+      <LiveKitRoom
+        key={session.sessionKey}
+        serverUrl={session.url}
+        token={session.token}
+        connect
+        video={videoOption}
+        audio
+        options={roomOptions}
+        connectOptions={connectOptions}
+        onConnected={() => {
+          connectedRef.current = true;
+          setJoinStep("done");
+          setPhaseSafe("live");
+          setConnectionNotice("");
+          setError("");
+        }}
+        onDisconnected={() => {
+          if (connectedRef.current) {
+            setConnectionNotice("Connection dropped — keep this tab open or tap Reconnect.");
+          }
+        }}
+        onError={(err) => {
+          setError(formatMediaError(err));
+          if (!connectedRef.current) {
+            endSession();
+          }
+        }}
+        onMediaDeviceFailure={() => {
+          setMediaError("Camera/mic failed — check permissions, stop Step 2a, then tap Reconnect.");
+        }}
+      >
+        <StudioRoom
+          mode={mode}
+          collabId={collabId}
+          hostUsername={hostUsername}
+          role={role}
+          compositorActive={compositorActive}
+          hostStreamLive={hostStreamLive}
+          connectionNotice={connectionNotice || mediaError || undefined}
+          connectingLabel={joinStepLabel(joinStep === "login" ? "connect" : joinStep)}
+        />
+        <StudioFooter
+          onReconnect={joinStudio}
+          onLeave={() => {
+            endSession();
             setError("");
-            setConnectionNotice("");
           }}
-          className="text-xs text-zinc-500 hover:text-red-400 ml-auto"
-        >
-          Leave studio
+        />
+      </LiveKitRoom>
+    </div>
+  );
+}
+
+function StudioFooter({ onReconnect, onLeave }: { onReconnect: () => void; onLeave: () => void }) {
+  const state = useConnectionState();
+
+  return (
+    <div className="px-3 pb-3 flex items-center justify-between gap-3">
+      {state === ConnectionState.Disconnected && (
+        <button type="button" onClick={onReconnect} className="text-xs text-[#53fc18] hover:underline">
+          Reconnect studio
         </button>
-      </div>
+      )}
+      <button
+        type="button"
+        onClick={onLeave}
+        className="text-xs text-zinc-500 hover:text-red-400 ml-auto"
+      >
+        Leave studio
+      </button>
     </div>
   );
 }
