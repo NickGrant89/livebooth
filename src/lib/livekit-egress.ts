@@ -63,7 +63,7 @@ export async function getCollabWebRtcStatus(collabId: string): Promise<CollabWeb
   }
 
   const videoPublishers = participants.filter((p) =>
-    p.tracks.some((t) => t.type === TrackType.VIDEO && !t.muted),
+    p.tracks.some((t) => t.type === TrackType.VIDEO),
   ).length;
 
   let egressHealthy = true;
@@ -137,23 +137,6 @@ export async function tryStartCollabWebRtcEgress(collabId: string) {
     return { active: false, reason: "egress_start_failed" as const };
   }
 
-  const hlsBase = process.env.HLS_SERVER_URL?.replace(/\/$/, "");
-  if (hlsBase) {
-    const manifestUrl = `${hlsBase}/live/${encodeURIComponent(outputKey)}/index.m3u8`;
-    let ready = false;
-    for (let i = 0; i < 24; i++) {
-      if (await hlsManifestReady(manifestUrl)) {
-        ready = true;
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 1500));
-    }
-    if (!ready) {
-      await stopCollabWebRtcEgress(collabId);
-      return { active: false, reason: "manifest_timeout" as const };
-    }
-  }
-
   await prisma.streamCollab.update({
     where: { id: collabId },
     data: {
@@ -162,6 +145,19 @@ export async function tryStartCollabWebRtcEgress(collabId: string) {
       compositorStartedAt: new Date(),
     },
   });
+
+  const hlsBase = process.env.HLS_SERVER_URL?.replace(/\/$/, "");
+  if (hlsBase) {
+    const manifestUrl = `${hlsBase}/live/${encodeURIComponent(outputKey)}/index.m3u8`;
+    for (let i = 0; i < 24; i++) {
+      if (await hlsManifestReady(manifestUrl)) {
+        return { active: true, outputKey, reason: "activated" as const };
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    // Egress RTMP is running — HLS manifest can lag; do not tear down egress.
+    return { active: true, outputKey, reason: "activated_pending_hls" as const };
+  }
 
   return { active: true, outputKey, reason: "activated" as const };
 }

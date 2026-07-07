@@ -38,13 +38,13 @@ type TokenPayload = {
 
 const ROOM_OPTIONS: RoomOptions = {
   disconnectOnPageLeave: false,
-  adaptiveStream: true,
-  dynacast: true,
+  adaptiveStream: false,
+  dynacast: false,
   videoCaptureDefaults: {
     resolution: VideoPresets.h540.resolution,
   },
   publishDefaults: {
-    videoSimulcastLayers: [VideoPresets.h540, VideoPresets.h216],
+    simulcast: false,
   },
 };
 
@@ -105,9 +105,19 @@ function formatMediaError(err: unknown): string {
 
 function StudioVideoGrid() {
   const tracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: true }],
+    [{ source: Track.Source.Camera, withPlaceholder: false }],
     { onlySubscribed: false },
   );
+  if (tracks.length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-lg bg-zinc-900 text-zinc-500 text-xs"
+        style={{ minHeight: 240 }}
+      >
+        Camera preview appears here once enabled
+      </div>
+    );
+  }
   return (
     <GridLayout tracks={tracks} style={{ minHeight: 240 }}>
       <ParticipantTile />
@@ -127,40 +137,88 @@ function StudioControls({
   const [cameraOn, setCameraOn] = useState(false);
   const [micOn, setMicOn] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
+  const [cameraDropped, setCameraDropped] = useState(false);
   const togglingRef = useRef(false);
   const unpublishGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cameraIntentRef = useRef(false);
+  const reenableBusyRef = useRef(false);
 
   useEffect(() => {
     if (!room) return;
 
     const sync = () => {
       if (unpublishGraceRef.current) return;
-      setCameraOn(room.localParticipant.isCameraEnabled);
+      const on = room.localParticipant.isCameraEnabled;
+      setCameraOn(on);
       setMicOn(room.localParticipant.isMicrophoneEnabled);
-      if (room.localParticipant.isCameraEnabled) {
+      if (on) {
         setCameraStarting(false);
+        setCameraDropped(false);
       }
     };
+
+    const onUnpublished = () => {
+      if (!cameraIntentRef.current) {
+        sync();
+        return;
+      }
+      if (room.localParticipant.isCameraEnabled) {
+        sync();
+        return;
+      }
+      if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
+      unpublishGraceRef.current = setTimeout(() => {
+        unpublishGraceRef.current = null;
+        if (room.localParticipant.isCameraEnabled) {
+          sync();
+          return;
+        }
+        setCameraOn(false);
+        setCameraStarting(false);
+        setCameraDropped(true);
+      }, 4000);
+    };
+
+    const reenableAfterReconnect = async () => {
+      if (!cameraIntentRef.current || reenableBusyRef.current) return;
+      if (room.state !== ConnectionState.Connected) return;
+      if (room.localParticipant.isCameraEnabled) return;
+      reenableBusyRef.current = true;
+      setCameraStarting(true);
+      setCameraDropped(false);
+      try {
+        await enableCameraWithFallback(room);
+        if (cameraIntentRef.current) {
+          await room.localParticipant.setMicrophoneEnabled(true);
+        }
+      } catch (err) {
+        onError(formatMediaError(err));
+      } finally {
+        reenableBusyRef.current = false;
+        setCameraStarting(false);
+        setCameraOn(room.localParticipant.isCameraEnabled);
+        setMicOn(room.localParticipant.isMicrophoneEnabled);
+      }
+    };
+
+    const onReconnecting = () => setCameraStarting(true);
+
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
-    room.on(RoomEvent.LocalTrackUnpublished, () => {
-      if (!room.localParticipant.isCameraEnabled) {
-        if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
-        unpublishGraceRef.current = setTimeout(() => {
-          unpublishGraceRef.current = null;
-          setCameraOn(false);
-          setCameraStarting(false);
-        }, 2500);
-      } else {
-        sync();
-      }
-    });
+    room.on(RoomEvent.LocalTrackUnpublished, onUnpublished);
+    room.on(RoomEvent.Reconnecting, onReconnecting);
+    room.on(RoomEvent.Reconnected, reenableAfterReconnect);
+    room.on(RoomEvent.Connected, reenableAfterReconnect);
+
     return () => {
       room.off(RoomEvent.LocalTrackPublished, sync);
-      room.off(RoomEvent.LocalTrackUnpublished, sync);
+      room.off(RoomEvent.LocalTrackUnpublished, onUnpublished);
+      room.off(RoomEvent.Reconnecting, onReconnecting);
+      room.off(RoomEvent.Reconnected, reenableAfterReconnect);
+      room.off(RoomEvent.Connected, reenableAfterReconnect);
       if (unpublishGraceRef.current) clearTimeout(unpublishGraceRef.current);
     };
-  }, [room]);
+  }, [room, onError]);
 
   const enableMedia = useCallback(async () => {
     if (!room || togglingRef.current) return;
@@ -172,6 +230,8 @@ function StudioControls({
         throw new Error("Still connecting — wait a moment and try again.");
       }
       setCameraStarting(true);
+      cameraIntentRef.current = true;
+      setCameraDropped(false);
       await enableCameraWithFallback(room);
       await room.localParticipant.setMicrophoneEnabled(true);
       if (unpublishGraceRef.current) {
@@ -198,9 +258,13 @@ function StudioControls({
       const next = !room.localParticipant.isCameraEnabled;
       if (next) {
         setCameraStarting(true);
+        cameraIntentRef.current = true;
+        setCameraDropped(false);
         await enableCameraWithFallback(room);
         setCameraStarting(false);
       } else {
+        cameraIntentRef.current = false;
+        setCameraDropped(false);
         await room.localParticipant.setCameraEnabled(false);
       }
       if (unpublishGraceRef.current) {
@@ -231,7 +295,7 @@ function StudioControls({
     }
   }, [room, busy, onClearError, onError]);
 
-  if (!cameraOn && !cameraStarting) {
+  if (!cameraOn && !cameraStarting && !cameraIntentRef.current) {
     return (
       <div className="px-2 pb-2 space-y-2">
         <button
@@ -252,11 +316,34 @@ function StudioControls({
 
   if (cameraStarting) {
     return (
-      <div className="px-2 pb-2">
+      <div className="px-2 pb-2 space-y-2">
         <p className="text-xs text-amber-400/90 text-center py-2 flex items-center justify-center gap-2">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Starting camera… allow access if prompted
         </p>
+        {cameraDropped && (
+          <p className="text-[10px] text-zinc-500 text-center">
+            Reconnecting studio — camera will resume automatically.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (cameraDropped && !cameraOn) {
+    return (
+      <div className="px-2 pb-2 space-y-2">
+        <p className="text-xs text-amber-400/90 text-center">
+          Camera dropped — tap below to turn it back on.
+        </p>
+        <button
+          type="button"
+          onClick={enableMedia}
+          disabled={busy}
+          className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200"
+        >
+          Retry camera
+        </button>
       </div>
     );
   }
@@ -366,7 +453,7 @@ function EgressWatcher({
         );
       } else if (cameras < 2) {
         setStatus(
-          `${cameras}/2 cameras on — tap Turn on camera & mic above (both DJs, in this studio tab).`,
+          `${cameras}/2 cameras on — both DJs tap Turn on camera & mic and keep this tab open.`,
         );
       } else if (data.canStartEgress) {
         const now = Date.now();
@@ -386,11 +473,19 @@ function EgressWatcher({
           const body = (await start.json()) as { egress?: { active?: boolean; reason?: string } };
           if (body.egress?.active) {
             setMixActive(true);
-            setStatus("Fan stream is live on the host booth.");
+            setStatus(
+              body.egress.reason === "activated_pending_hls"
+                ? "Fan mix started — HLS may take a few seconds on the booth page."
+                : "Fan stream is live on the host booth.",
+            );
           } else {
-            setStatus(`Mix pending (${body.egress?.reason ?? "retry"})…`);
+            setStatus(`Mix failed (${body.egress?.reason ?? "retry"}) — check VPS egress logs.`);
           }
+        } else {
+          setStatus("Could not start fan mix — try again in a few seconds.");
         }
+      } else {
+        setStatus(`${inRoom}/2 DJs · ${cameras}/2 cameras — waiting to start mix…`);
       }
     }
 
@@ -407,9 +502,11 @@ function EgressWatcher({
       {mixActive ? (
         <p className="text-[#53fc18] font-medium">B2B mix · synced audio (WebRTC)</p>
       ) : (
-        <p className="text-amber-400/90">Studio connected — building fan mix…</p>
+        <p className="text-amber-400/90 font-medium">
+          {status || "Studio connected — waiting for both DJs with cameras on…"}
+        </p>
       )}
-      {status && <p className="text-zinc-500">{status}</p>}
+      {mixActive && status && <p className="text-zinc-500">{status}</p>}
       {!hostStreamLive && (
         <p className="text-amber-400/90">
           Host must publish from Go Live before fans can watch the booth page.
@@ -506,6 +603,11 @@ export function CollabWebRtcStudio({
   const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const studioInstanceIdRef = useRef(
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID().slice(0, 8)
+      : `${Date.now().toString(36)}`,
+  );
 
   const reportError = useCallback((msg: string) => {
     setError(msg);
@@ -516,7 +618,7 @@ export function CollabWebRtcStudio({
     setError("");
     const res = await apiFetch("/api/livekit/token", {
       method: "POST",
-      body: JSON.stringify({ collabId }),
+      body: JSON.stringify({ collabId, studioInstanceId: studioInstanceIdRef.current }),
     });
     const data = await res.json();
     setLoading(false);

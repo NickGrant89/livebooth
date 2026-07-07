@@ -71,6 +71,13 @@ export default function CollabPage() {
       .catch(() => setRtmpOnline(null));
   }, [loadCollabs]);
 
+  useEffect(() => {
+    const hasActive = collabs.some((c) => c.status === "active");
+    if (!hasActive) return;
+    const interval = setInterval(loadCollabs, 10000);
+    return () => clearInterval(interval);
+  }, [collabs, loadCollabs]);
+
   async function invite() {
     if (!user?.liveStream?.id || !partner.trim()) return;
     setLoading(true);

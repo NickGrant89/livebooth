@@ -33,14 +33,18 @@ export async function createCollabParticipantToken(options: {
   username: string;
   displayName: string;
   role: "host" | "partner";
+  /** Unique per browser tab — avoids LiveKit kicking duplicate identities on reconnect. */
+  studioInstanceId?: string;
 }) {
   if (!isLiveKitConfigured()) {
     throw new Error("LiveKit collab not enabled");
   }
 
   const room = collabRoomName(options.collabId);
+  const instance = (options.studioInstanceId ?? "main").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12);
+  const identity = `${options.userId}-${options.role}-${instance}`;
   const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-    identity: options.userId,
+    identity,
     name: options.displayName || options.username,
     ttl: "6h",
   });

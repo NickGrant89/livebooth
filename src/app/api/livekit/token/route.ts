@@ -17,7 +17,10 @@ export async function POST(request: Request) {
   const auth = await requireApiUser();
   if (isApiError(auth)) return auth;
 
-  const { collabId } = (await request.json()) as { collabId?: string };
+  const { collabId, studioInstanceId } = (await request.json()) as {
+    collabId?: string;
+    studioInstanceId?: string;
+  };
   if (!collabId) return error("collabId required", 400);
 
   const collab = await prisma.streamCollab.findUnique({
@@ -39,6 +42,7 @@ export async function POST(request: Request) {
     username: auth.username,
     displayName: auth.displayName ?? auth.username,
     role: isHost ? "host" : "partner",
+    studioInstanceId,
   });
 
   return json(token);
