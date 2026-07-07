@@ -209,21 +209,21 @@ async function publishPreviewTracks(room: Room, previewTracks: LocalTrack[]) {
 }
 
 async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]) {
-  await publishPreviewTracks(room, previewTracks);
-
-  const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
-  if (!camPub?.track) {
-    for (const track of previewTracks) {
-      if (track.kind === Track.Kind.Video) track.stop();
-    }
-    await room.localParticipant.setCameraEnabled(true, videoCaptureForPublish());
+  const livePreview = previewTracks.filter(
+    (t) => t.mediaStreamTrack.readyState !== "ended",
+  );
+  if (livePreview.length > 0) {
+    await publishPreviewTracks(room, livePreview);
   }
 
-  const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+  let camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+  if (!camPub?.track) {
+    await room.localParticipant.setCameraEnabled(true, videoCaptureForPublish());
+    camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+  }
+
+  let micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
   if (!micPub?.track) {
-    for (const track of previewTracks) {
-      if (track.kind === Track.Kind.Audio) track.stop();
-    }
     await room.localParticipant.setMicrophoneEnabled(true);
   }
 
@@ -289,11 +289,12 @@ function LocalCameraFromRoom() {
 /** Publish tracks acquired during the Join click (browser requires user gesture for camera). */
 function PublishAcquiredTracks({ onError }: { onError: (msg: string) => void }) {
   const room = useRoomContext();
+  const connectionState = useConnectionState();
   const previewTracks = usePreviewTracks();
   const publishAttemptRef = useRef(0);
 
   useEffect(() => {
-    if (!room || room.state !== ConnectionState.Connected) return;
+    if (!room || connectionState !== ConnectionState.Connected) return;
     if (previewTracks.length === 0) return;
 
     const attemptId = ++publishAttemptRef.current;
@@ -323,7 +324,7 @@ function PublishAcquiredTracks({ onError }: { onError: (msg: string) => void }) 
     return () => {
       cancelled = true;
     };
-  }, [room, previewTracks, onError]);
+  }, [room, connectionState, previewTracks, onError]);
 
   return null;
 }
@@ -406,7 +407,7 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
   const remote = participants.filter((p) => !p.isLocal);
   const [serverCount, setServerCount] = useState<number | null>(null);
   const [serverParticipants, setServerParticipants] = useState<
-    { name?: string; hasVideo?: boolean }[]
+    { name?: string; hasVideo?: boolean; tracks?: number }[]
   >([]);
   const [copied, setCopied] = useState(false);
 
@@ -420,7 +421,7 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
       if (!res.ok || cancelled) return;
       const data = (await res.json()) as {
         participantCount?: number;
-        participants?: { name?: string; hasVideo?: boolean }[];
+        participants?: { name?: string; hasVideo?: boolean; tracks?: number }[];
       };
       setServerCount(data.participantCount ?? null);
       setServerParticipants(data.participants ?? []);
@@ -458,7 +459,7 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
               {" "}
               ·{" "}
               {serverParticipants
-                .map((p) => `${p.name ?? "?"}:${p.hasVideo ? "cam" : "no-cam"}`)
+                .map((p) => `${p.name ?? "?"}:${p.hasVideo ? "cam" : "no-cam"}(${p.tracks ?? 0}t)`)
                 .join(" · ")}
             </>
           )}
