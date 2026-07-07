@@ -35,7 +35,16 @@ export async function POST(request: Request) {
     return error("Not a participant in this collab", 403);
   }
 
-  await ensureCollabRoom(collabId);
+  try {
+    await ensureCollabRoom(collabId);
+  } catch (err) {
+    console.error("ensureCollabRoom:", err);
+    return error(
+      "LiveKit server unreachable — check LIVEKIT_URL and API keys on Vercel match the VPS",
+      503,
+    );
+  }
+
   const token = await createCollabParticipantToken({
     collabId,
     userId: auth.id,

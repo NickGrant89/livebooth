@@ -16,8 +16,8 @@ import {
   ConnectionState,
   VideoPresets,
   createLocalTracks,
+  Room,
   type LocalTrack,
-  type Room,
   type RoomOptions,
 } from "livekit-client";
 import { Camera, Loader2, Mic, MicOff, Radio, VideoOff, Wifi } from "lucide-react";
@@ -39,6 +39,8 @@ type TokenPayload = {
 };
 
 type JoinPhase = "idle" | "joining" | "live";
+
+type JoinStep = "camera" | "login" | "connect" | "publish" | "done";
 
 const ROOM_OPTIONS: RoomOptions = {
   disconnectOnPageLeave: false,
@@ -83,6 +85,9 @@ function formatMediaError(err: unknown): string {
   if (/PermissionDenied|NotAllowed|permission|denied/i.test(msg)) {
     return "Camera/mic blocked — allow livebooth.uk in browser settings, then tap Join again.";
   }
+  if (/failed to connect|websocket|pc connection/i.test(msg)) {
+    return "Could not reach the studio server — check network or try again in a minute.";
+  }
   return msg;
 }
 
@@ -99,6 +104,27 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
         reject(e);
       });
   });
+}
+
+function joinStepLabel(step: JoinStep): string {
+  switch (step) {
+    case "camera":
+      return "Allow camera & mic when your browser asks…";
+    case "login":
+      return "Signing in to studio…";
+    case "connect":
+      return "Connecting to rtc.livebooth.uk…";
+    case "publish":
+      return "Publishing your camera…";
+    case "done":
+      return "Connected";
+  }
+}
+
+function localCameraLive(room: Room | null): boolean {
+  if (!room) return false;
+  const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+  return Boolean(pub?.track && !pub.isMuted);
 }
 
 function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
@@ -142,61 +168,6 @@ function StudioVideoGrid({ localPreviewTrack }: { localPreviewTrack: LocalTrack 
   );
 }
 
-function TrackPublisher({
-  tracks,
-  onError,
-  onPublished,
-}: {
-  tracks: LocalTrack[];
-  onError: (msg: string) => void;
-  onPublished: () => void;
-}) {
-  const room = useRoomContext();
-  const doneRef = useRef(false);
-
-  useEffect(() => {
-    if (!room || doneRef.current) return;
-
-    let cancelled = false;
-
-    async function publish() {
-      if (room!.state !== ConnectionState.Connected) return;
-
-      try {
-        for (const track of tracks) {
-          if (cancelled) return;
-          await room!.localParticipant.publishTrack(track, {
-            source: track.kind === Track.Kind.Video ? Track.Source.Camera : Track.Source.Microphone,
-          });
-        }
-        if (!cancelled) {
-          doneRef.current = true;
-          onPublished();
-        }
-      } catch (err) {
-        if (!cancelled) onError(formatMediaError(err));
-      }
-    }
-
-    if (room.state === ConnectionState.Connected) {
-      void publish();
-    } else {
-      const onConnected = () => void publish();
-      room.on(RoomEvent.Connected, onConnected);
-      return () => {
-        cancelled = true;
-        room.off(RoomEvent.Connected, onConnected);
-      };
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [room, tracks, onError, onPublished]);
-
-  return null;
-}
-
 function StudioControls() {
   const room = useRoomContext();
   const [micOn, setMicOn] = useState(true);
@@ -212,9 +183,13 @@ function StudioControls() {
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
     room.on(RoomEvent.LocalTrackUnpublished, sync);
+    room.on(RoomEvent.TrackMuted, sync);
+    room.on(RoomEvent.TrackUnmuted, sync);
     return () => {
       room.off(RoomEvent.LocalTrackPublished, sync);
       room.off(RoomEvent.LocalTrackUnpublished, sync);
+      room.off(RoomEvent.TrackMuted, sync);
+      room.off(RoomEvent.TrackUnmuted, sync);
     };
   }, [room]);
 
@@ -280,7 +255,7 @@ function StudioConnectionStatus() {
 
   const label =
     state === ConnectionState.Connecting
-      ? "Connecting to studio…"
+      ? "Reconnecting to studio…"
       : state === ConnectionState.Reconnecting
         ? "Reconnecting…"
         : state === ConnectionState.Disconnected
@@ -306,25 +281,13 @@ function EgressWatcher({
   const room = useRoomContext();
   const [status, setStatus] = useState("");
   const [mixActive, setMixActive] = useState(Boolean(compositorActive));
-  const [localCamera, setLocalCamera] = useState(false);
+  const [debug, setDebug] = useState("");
   const egressBusyRef = useRef(false);
   const lastEgressAttemptRef = useRef(0);
 
   useEffect(() => {
     setMixActive(Boolean(compositorActive));
   }, [compositorActive]);
-
-  useEffect(() => {
-    if (!room) return;
-    const sync = () => setLocalCamera(room.localParticipant.isCameraEnabled);
-    sync();
-    room.on(RoomEvent.LocalTrackPublished, sync);
-    room.on(RoomEvent.LocalTrackUnpublished, sync);
-    return () => {
-      room.off(RoomEvent.LocalTrackPublished, sync);
-      room.off(RoomEvent.LocalTrackUnpublished, sync);
-    };
-  }, [room]);
 
   useEffect(() => {
     if (!room) return;
@@ -336,7 +299,6 @@ function EgressWatcher({
       if (!res.ok || cancelled) return;
       const data = (await res.json()) as {
         connectedDjs?: number;
-        participantCount?: number;
         videoPublishers?: number;
         hostInStudio?: boolean;
         partnerInStudio?: boolean;
@@ -345,32 +307,35 @@ function EgressWatcher({
         egressHealthy?: boolean;
       };
 
+      setDebug(
+        `room: host=${data.hostInStudio ? "yes" : "no"} partner=${data.partnerInStudio ? "yes" : "no"} · cameras=${data.videoPublishers ?? 0}/2`,
+      );
+
       if (data.compositorActive) {
         setMixActive(true);
         setStatus("Fan stream is live on the host booth.");
         return;
       }
 
-      const hostOk =
-        data.hostInStudio ?? (role === "host" && room!.state === ConnectionState.Connected);
-      const partnerOk =
-        data.partnerInStudio ?? (role === "partner" && room!.state === ConnectionState.Connected);
+      const hostOk = data.hostInStudio ?? false;
+      const partnerOk = data.partnerInStudio ?? false;
       const cameras = data.videoPublishers ?? 0;
+      const cameraLive = localCameraLive(room!);
 
-      if (!localCamera) {
-        setStatus("Turn your camera on using the Camera button below.");
+      if (!cameraLive) {
+        setStatus("Your camera is not publishing — tap Join again or turn Camera on below.");
         return;
       }
       if (!hostOk) {
-        setStatus("Waiting for host to join this studio on /collab (Mac or phone).");
+        setStatus("Waiting for host to tap Join on /collab (Mac or phone).");
         return;
       }
       if (!partnerOk) {
-        setStatus("Waiting for partner to join /collab on their phone and tap Join.");
+        setStatus("Waiting for partner to tap Join on /collab on their phone.");
         return;
       }
       if (cameras < 2) {
-        setStatus(`${cameras}/2 cameras on — both DJs need camera enabled.`);
+        setStatus(`${cameras}/2 cameras live — both DJs need camera on.`);
         return;
       }
       if (!data.egressHealthy) {
@@ -397,7 +362,7 @@ function EgressWatcher({
             setMixActive(true);
             setStatus("Fan mix is live — open the booth page to watch.");
           } else {
-            setStatus(`Mix failed (${body.egress?.reason ?? "retry"}) — wait and keep both cameras on.`);
+            setStatus(`Mix failed (${body.egress?.reason ?? "retry"}) — keep both cameras on.`);
           }
         } else {
           setStatus("Could not start mix — keep both cameras on and wait.");
@@ -414,7 +379,7 @@ function EgressWatcher({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [room, collabId, role, localCamera]);
+  }, [room, collabId, role]);
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs space-y-1">
@@ -423,6 +388,7 @@ function EgressWatcher({
       ) : (
         <p className="text-amber-400/90 font-medium">{status || "Connected — waiting for both DJs…"}</p>
       )}
+      {debug && !mixActive && <p className="text-zinc-600 font-mono text-[10px]">{debug}</p>}
       {hostStreamLive ? (
         <Link href={`/stream/${hostUsername}`} className="text-[#53fc18] hover:underline inline-block">
           Open fan booth →
@@ -442,44 +408,43 @@ function EgressWatcher({
 
 type StudioRoomProps = {
   collabId: string;
+  room: Room;
   token: string;
   serverUrl: string;
   hostUsername: string;
   role: "host" | "partner";
   compositorActive?: boolean;
   hostStreamLive?: boolean;
-  localTracks: LocalTrack[];
   localPreviewTrack: LocalTrack | null;
   onError: (msg: string) => void;
-  onPublished: () => void;
 };
 
 function StudioRoom({
   collabId,
+  room,
   token,
   serverUrl,
   hostUsername,
   role,
   compositorActive,
   hostStreamLive,
-  localTracks,
   localPreviewTrack,
   onError,
-  onPublished,
 }: StudioRoomProps) {
   return (
     <LiveKitRoom
+      room={room}
       token={token}
       serverUrl={serverUrl}
-      connect
+      connect={false}
       video={false}
       audio={false}
       options={ROOM_OPTIONS}
       data-lk-theme="default"
       onError={(e) => onError(formatMediaError(e))}
       onMediaDeviceFailure={(f) => onError(formatMediaError(f))}
+      onDisconnected={() => onError("Studio disconnected — tap Join again.")}
     >
-      <TrackPublisher tracks={localTracks} onError={onError} onPublished={onPublished} />
       <div className="p-2">
         <StudioVideoGrid localPreviewTrack={localPreviewTrack} />
       </div>
@@ -507,7 +472,9 @@ export function CollabWebRtcStudio({
   hostStreamLive,
 }: StudioProps) {
   const [phase, setPhase] = useState<JoinPhase>("idle");
+  const [joinStep, setJoinStep] = useState<JoinStep>("camera");
   const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
+  const [room, setRoom] = useState<Room | null>(null);
   const [localTracks, setLocalTracks] = useState<LocalTrack[]>([]);
   const [error, setError] = useState("");
   const studioInstanceIdRef = useRef(
@@ -516,6 +483,7 @@ export function CollabWebRtcStudio({
       : `${Date.now().toString(36)}`,
   );
   const tracksRef = useRef<LocalTrack[]>([]);
+  const roomRef = useRef<Room | null>(null);
 
   const stopTracks = useCallback(() => {
     for (const track of tracksRef.current) {
@@ -525,20 +493,42 @@ export function CollabWebRtcStudio({
     setLocalTracks([]);
   }, []);
 
+  const teardownRoom = useCallback(() => {
+    const r = roomRef.current;
+    roomRef.current = null;
+    setRoom(null);
+    if (r) {
+      void r.disconnect(true);
+    }
+  }, []);
+
   const reportError = useCallback(
     (msg: string) => {
       setError(msg);
       setPhase("idle");
       setTokenPayload(null);
+      teardownRoom();
       stopTracks();
     },
-    [stopTracks],
+    [stopTracks, teardownRoom],
   );
+
+  useEffect(() => {
+    return () => {
+      stopTracks();
+      const r = roomRef.current;
+      if (r) void r.disconnect(true);
+    };
+  }, [stopTracks]);
 
   async function joinStudio() {
     setPhase("joining");
+    setJoinStep("camera");
     setError("");
     stopTracks();
+    teardownRoom();
+
+    let activeRoom: Room | null = null;
 
     try {
       const tracks = await withTimeout(
@@ -553,6 +543,7 @@ export function CollabWebRtcStudio({
       tracksRef.current = tracks;
       setLocalTracks(tracks);
 
+      setJoinStep("login");
       const res = await withTimeout(
         apiFetch("/api/livekit/token", {
           method: "POST",
@@ -566,20 +557,53 @@ export function CollabWebRtcStudio({
         throw new Error(data.error ?? "Could not join studio");
       }
 
+      setJoinStep("connect");
+      activeRoom = new Room(ROOM_OPTIONS);
+      roomRef.current = activeRoom;
+
+      activeRoom.on(RoomEvent.Disconnected, () => {
+        if (roomRef.current === activeRoom) {
+          reportError("Studio disconnected — tap Join again.");
+        }
+      });
+
+      await withTimeout(
+        activeRoom.connect(data.url, data.token),
+        JOIN_TIMEOUT_MS,
+        "LiveKit connect",
+      );
+
+      setJoinStep("publish");
+      for (const track of tracks) {
+        await activeRoom.localParticipant.publishTrack(track, {
+          source: track.kind === Track.Kind.Video ? Track.Source.Camera : Track.Source.Microphone,
+        });
+      }
+
+      if (!localCameraLive(activeRoom)) {
+        throw new Error("Camera published but not live — tap Join again.");
+      }
+
+      setJoinStep("done");
       setTokenPayload(data as TokenPayload);
+      setRoom(activeRoom);
       setPhase("live");
     } catch (err) {
       stopTracks();
+      if (activeRoom) {
+        void activeRoom.disconnect(true);
+        if (roomRef.current === activeRoom) roomRef.current = null;
+      }
+      setRoom(null);
       setTokenPayload(null);
       setPhase("idle");
       setError(formatMediaError(err));
     }
   }
 
-  const localPreviewTrack =
-    localTracks.find((t) => t.kind === Track.Kind.Video) ?? null;
+  const localPreviewTrack = localTracks.find((t) => t.kind === Track.Kind.Video) ?? null;
 
-  if (phase !== "live" || !tokenPayload) {
+  if (phase !== "live" || !tokenPayload || !room) {
     return (
       <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4 space-y-3">
         <p className="text-sm font-medium text-[#53fc18] flex items-center gap-2">
@@ -595,7 +619,7 @@ export function CollabWebRtcStudio({
         {phase === "joining" && (
           <div className="rounded-lg bg-black/40 p-3 text-center">
             <Loader2 className="h-6 w-6 animate-spin text-[#53fc18] mx-auto mb-2" />
-            <p className="text-xs text-amber-200">Allow camera &amp; mic when your browser asks…</p>
+            <p className="text-xs text-amber-200">{joinStepLabel(joinStep)}</p>
           </div>
         )}
         {error && <p className="text-xs text-red-400">{error}</p>}
@@ -619,18 +643,17 @@ export function CollabWebRtcStudio({
   return (
     <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-black">
       <StudioRoom
-        key={collabId}
+        key={`${collabId}-${studioInstanceIdRef.current}`}
         collabId={collabId}
+        room={room}
         token={tokenPayload.token}
         serverUrl={tokenPayload.url}
         hostUsername={hostUsername}
         role={role}
         compositorActive={compositorActive}
         hostStreamLive={hostStreamLive}
-        localTracks={localTracks}
         localPreviewTrack={localPreviewTrack}
         onError={reportError}
-        onPublished={() => setError("")}
       />
       {error && <p className="text-xs text-red-400 px-3 pb-3">{error}</p>}
     </div>
