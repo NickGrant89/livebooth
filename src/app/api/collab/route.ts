@@ -14,6 +14,7 @@ import {
 } from "@/lib/notifications";
 import { tryActivateCollabCompositor } from "@/lib/collab-compositor";
 import { isLiveKitConfigured } from "@/lib/livekit";
+import { pickCanonicalActiveCollab } from "@/lib/collab-pick";
 import { z } from "zod";
 
 const inviteSchema = z.object({
@@ -91,7 +92,29 @@ export async function GET() {
     }),
   );
 
-  return json({ collabs: withPartner, webrtcEnabled: isLiveKitConfigured() });
+  const activeRows = collabs.filter((c) => c.status === "active");
+  const canonicalHost = pickCanonicalActiveCollab(activeRows, { hostDjId: auth.id });
+  const canonicalPartner = pickCanonicalActiveCollab(activeRows, { partnerDjId: auth.id });
+  const canonicalRow = canonicalHost ?? canonicalPartner;
+  const canonicalCollab = canonicalRow
+    ? withPartner.find((c) => c.id === canonicalRow.id) ?? null
+    : null;
+
+  return json({
+    collabs: withPartner,
+    webrtcEnabled: isLiveKitConfigured(),
+    primaryStudio: canonicalCollab
+      ? {
+          collabId: canonicalCollab.id,
+          role: canonicalCollab.role,
+          hostUsername: canonicalCollab.hostUsername,
+          partnerUsername: canonicalCollab.partnerUsername,
+          compositorActive: canonicalCollab.compositorActive,
+          hostStreamStatus: canonicalCollab.hostStreamStatus,
+          hasPartnerStream: Boolean(canonicalCollab.partnerStream),
+        }
+      : null,
+  });
 }
 
 export async function POST(request: Request) {

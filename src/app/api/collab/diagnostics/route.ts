@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { json, requireApiUser, isApiError } from "@/lib/api-utils";
 import { isLiveKitConfigured } from "@/lib/livekit";
+import { pickCanonicalActiveCollab, pickCanonicalPendingCollab } from "@/lib/collab-pick";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export async function GET() {
           djId: true,
           title: true,
           status: true,
+          createdAt: true,
           dj: { select: { username: true, displayName: true } },
         },
       },
@@ -53,10 +55,10 @@ export async function GET() {
     },
   });
 
-  const hostActive = collabs.find((c) => c.status === "active" && c.stream.djId === auth.id);
-  const partnerActive = collabs.find((c) => c.status === "active" && c.partnerDjId === auth.id);
-  const sentPending = collabs.find((c) => c.status === "pending" && c.stream.djId === auth.id);
-  const partnerPending = collabs.find((c) => c.status === "pending" && c.partnerDjId === auth.id);
+  const hostActive = pickCanonicalActiveCollab(collabs, { hostDjId: auth.id });
+  const partnerActive = pickCanonicalActiveCollab(collabs, { partnerDjId: auth.id });
+  const sentPending = pickCanonicalPendingCollab(collabs, { hostDjId: auth.id });
+  const partnerPending = pickCanonicalPendingCollab(collabs, { partnerDjId: auth.id });
 
   const partnerUser = hostActive
     ? await prisma.user.findUnique({

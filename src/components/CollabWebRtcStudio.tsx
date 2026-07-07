@@ -7,6 +7,7 @@ import {
   useConnectionState,
   useRoomContext,
   useParticipants,
+  useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import {
@@ -233,20 +234,11 @@ function usePreviewTracks() {
 function LocalCameraFromRoom() {
   const room = useRoomContext();
   const previewTracks = usePreviewTracks();
-  const [, tick] = useState(0);
-
-  useEffect(() => {
-    if (!room) return;
-    const bump = () => tick((n) => n + 1);
-    room.on(RoomEvent.LocalTrackPublished, bump);
-    room.on(RoomEvent.LocalTrackUnpublished, bump);
-    return () => {
-      room.off(RoomEvent.LocalTrackPublished, bump);
-      room.off(RoomEvent.LocalTrackUnpublished, bump);
-    };
-  }, [room]);
-
-  const track = localCameraTrack(room, previewTracks);
+  const cameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
+  const localCamera = cameraTracks.find((t) => t.participant.isLocal)?.publication.track as
+    | LocalTrack
+    | undefined;
+  const track = (localCamera ?? localCameraTrack(room, previewTracks)) as LocalTrack | null;
   return <LocalPreviewVideo track={track} />;
 }
 
@@ -352,6 +344,9 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
   const total = participants.length;
   const remote = participants.filter((p) => !p.isLocal);
   const [serverCount, setServerCount] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const roomLabel = collabId ? `collab-${collabId}` : room.name;
 
   useEffect(() => {
     if (mode !== "collab" || !collabId) return;
@@ -388,8 +383,27 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
       </p>
       {serverCount != null && (
         <p className="text-zinc-600 font-mono text-[10px]">
-          server sees {serverCount} participant{serverCount === 1 ? "" : "s"} · room {room.name} ·{" "}
+          server sees {serverCount} participant{serverCount === 1 ? "" : "s"} · room {roomLabel} ·{" "}
           {room.state}
+        </p>
+      )}
+      {mode === "collab" && collabId && (
+        <p className="text-zinc-500 text-[10px]">
+          Both DJs must match this room:{" "}
+          <button
+            type="button"
+            className="text-[#53fc18] hover:underline font-mono"
+            onClick={() => {
+              void navigator.clipboard.writeText(collabId);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+          >
+            {collabId.slice(0, 8)}…{copied ? " copied" : " (copy id)"}
+          </button>
+          {remote.length === 0 && total === 1 && (
+            <span className="text-amber-400/90"> · partner on wrong page or old invite?</span>
+          )}
         </p>
       )}
     </div>

@@ -52,6 +52,15 @@ export default function CollabPage() {
   const [loading, setLoading] = useState(false);
   const [rtmpOnline, setRtmpOnline] = useState<boolean | null>(null);
   const [webrtcEnabled, setWebrtcEnabled] = useState(false);
+  const [primaryStudio, setPrimaryStudio] = useState<{
+    collabId: string;
+    role: "host" | "partner";
+    hostUsername: string;
+    partnerUsername: string;
+    compositorActive?: boolean;
+    hostStreamStatus?: string;
+    hasPartnerStream?: boolean;
+  } | null>(null);
 
   const loadCollabs = useCallback(() => {
     if (!user) return;
@@ -60,6 +69,7 @@ export default function CollabPage() {
       .then((d) => {
         setCollabs(d.collabs ?? []);
         setWebrtcEnabled(Boolean(d.webrtcEnabled));
+        setPrimaryStudio(d.primaryStudio ?? null);
       })
       .catch(() => {
         setCollabs([]);
@@ -148,8 +158,12 @@ export default function CollabPage() {
   const incoming = collabs.filter((c) => c.canRespond);
   const sent = collabs.filter((c) => c.role === "host" && c.status === "pending");
   const active = collabs.filter((c) => c.status === "active");
-  const myPartnerCollab = active.find((c) => c.role === "partner" && c.partnerStream);
-  const myHostCollab = active.find((c) => c.role === "host");
+  const myPartnerCollab =
+    active.find((c) => c.id === primaryStudio?.collabId && c.role === "partner") ??
+    active.find((c) => c.role === "partner" && c.partnerStream);
+  const myHostCollab =
+    active.find((c) => c.id === primaryStudio?.collabId && c.role === "host") ??
+    active.find((c) => c.role === "host");
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
@@ -339,7 +353,18 @@ export default function CollabPage() {
             . You earn {Math.round(myPartnerCollab.splitRatio * 100)}% of tips.
           </p>
           {webrtcEnabled && (
-            <div className="mb-4">
+            <div className="mb-4 space-y-3">
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+                <p className="font-medium">WebRTC: use the same page as the host</p>
+                <p className="mt-1 text-zinc-400">
+                  Open{" "}
+                  <Link href="/collab/test" className="text-[#53fc18] hover:underline">
+                    /collab/test → Step 4
+                  </Link>{" "}
+                  (recommended). Room ID must match host:{" "}
+                  <code className="text-[10px] font-mono text-zinc-300">{myPartnerCollab.id.slice(0, 12)}…</code>
+                </p>
+              </div>
               <CollabWebRtcStudio
                 key={myPartnerCollab.id}
                 collabId={myPartnerCollab.id}

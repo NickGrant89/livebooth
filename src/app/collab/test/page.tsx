@@ -295,13 +295,20 @@ export default function CollabTestPage() {
             {diag.studio.role === "host" ? (
               <>
                 Host (@{diag.studio.hostUsername}) — partner @
-                {diag.studio.partnerUsername} must also tap Join on their phone.
+                {diag.studio.partnerUsername} opens{" "}
+                <Link href="/collab/test" className="text-[#53fc18] hover:underline">
+                  /collab/test
+                </Link>{" "}
+                → Accept → Step 4 Join.
               </>
             ) : (
               <>
                 Partner — host is @{diag.studio.hostUsername}. Both need camera on for the fan mix.
               </>
             )}
+          </p>
+          <p className="text-[10px] font-mono text-zinc-600 mb-3">
+            Room ID (must match on both devices): {diag.studio.collabId}
           </p>
           <CollabWebRtcStudio
             key={diag.studio.collabId}

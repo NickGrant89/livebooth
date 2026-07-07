@@ -3,6 +3,7 @@ import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { createStreamSession } from "@/lib/streaming";
 import { notifyCollabInvite } from "@/lib/notifications";
 import { isLiveKitConfigured } from "@/lib/livekit";
+import { stopCollabWebRtcEgress } from "@/lib/livekit-egress";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,16 @@ export async function POST(request: Request) {
     const body = schema.parse(await request.json());
     const partnerUsername = body.partnerUsername.replace(/^@/, "").trim().toLowerCase();
 
+    const partner = await prisma.user.findUnique({
+      where: { username: partnerUsername },
+    });
+    if (!partner || (partner.role !== "dj" && partner.role !== "admin")) {
+      return error(`DJ @${partnerUsername} not found`, 404);
+    }
+    if (partner.id === auth.id) {
+      return error("Use two different accounts to test collab (host + partner)", 400);
+    }
+
     let stream = await prisma.stream.findFirst({
       where: { djId: auth.id, status: { in: ["preparing", "live"] } },
       include: { dj: { select: { displayName: true, username: true } } },
@@ -43,48 +54,47 @@ export async function POST(request: Request) {
     }
     if (!stream) return error("Could not create stream session", 500);
 
+    const staleCollabs = await prisma.streamCollab.findMany({
+      where: {
+        partnerDjId: partner.id,
+        stream: { djId: auth.id },
+        status: { in: ["active", "pending"] },
+        NOT: { streamId: stream.id },
+      },
+      select: { id: true },
+    });
+    for (const stale of staleCollabs) {
+      await stopCollabWebRtcEgress(stale.id).catch(() => {});
+      await prisma.streamCollab.update({
+        where: { id: stale.id },
+        data: { status: "ended" },
+      });
+    }
+
     const existingCollab = await prisma.streamCollab.findUnique({
       where: { streamId: stream.id },
       include: { partnerStream: true },
     });
 
     if (existingCollab?.status === "active") {
-      const partner = await prisma.user.findUnique({
-        where: { id: existingCollab.partnerDjId },
-        select: { username: true },
-      });
       return json({
         ok: true,
         step: "active",
         collabId: existingCollab.id,
         streamId: stream.id,
-        partnerUsername: partner?.username,
-        message: "Collab already active — both DJs can tap Join on /collab/test.",
+        partnerUsername: partner.username,
+        message: "Collab already active — both DJs use /collab/test Step 4 (same room ID).",
       });
     }
 
     if (existingCollab?.status === "pending") {
-      const partner = await prisma.user.findUnique({
-        where: { id: existingCollab.partnerDjId },
-        select: { username: true },
-      });
       return json({
         ok: true,
         step: "waiting_accept",
         collabId: existingCollab.id,
-        partnerUsername: partner?.username,
-        message: `Waiting for @${partner?.username} to accept on /collab/test.`,
+        partnerUsername: partner.username,
+        message: `Waiting for @${partner.username} to accept on /collab/test.`,
       });
-    }
-
-    const partner = await prisma.user.findUnique({
-      where: { username: partnerUsername },
-    });
-    if (!partner || (partner.role !== "dj" && partner.role !== "admin")) {
-      return error(`DJ @${partnerUsername} not found`, 404);
-    }
-    if (partner.id === auth.id) {
-      return error("Use two different accounts to test collab (host + partner)", 400);
     }
 
     const partnerBusy = await prisma.stream.findFirst({
