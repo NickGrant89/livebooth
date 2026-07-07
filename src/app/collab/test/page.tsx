@@ -276,8 +276,11 @@ export default function CollabTestPage() {
       {diag?.studioReady && diag.studio && (
         <section className="glass rounded-2xl p-5 mb-6 border border-[#53fc18]/30">
           <h2 className="font-semibold text-[#53fc18] mb-2">
-            Step 4 · Join real collab studio ({diag.studio.role})
+            Step 4 · Join together ({diag.studio.role})
           </h2>
+          <p className="text-xs text-amber-300/90 mb-2 font-medium">
+            Both DJs must tap Join here — Step 2b is solo only and will not show your partner.
+          </p>
           <p className="text-xs text-zinc-500 mb-4">
             {diag.studio.role === "host" ? (
               <>
@@ -313,8 +316,8 @@ export default function CollabTestPage() {
         <p>1. Step 2a passes → browser allows camera.</p>
         <p>2. Step 2b passes → LiveKit studio path works.</p>
         <p>2. Host: Quick setup with partner username.</p>
-        <p>3. Partner: open copied link, Accept, tap Join.</p>
-        <p>4. Host: tap Join on Mac. Wait for “2/2 cameras” then fan mix.</p>
+        <p>3. Partner: open copied link, Accept, then Step 4 Join.</p>
+        <p>4. Host: Step 4 Join on Mac. You should see &quot;2 DJs in this room&quot; and each other&apos;s video.</p>
       </section>
     </div>
   );

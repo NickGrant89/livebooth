@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  LiveKitRoom,
   RoomAudioRenderer,
+  RoomContext,
   useRoomContext,
   useParticipants,
 } from "@livekit/components-react";
@@ -12,6 +12,7 @@ import {
   Track,
   RoomEvent,
   ConnectionState,
+  ParticipantEvent,
   VideoPresets,
   createLocalTracks,
   Room,
@@ -85,8 +86,8 @@ function formatMediaError(err: unknown): string {
   if (/PermissionDenied|NotAllowed|permission|denied/i.test(msg)) {
     return "Camera/mic blocked — allow livebooth.uk in browser settings, then tap Join again.";
   }
-  if (/failed to connect|websocket|pc connection/i.test(msg)) {
-    return "Could not reach the studio server — check network or try again in a minute.";
+  if (/failed to connect|websocket|pc connection|manager is closed|peerconnection/i.test(msg)) {
+    return "Studio connection lost — tap Join again. (Use Step 4 on /collab/test, not Step 2b, to see your partner.)";
   }
   return msg;
 }
@@ -196,35 +197,54 @@ function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
 }
 
 function RemoteParticipantVideo({
-  publication,
+  participant,
   name,
 }: {
-  publication: import("livekit-client").TrackPublication | undefined;
+  participant: import("livekit-client").RemoteParticipant;
   name: string;
 }) {
+  const [, refresh] = useState(0);
   const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    const videoTrack = publication?.track;
+    const bump = () => refresh((n) => n + 1);
+    participant.on(ParticipantEvent.TrackSubscribed, bump);
+    participant.on(ParticipantEvent.TrackPublished, bump);
+    participant.on(ParticipantEvent.TrackUnsubscribed, bump);
+    return () => {
+      participant.off(ParticipantEvent.TrackSubscribed, bump);
+      participant.off(ParticipantEvent.TrackPublished, bump);
+      participant.off(ParticipantEvent.TrackUnsubscribed, bump);
+    };
+  }, [participant]);
+
+  const publication = participant.getTrackPublication(Track.Source.Camera);
+  const videoTrack = publication?.track;
+
+  useEffect(() => {
     if (!videoEl || !videoTrack || videoTrack.kind !== Track.Kind.Video) return;
     videoTrack.attach(videoEl);
     void videoEl.play().catch(() => {});
     return () => {
       videoTrack.detach(videoEl);
     };
-  }, [publication, videoEl]);
-
-  if (!publication?.track) return null;
+  }, [videoTrack, videoEl]);
 
   return (
     <div className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]">
-      <video
-        ref={setVideoEl}
-        autoPlay
-        playsInline
-        muted
-        className="w-full h-full object-cover min-h-[120px]"
-      />
+      {videoTrack ? (
+        <video
+          ref={setVideoEl}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover min-h-[120px]"
+        />
+      ) : (
+        <div className="min-h-[120px] flex items-center justify-center text-zinc-500 text-xs px-2 text-center">
+          {name} connected — waiting for their camera…
+        </div>
+      )}
       <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
         {name}
       </span>
@@ -232,28 +252,48 @@ function RemoteParticipantVideo({
   );
 }
 
+function RoomPresencePanel({ mode }: { mode: "collab" | "sandbox" }) {
+  const participants = useParticipants();
+  const total = participants.length;
+  const remote = participants.filter((p) => !p.isLocal);
+
+  if (mode === "sandbox") {
+    return (
+      <p className="text-xs text-amber-300/90 px-2 pb-1">
+        Sandbox is <strong>solo</strong> — you cannot see your partner here. Scroll to{" "}
+        <strong>Step 4</strong> and both tap Join collab studio.
+      </p>
+    );
+  }
+
+  return (
+    <div className="px-2 pb-1 text-xs">
+      <p className={remote.length > 0 ? "text-[#53fc18]" : "text-amber-300/90"}>
+        {total} DJ{total === 1 ? "" : "s"} in this room
+        {remote.length === 0
+          ? " — waiting for your partner on Step 4…"
+          : ` — connected: ${remote.map((p) => p.name || p.identity).join(", ")}`}
+      </p>
+    </div>
+  );
+}
+
 function StudioVideoLayout({ localPreviewTrack }: { localPreviewTrack: LocalTrack | null }) {
   const participants = useParticipants();
-
-  const remoteWithCamera = participants
-    .filter((p) => !p.isLocal)
-    .map((p) => ({
-      id: p.identity,
-      name: p.name || p.identity,
-      camera: p.getTrackPublication(Track.Source.Camera),
-    }))
-    .filter((p) => p.camera?.track);
+  const remoteParticipants = participants.filter(
+    (p): p is import("livekit-client").RemoteParticipant => !p.isLocal,
+  );
 
   return (
     <div className="space-y-2">
       <LocalPreviewVideo track={localPreviewTrack} />
-      {remoteWithCamera.length > 0 && (
-        <div className={`grid gap-2 ${remoteWithCamera.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-          {remoteWithCamera.map((p) => (
-            <RemoteParticipantVideo key={p.id} publication={p.camera} name={p.name} />
-          ))}
-        </div>
-      )}
+      {remoteParticipants.map((p) => (
+        <RemoteParticipantVideo
+          key={p.identity}
+          participant={p}
+          name={p.name || p.identity}
+        />
+      ))}
     </div>
   );
 }
@@ -500,43 +540,26 @@ type StudioRoomProps = {
   mode: "collab" | "sandbox";
   collabId?: string;
   room: Room;
-  token: string;
-  serverUrl: string;
   hostUsername?: string;
   role?: "host" | "partner";
   compositorActive?: boolean;
   hostStreamLive?: boolean;
   localPreviewTrack: LocalTrack | null;
-  onError: (msg: string) => void;
 };
 
 function StudioRoom({
   mode,
   collabId,
   room,
-  token,
-  serverUrl,
   hostUsername,
   role,
   compositorActive,
   hostStreamLive,
   localPreviewTrack,
-  onError,
 }: StudioRoomProps) {
   return (
-    <LiveKitRoom
-      room={room}
-      token={token}
-      serverUrl={serverUrl}
-      connect={false}
-      video={false}
-      audio={false}
-      options={ROOM_OPTIONS}
-      data-lk-theme="default"
-      onError={(e) => onError(formatMediaError(e))}
-      onMediaDeviceFailure={(f) => onError(formatMediaError(f))}
-      onDisconnected={() => onError("Studio disconnected — tap Join again.")}
-    >
+    <RoomContext.Provider value={room}>
+      <RoomPresencePanel mode={mode} />
       <div className="p-2">
         <StudioVideoLayout localPreviewTrack={localPreviewTrack} />
       </div>
@@ -556,11 +579,12 @@ function StudioRoom({
       ) : (
         <div className="px-2 pb-2">
           <p className="text-xs text-[#53fc18] rounded-lg border border-[#53fc18]/20 bg-[#53fc18]/5 px-3 py-2">
-            Sandbox OK — camera and LiveKit work. Set up a real collab below to test the fan mix.
+            Camera + LiveKit OK. Scroll to Step 3–4 to invite your partner and join the{" "}
+            <strong>same</strong> collab room.
           </p>
         </div>
       )}
-    </LiveKitRoom>
+    </RoomContext.Provider>
   );
 }
 
@@ -585,6 +609,7 @@ export function CollabWebRtcStudio({
   );
   const tracksRef = useRef<LocalTrack[]>([]);
   const roomRef = useRef<Room | null>(null);
+  const intentionalDisconnectRef = useRef(false);
 
   const stopTracks = useCallback(() => {
     for (const track of tracksRef.current) {
@@ -599,6 +624,7 @@ export function CollabWebRtcStudio({
     roomRef.current = null;
     setRoom(null);
     if (r) {
+      intentionalDisconnectRef.current = true;
       void r.disconnect(true);
     }
   }, []);
@@ -666,16 +692,30 @@ export function CollabWebRtcStudio({
       roomRef.current = activeRoom;
 
       activeRoom.on(RoomEvent.Disconnected, () => {
-        if (roomRef.current === activeRoom) {
+        if (roomRef.current === activeRoom && !intentionalDisconnectRef.current) {
           reportError("Studio disconnected — tap Join again.");
         }
+        intentionalDisconnectRef.current = false;
+      });
+
+      activeRoom.on(RoomEvent.ParticipantConnected, (participant) => {
+        if (participant.isLocal) return;
+        participant.trackPublications.forEach((pub) => {
+          pub.setSubscribed(true);
+        });
       });
 
       await withTimeout(
-        activeRoom.connect(data.url, data.token),
+        activeRoom.connect(data.url, data.token, { autoSubscribe: true }),
         JOIN_TIMEOUT_MS,
         "LiveKit connect",
       );
+
+      activeRoom.remoteParticipants.forEach((participant) => {
+        participant.trackPublications.forEach((pub) => {
+          pub.setSubscribed(true);
+        });
+      });
 
       setJoinStep("publish");
       for (const track of tracks) {
@@ -767,14 +807,11 @@ export function CollabWebRtcStudio({
         mode={mode}
         collabId={collabId}
         room={room}
-        token={tokenPayload.token}
-        serverUrl={tokenPayload.url}
         hostUsername={hostUsername}
         role={role}
         compositorActive={compositorActive}
         hostStreamLive={hostStreamLive}
         localPreviewTrack={localPreviewTrack}
-        onError={reportError}
       />
       {error && <p className="text-xs text-red-400 px-3 pb-3">{error}</p>}
     </div>
