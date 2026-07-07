@@ -200,7 +200,14 @@ export default function CollabTestPage() {
             Step 2b — same camera through LiveKit (studio path). Only try this if Step 2a works.
           </p>
           {diag?.webrtcEnabled ? (
-            <CollabWebRtcStudio mode="sandbox" onPhaseChange={(p) => setStudioLive(p === "live")} />
+            diag.studioReady ? (
+              <p className="text-sm text-zinc-500">
+                Step 2b hidden — you have an active collab below. Use <strong className="text-zinc-300">Step 4</strong>{" "}
+                only (one studio at a time; camera cannot be shared between Step 2b and Step 4).
+              </p>
+            ) : (
+              <CollabWebRtcStudio mode="sandbox" onPhaseChange={(p) => setStudioLive(p === "live")} />
+            )
           ) : (
             <p className="text-sm text-amber-400/90">WebRTC is off on this server — cannot test.</p>
           )}
