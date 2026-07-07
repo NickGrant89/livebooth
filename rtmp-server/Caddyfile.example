@@ -46,6 +46,11 @@ compositor.livebooth.uk {
 # DNS: rtc.livebooth.uk → VPS IP (grey cloud / DNS only)
 # Firewall: 7881/tcp, 3478/udp, 5349/tcp, 50000-50100/udp
 rtc.livebooth.uk {
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @websockets 127.0.0.1:7880
 	reverse_proxy 127.0.0.1:7880
 }
 

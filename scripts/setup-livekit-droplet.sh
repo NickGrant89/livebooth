@@ -137,6 +137,11 @@ if [[ -f "${CADDYFILE}" ]]; then
 
 # LiveKit WebRTC signaling (WSS) — ${RTC_DOMAIN}
 ${RTC_DOMAIN} {
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @websockets 127.0.0.1:7880
 	reverse_proxy 127.0.0.1:7880
 }
 EOF
