@@ -65,6 +65,45 @@ export async function createCollabParticipantToken(options: {
   };
 }
 
+export function sandboxRoomName(userId: string): string {
+  return `sandbox-${userId.slice(0, 12)}`;
+}
+
+/** Camera-only test room — no collab invite required. */
+export async function createSandboxParticipantToken(options: {
+  userId: string;
+  username: string;
+  displayName: string;
+  studioInstanceId?: string;
+}) {
+  if (!isLiveKitConfigured()) {
+    throw new Error("LiveKit collab not enabled");
+  }
+
+  const room = sandboxRoomName(options.userId);
+  const instance = (options.studioInstanceId ?? "test").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12);
+  const identity = `${options.userId}-sandbox-${instance}`;
+  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+    identity,
+    name: options.displayName || options.username,
+    ttl: "1h",
+  });
+
+  at.addGrant({
+    roomJoin: true,
+    room,
+    canPublish: true,
+    canSubscribe: true,
+    canPublishData: true,
+  });
+
+  return {
+    room,
+    token: await at.toJwt(),
+    url: LIVEKIT_URL!,
+  };
+}
+
 /** Ensure collab room exists before tokens are issued. */
 export async function ensureCollabRoom(collabId: string) {
   const client = getLiveKitRoomService();

@@ -25,9 +25,10 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/fetch-client";
 
 type StudioProps = {
-  collabId: string;
-  hostUsername: string;
-  role: "host" | "partner";
+  mode?: "collab" | "sandbox";
+  collabId?: string;
+  hostUsername?: string;
+  role?: "host" | "partner";
   compositorActive?: boolean;
   hostStreamLive?: boolean;
 };
@@ -407,12 +408,13 @@ function EgressWatcher({
 }
 
 type StudioRoomProps = {
-  collabId: string;
+  mode: "collab" | "sandbox";
+  collabId?: string;
   room: Room;
   token: string;
   serverUrl: string;
-  hostUsername: string;
-  role: "host" | "partner";
+  hostUsername?: string;
+  role?: "host" | "partner";
   compositorActive?: boolean;
   hostStreamLive?: boolean;
   localPreviewTrack: LocalTrack | null;
@@ -420,6 +422,7 @@ type StudioRoomProps = {
 };
 
 function StudioRoom({
+  mode,
   collabId,
   room,
   token,
@@ -451,23 +454,32 @@ function StudioRoom({
       <StudioConnectionStatus />
       <StudioControls />
       <RoomAudioRenderer />
-      <div className="px-2 pb-2">
-        <EgressWatcher
-          collabId={collabId}
-          compositorActive={compositorActive}
-          hostUsername={hostUsername}
-          hostStreamLive={hostStreamLive}
-          role={role}
-        />
-      </div>
+      {mode === "collab" && collabId && hostUsername && role ? (
+        <div className="px-2 pb-2">
+          <EgressWatcher
+            collabId={collabId}
+            compositorActive={compositorActive}
+            hostUsername={hostUsername}
+            hostStreamLive={hostStreamLive}
+            role={role}
+          />
+        </div>
+      ) : (
+        <div className="px-2 pb-2">
+          <p className="text-xs text-[#53fc18] rounded-lg border border-[#53fc18]/20 bg-[#53fc18]/5 px-3 py-2">
+            Sandbox OK — camera and LiveKit work. Set up a real collab below to test the fan mix.
+          </p>
+        </div>
+      )}
     </LiveKitRoom>
   );
 }
 
 export function CollabWebRtcStudio({
+  mode = "collab",
   collabId,
   hostUsername,
-  role,
+  role = "host",
   compositorActive,
   hostStreamLive,
 }: StudioProps) {
@@ -544,10 +556,20 @@ export function CollabWebRtcStudio({
       setLocalTracks(tracks);
 
       setJoinStep("login");
+      const tokenEndpoint = mode === "sandbox" ? "/api/livekit/sandbox" : "/api/livekit/token";
+      const tokenBody =
+        mode === "sandbox"
+          ? JSON.stringify({ studioInstanceId: studioInstanceIdRef.current })
+          : JSON.stringify({ collabId, studioInstanceId: studioInstanceIdRef.current });
+
+      if (mode === "collab" && !collabId) {
+        throw new Error("Collab not ready — complete setup on /collab/test first.");
+      }
+
       const res = await withTimeout(
-        apiFetch("/api/livekit/token", {
+        apiFetch(tokenEndpoint, {
           method: "POST",
-          body: JSON.stringify({ collabId, studioInstanceId: studioInstanceIdRef.current }),
+          body: tokenBody,
         }),
         15_000,
         "Studio login",
@@ -608,13 +630,18 @@ export function CollabWebRtcStudio({
       <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4 space-y-3">
         <p className="text-sm font-medium text-[#53fc18] flex items-center gap-2">
           <Wifi className="h-4 w-4" />
-          {role === "host" ? "Host" : "Partner"} collab studio
+          {mode === "sandbox"
+            ? "Camera + LiveKit test"
+            : `${role === "host" ? "Host" : "Partner"} collab studio`}
         </p>
         <p className="text-xs text-zinc-400">
-          One tap joins the studio and turns on camera + mic.{" "}
-          {role === "host"
-            ? "Do this on your Mac — OBS does not count."
-            : "Do this on your phone — keep this tab open."}
+          {mode === "sandbox"
+            ? "No partner needed — confirms your browser can reach the studio server."
+            : `One tap joins the studio and turns on camera + mic. ${
+                role === "host"
+                  ? "Do this on your Mac — OBS does not count."
+                  : "Do this on your phone — keep this tab open."
+              }`}
         </p>
         {phase === "joining" && (
           <div className="rounded-lg bg-black/40 p-3 text-center">
@@ -634,7 +661,7 @@ export function CollabWebRtcStudio({
           ) : (
             <Radio className="h-4 w-4" />
           )}
-          {phase === "joining" ? "Joining studio…" : "Join collab studio (camera + mic)"}
+          {phase === "joining" ? "Joining studio…" : mode === "sandbox" ? "Test my camera" : "Join collab studio (camera + mic)"}
         </button>
       </div>
     );
@@ -643,7 +670,8 @@ export function CollabWebRtcStudio({
   return (
     <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-black">
       <StudioRoom
-        key={`${collabId}-${studioInstanceIdRef.current}`}
+        key={`${mode}-${collabId ?? "sandbox"}-${studioInstanceIdRef.current}`}
+        mode={mode}
         collabId={collabId}
         room={room}
         token={tokenPayload.token}

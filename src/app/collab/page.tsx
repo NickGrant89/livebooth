@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Users, Radio, Check, X, Loader2, Video } from "lucide-react";
+import { Users, Radio, Check, X, Loader2, Video, FlaskConical } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { GoLivePreview } from "@/components/GoLivePreview";
 import { StreamPlayer } from "@/components/StreamPlayer";
@@ -157,10 +157,23 @@ export default function CollabPage() {
         <Users className="h-8 w-8 text-[#53fc18]" />
         Collab Mode
       </h1>
-      <p className="text-zinc-400 mb-8">
+      <p className="text-zinc-400 mb-4">
         Remote B2B sets — each DJ streams from their own location. When both feeds are live, LiveBooth
         mixes video and audio into one synced booth on the host page. Tips split by your chosen ratio.
       </p>
+
+      <Link
+        href="/collab/test"
+        className="flex items-center gap-3 rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 mb-8 hover:bg-[#53fc18]/15 transition-colors"
+      >
+        <FlaskConical className="h-5 w-5 text-[#53fc18] shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-[#53fc18]">Collab Test Lab</p>
+          <p className="text-xs text-zinc-400">
+            Easier step-by-step testing — camera sandbox, quick setup, join studio.
+          </p>
+        </div>
+      </Link>
 
       {myHostCollab && webrtcEnabled && (
         <div className="rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 mb-6 text-sm">
