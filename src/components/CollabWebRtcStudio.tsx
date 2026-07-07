@@ -31,6 +31,7 @@ type StudioProps = {
   role?: "host" | "partner";
   compositorActive?: boolean;
   hostStreamLive?: boolean;
+  onPhaseChange?: (phase: JoinPhase) => void;
 };
 
 type TokenPayload = {
@@ -43,19 +44,54 @@ type JoinPhase = "idle" | "joining" | "live";
 
 type JoinStep = "camera" | "login" | "connect" | "publish" | "done";
 
-const ROOM_OPTIONS: RoomOptions = {
-  disconnectOnPageLeave: false,
-  adaptiveStream: false,
-  dynacast: false,
-  videoCaptureDefaults: {
-    resolution: VideoPresets.h540.resolution,
-  },
-  publishDefaults: {
-    simulcast: false,
-  },
-};
-
 const JOIN_TIMEOUT_MS = 25_000;
+const JOIN_TIMEOUT_MOBILE_MS = 45_000;
+
+function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+function roomOptionsForDevice(): RoomOptions {
+  const mobile = isMobileDevice();
+  return {
+    disconnectOnPageLeave: false,
+    adaptiveStream: mobile,
+    dynacast: false,
+    videoCaptureDefaults: {
+      resolution: mobile ? VideoPresets.h360.resolution : VideoPresets.h540.resolution,
+    },
+    publishDefaults: {
+      simulcast: false,
+      videoCodec: "h264",
+    },
+  };
+}
+
+function joinTimeoutMs(): number {
+  return isMobileDevice() ? JOIN_TIMEOUT_MOBILE_MS : JOIN_TIMEOUT_MS;
+}
+
+async function waitForRoomConnected(room: Room, ms: number): Promise<void> {
+  if (room.state === ConnectionState.Connected) return;
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("LiveKit connect timed out waiting for room")), ms);
+    const onConnected = () => {
+      clearTimeout(timer);
+      room.off(RoomEvent.Connected, onConnected);
+      resolve();
+    };
+    room.on(RoomEvent.Connected, onConnected);
+  });
+}
+
+function subscribeRemoteParticipants(room: Room) {
+  room.remoteParticipants.forEach((participant) => {
+    participant.trackPublications.forEach((pub) => {
+      pub.setSubscribed(true);
+    });
+  });
+}
 
 function formatMediaError(err: unknown): string {
   if (err instanceof DOMException) {
@@ -86,8 +122,11 @@ function formatMediaError(err: unknown): string {
   if (/PermissionDenied|NotAllowed|permission|denied/i.test(msg)) {
     return "Camera/mic blocked — allow livebooth.uk in browser settings, then tap Join again.";
   }
-  if (/failed to connect|websocket|pc connection|manager is closed|peerconnection/i.test(msg)) {
-    return "Studio connection lost — tap Join again. (Use Step 4 on /collab/test, not Step 2b, to see your partner.)";
+  if (/failed to connect|websocket|pc connection|manager is closed|peerconnection|ice/i.test(msg)) {
+    if (isMobileDevice()) {
+      return "Phone lost studio connection — use Wi‑Fi if on cellular, keep Safari open, then tap Join again.";
+    }
+    return "Studio connection lost — tap Join again.";
   }
   return msg;
 }
@@ -367,7 +406,7 @@ function StudioControls() {
   );
 }
 
-function StudioConnectionStatus() {
+function StudioConnectionStatus({ notice }: { notice?: string }) {
   const room = useRoomContext();
   const [state, setState] = useState<ConnectionState | undefined>(room?.state);
 
@@ -376,20 +415,28 @@ function StudioConnectionStatus() {
     const sync = () => setState(room.state);
     sync();
     room.on(RoomEvent.ConnectionStateChanged, sync);
+    room.on(RoomEvent.Reconnecting, sync);
+    room.on(RoomEvent.Reconnected, sync);
     return () => {
       room.off(RoomEvent.ConnectionStateChanged, sync);
+      room.off(RoomEvent.Reconnecting, sync);
+      room.off(RoomEvent.Reconnected, sync);
     };
   }, [room]);
+
+  if (notice) {
+    return <p className="text-xs text-amber-400/90 px-2 pb-1">{notice}</p>;
+  }
 
   if (!state || state === ConnectionState.Connected) return null;
 
   const label =
     state === ConnectionState.Connecting
-      ? "Reconnecting to studio…"
+      ? "Connecting to studio…"
       : state === ConnectionState.Reconnecting
-        ? "Reconnecting…"
+        ? "Reconnecting — keep this tab open…"
         : state === ConnectionState.Disconnected
-          ? "Disconnected — reload /collab and tap Join again"
+          ? "Disconnected — tap Join again if this does not recover"
           : `Connection: ${state}`;
 
   return <p className="text-xs text-amber-400/90 px-2 pb-1">{label}</p>;
@@ -545,6 +592,7 @@ type StudioRoomProps = {
   compositorActive?: boolean;
   hostStreamLive?: boolean;
   localPreviewTrack: LocalTrack | null;
+  connectionNotice?: string;
 };
 
 function StudioRoom({
@@ -556,6 +604,7 @@ function StudioRoom({
   compositorActive,
   hostStreamLive,
   localPreviewTrack,
+  connectionNotice,
 }: StudioRoomProps) {
   return (
     <RoomContext.Provider value={room}>
@@ -563,7 +612,7 @@ function StudioRoom({
       <div className="p-2">
         <StudioVideoLayout localPreviewTrack={localPreviewTrack} />
       </div>
-      <StudioConnectionStatus />
+      <StudioConnectionStatus notice={connectionNotice} />
       <StudioControls />
       <RoomAudioRenderer />
       {mode === "collab" && collabId && hostUsername && role ? (
@@ -595,6 +644,7 @@ export function CollabWebRtcStudio({
   role = "host",
   compositorActive,
   hostStreamLive,
+  onPhaseChange,
 }: StudioProps) {
   const [phase, setPhase] = useState<JoinPhase>("idle");
   const [joinStep, setJoinStep] = useState<JoinStep>("camera");
@@ -602,6 +652,7 @@ export function CollabWebRtcStudio({
   const [room, setRoom] = useState<Room | null>(null);
   const [localTracks, setLocalTracks] = useState<LocalTrack[]>([]);
   const [error, setError] = useState("");
+  const [connectionNotice, setConnectionNotice] = useState("");
   const studioInstanceIdRef = useRef(
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID().slice(0, 8)
@@ -610,6 +661,17 @@ export function CollabWebRtcStudio({
   const tracksRef = useRef<LocalTrack[]>([]);
   const roomRef = useRef<Room | null>(null);
   const intentionalDisconnectRef = useRef(false);
+  const sessionRef = useRef<{ url: string; token: string } | null>(null);
+  const phaseRef = useRef<JoinPhase>("idle");
+
+  const setPhaseSafe = useCallback(
+    (next: JoinPhase) => {
+      phaseRef.current = next;
+      setPhase(next);
+      onPhaseChange?.(next);
+    },
+    [onPhaseChange],
+  );
 
   const stopTracks = useCallback(() => {
     for (const track of tracksRef.current) {
@@ -632,16 +694,52 @@ export function CollabWebRtcStudio({
   const reportError = useCallback(
     (msg: string) => {
       setError(msg);
-      setPhase("idle");
+      setConnectionNotice("");
+      setPhaseSafe("idle");
       setTokenPayload(null);
+      sessionRef.current = null;
       teardownRoom();
       stopTracks();
     },
-    [stopTracks, teardownRoom],
+    [stopTracks, teardownRoom, setPhaseSafe],
+  );
+
+  const bindRoomEvents = useCallback(
+    (activeRoom: Room) => {
+      activeRoom.on(RoomEvent.Reconnecting, () => {
+        if (roomRef.current !== activeRoom) return;
+        setConnectionNotice("Connection dropped — reconnecting (keep Safari open)…");
+        setError("");
+      });
+
+      activeRoom.on(RoomEvent.Reconnected, () => {
+        if (roomRef.current !== activeRoom) return;
+        setConnectionNotice("");
+        subscribeRemoteParticipants(activeRoom);
+      });
+
+      activeRoom.on(RoomEvent.Disconnected, () => {
+        if (roomRef.current !== activeRoom || intentionalDisconnectRef.current) {
+          intentionalDisconnectRef.current = false;
+          return;
+        }
+        if (phaseRef.current !== "live") return;
+        setConnectionNotice("Studio disconnected — tap Join again if video does not return.");
+      });
+
+      activeRoom.on(RoomEvent.ParticipantConnected, (participant) => {
+        if (participant.isLocal) return;
+        participant.trackPublications.forEach((pub) => {
+          pub.setSubscribed(true);
+        });
+      });
+    },
+    [],
   );
 
   useEffect(() => {
     return () => {
+      intentionalDisconnectRef.current = true;
       stopTracks();
       const r = roomRef.current;
       if (r) void r.disconnect(true);
@@ -649,16 +747,19 @@ export function CollabWebRtcStudio({
   }, [stopTracks]);
 
   async function joinStudio() {
-    setPhase("joining");
+    setPhaseSafe("joining");
     setJoinStep("camera");
     setError("");
+    setConnectionNotice("");
     stopTracks();
     teardownRoom();
+    intentionalDisconnectRef.current = false;
 
     let activeRoom: Room | null = null;
+    const timeoutMs = joinTimeoutMs();
 
     try {
-      const tracks = await withTimeout(acquireLocalTracks(), JOIN_TIMEOUT_MS, "Camera/mic");
+      const tracks = await withTimeout(acquireLocalTracks(), timeoutMs, "Camera/mic");
 
       tracksRef.current = tracks;
       setLocalTracks(tracks);
@@ -687,35 +788,26 @@ export function CollabWebRtcStudio({
         throw new Error(data.error ?? "Could not join studio");
       }
 
+      sessionRef.current = { url: data.url, token: data.token };
+
       setJoinStep("connect");
-      activeRoom = new Room(ROOM_OPTIONS);
+      activeRoom = new Room(roomOptionsForDevice());
       roomRef.current = activeRoom;
-
-      activeRoom.on(RoomEvent.Disconnected, () => {
-        if (roomRef.current === activeRoom && !intentionalDisconnectRef.current) {
-          reportError("Studio disconnected — tap Join again.");
-        }
-        intentionalDisconnectRef.current = false;
-      });
-
-      activeRoom.on(RoomEvent.ParticipantConnected, (participant) => {
-        if (participant.isLocal) return;
-        participant.trackPublications.forEach((pub) => {
-          pub.setSubscribed(true);
-        });
-      });
+      bindRoomEvents(activeRoom);
 
       await withTimeout(
         activeRoom.connect(data.url, data.token, { autoSubscribe: true }),
-        JOIN_TIMEOUT_MS,
+        timeoutMs,
         "LiveKit connect",
       );
+      await waitForRoomConnected(activeRoom, timeoutMs);
+      subscribeRemoteParticipants(activeRoom);
 
-      activeRoom.remoteParticipants.forEach((participant) => {
-        participant.trackPublications.forEach((pub) => {
-          pub.setSubscribed(true);
-        });
-      });
+      try {
+        await activeRoom.startAudio();
+      } catch {
+        /* iOS may require extra tap for audio — video still works */
+      }
 
       setJoinStep("publish");
       for (const track of tracks) {
@@ -734,16 +826,18 @@ export function CollabWebRtcStudio({
       setJoinStep("done");
       setTokenPayload(data as TokenPayload);
       setRoom(activeRoom);
-      setPhase("live");
+      setPhaseSafe("live");
     } catch (err) {
       stopTracks();
       if (activeRoom) {
+        intentionalDisconnectRef.current = true;
         void activeRoom.disconnect(true);
         if (roomRef.current === activeRoom) roomRef.current = null;
       }
+      sessionRef.current = null;
       setRoom(null);
       setTokenPayload(null);
-      setPhase("idle");
+      setPhaseSafe("idle");
       setError(formatMediaError(err));
     }
   }
@@ -812,6 +906,7 @@ export function CollabWebRtcStudio({
         compositorActive={compositorActive}
         hostStreamLive={hostStreamLive}
         localPreviewTrack={localPreviewTrack}
+        connectionNotice={connectionNotice}
       />
       {error && <p className="text-xs text-red-400 px-3 pb-3">{error}</p>}
     </div>

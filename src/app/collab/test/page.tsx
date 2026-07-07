@@ -57,6 +57,7 @@ export default function CollabTestPage() {
   const [msgOk, setMsgOk] = useState(true);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [studioLive, setStudioLive] = useState(false);
 
   const load = useCallback(() => {
     if (!user) return;
@@ -68,9 +69,10 @@ export default function CollabTestPage() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 8000);
+    const ms = studioLive ? 30_000 : 8_000;
+    const t = setInterval(load, ms);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, studioLive]);
 
   const testUrl =
     typeof window !== "undefined" ? `${window.location.origin}/collab/test` : "/collab/test";
@@ -198,7 +200,7 @@ export default function CollabTestPage() {
             Step 2b — same camera through LiveKit (studio path). Only try this if Step 2a works.
           </p>
           {diag?.webrtcEnabled ? (
-            <CollabWebRtcStudio mode="sandbox" />
+            <CollabWebRtcStudio mode="sandbox" onPhaseChange={(p) => setStudioLive(p === "live")} />
           ) : (
             <p className="text-sm text-amber-400/90">WebRTC is off on this server — cannot test.</p>
           )}
@@ -279,7 +281,8 @@ export default function CollabTestPage() {
             Step 4 · Join together ({diag.studio.role})
           </h2>
           <p className="text-xs text-amber-300/90 mb-2 font-medium">
-            Both DJs must tap Join here — Step 2b is solo only and will not show your partner.
+            Both DJs must tap Join here — Step 2b is solo only. On phone: use Safari, stay on this tab,
+            prefer Wi‑Fi.
           </p>
           <p className="text-xs text-zinc-500 mb-4">
             {diag.studio.role === "host" ? (
@@ -299,6 +302,7 @@ export default function CollabTestPage() {
             hostUsername={diag.studio.hostUsername}
             role={diag.studio.role}
             compositorActive={diag.studio.compositorActive}
+            onPhaseChange={(p) => setStudioLive(p === "live")}
           />
           {diag.studio.role === "host" && (
             <Link
