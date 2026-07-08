@@ -228,7 +228,8 @@ async function publishTrackWithTimeout(
 }
 
 function localCameraIsPublished(room: Room): boolean {
-  return Boolean(room.localParticipant.getTrackPublication(Track.Source.Camera)?.track);
+  const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+  return Boolean(pub?.track ?? pub?.trackSid);
 }
 
 async function verifyServerSeesCamera(collabId: string, identity: string): Promise<boolean> {
@@ -355,33 +356,43 @@ function usePreviewTracks() {
   return useContext(PreviewTracksContext);
 }
 
-function LocalCameraFromRoom() {
+function LocalCameraFromRoom({ lockPublished }: { lockPublished?: boolean }) {
   const room = useRoomContext();
   const previewTracks = usePreviewTracks();
   const cameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
   const localCamera = cameraTracks.find((t) => t.participant.isLocal)?.publication.track as
     | LocalTrack
     | undefined;
-  const track = (localCamera ?? localCameraTrack(room, previewTracks)) as LocalTrack | null;
+  const published = room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track as
+    | LocalTrack
+    | undefined;
+  const track = (
+    lockPublished && published
+      ? published
+      : ((localCamera ?? published ?? localCameraTrack(room, previewTracks)) as LocalTrack | null)
+  ) as LocalTrack | null;
   return <LocalPreviewVideo track={track} />;
 }
 
-/** Publish once when connected — do not re-run on every parent re-render. */
+/** Publish once per studio session — never re-run on connection state flicker. */
 function PublishAcquiredTracks({
+  sessionKey,
   onError,
   publishComplete,
   onPublished,
 }: {
+  sessionKey: number;
   onError: (msg: string) => void;
   publishComplete?: boolean;
   onPublished?: () => void;
 }) {
   const room = useRoomContext();
-  const connectionState = useConnectionState();
   const previewTracks = usePreviewTracks();
   const onErrorRef = useRef(onError);
   const onPublishedRef = useRef(onPublished);
   const publishBusyRef = useRef(false);
+  const previewTracksRef = useRef(previewTracks);
+  previewTracksRef.current = previewTracks;
 
   useEffect(() => {
     onErrorRef.current = onError;
@@ -392,59 +403,61 @@ function PublishAcquiredTracks({
 
   useEffect(() => {
     if (publishComplete) return;
-    if (!room || connectionState !== ConnectionState.Connected) return;
-    if (previewTracks.length === 0) return;
+    if (previewTracksRef.current.length === 0) return;
 
     const markLive = () => {
       onPublishedRef.current?.();
       onErrorRef.current("");
     };
 
-    if (localCameraIsPublished(room)) {
-      markLive();
-      return;
-    }
-
-    const onLocalPublished = () => {
-      if (localCameraIsPublished(room)) markLive();
-    };
-    const onUnpublished = () => {
-      if (!localCameraIsPublished(room)) {
-        onErrorRef.current("Camera dropped — tap Camera below.");
+    const syncLive = () => {
+      if (localCameraIsPublished(room)) {
+        markLive();
+        return true;
       }
+      return false;
     };
-
-    room.on(RoomEvent.LocalTrackPublished, onLocalPublished);
-    room.on(RoomEvent.LocalTrackUnpublished, onUnpublished);
-
-    let cancelled = false;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     const runPublish = async () => {
-      if (cancelled || publishBusyRef.current || localCameraIsPublished(room)) return;
+      if (publishBusyRef.current || localCameraIsPublished(room)) {
+        syncLive();
+        return;
+      }
       publishBusyRef.current = true;
       try {
-        await ensureLocalMediaPublished(room, previewTracks);
-        if (!cancelled && localCameraIsPublished(room)) markLive();
+        await ensureLocalMediaPublished(room, previewTracksRef.current);
+        syncLive();
       } catch (err) {
-        if (!cancelled) onErrorRef.current(formatMediaError(err));
+        onErrorRef.current(formatMediaError(err));
       } finally {
         publishBusyRef.current = false;
       }
     };
 
-    void runPublish();
-    retryTimer = setTimeout(() => {
-      if (!cancelled && !localCameraIsPublished(room)) void runPublish();
-    }, 15_000);
+    const onLocalPublished = () => {
+      syncLive();
+    };
+    const onConnected = () => {
+      void runPublish();
+    };
+    const onReconnected = () => {
+      if (!localCameraIsPublished(room)) void runPublish();
+    };
+
+    room.on(RoomEvent.LocalTrackPublished, onLocalPublished);
+    room.on(RoomEvent.Connected, onConnected);
+    room.on(RoomEvent.Reconnected, onReconnected);
+
+    if (room.state === ConnectionState.Connected) {
+      if (!syncLive()) void runPublish();
+    }
 
     return () => {
-      cancelled = true;
-      if (retryTimer) clearTimeout(retryTimer);
       room.off(RoomEvent.LocalTrackPublished, onLocalPublished);
-      room.off(RoomEvent.LocalTrackUnpublished, onUnpublished);
+      room.off(RoomEvent.Connected, onConnected);
+      room.off(RoomEvent.Reconnected, onReconnected);
     };
-  }, [room, connectionState, previewTracks, publishComplete]);
+  }, [sessionKey, publishComplete, room]);
 
   return null;
 }
@@ -452,9 +465,11 @@ function PublishAcquiredTracks({
 function LocalPublishBadge({
   publishError,
   serverCamOk,
+  publishComplete,
 }: {
   publishError?: string;
   serverCamOk?: boolean | null;
+  publishComplete?: boolean;
 }) {
   const room = useRoomContext();
   const [cameraLive, setCameraLive] = useState(false);
@@ -462,7 +477,7 @@ function LocalPublishBadge({
   useEffect(() => {
     if (!room) return;
     const sync = () => {
-      setCameraLive(Boolean(room.localParticipant.getTrackPublication(Track.Source.Camera)?.track));
+      setCameraLive(localCameraIsPublished(room));
     };
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
@@ -473,17 +488,19 @@ function LocalPublishBadge({
     };
   }, [room]);
 
-  if (publishError) {
+  const isLive = publishComplete || cameraLive || serverCamOk === true;
+
+  if (publishError && !isLive) {
     return <p className="text-[10px] text-red-400 px-2 break-words">{publishError}</p>;
   }
-  if (cameraLive && serverCamOk === false) {
+  if (isLive && serverCamOk === false) {
     return (
       <p className="text-[10px] text-amber-400/90 px-2">
         Browser published camera but server still sees no-cam — check VPS firewall UDP 50000-50100, 3478, 7881.
       </p>
     );
   }
-  if (cameraLive) {
+  if (isLive) {
     return <p className="text-[10px] text-[#53fc18] px-2">Your camera is live to the room</p>;
   }
   return (
@@ -536,16 +553,31 @@ function RemoteWaitingTile({
   );
 }
 
-function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; collabId?: string }) {
+function RoomPresencePanel({
+  mode,
+  collabId,
+  studioIdentity,
+  onServerCamLive,
+}: {
+  mode: "collab" | "sandbox";
+  collabId?: string;
+  studioIdentity?: string;
+  onServerCamLive?: () => void;
+}) {
   const room = useRoomContext();
   const participants = useParticipants();
   const total = participants.length;
   const remote = participants.filter((p) => !p.isLocal);
   const [serverCount, setServerCount] = useState<number | null>(null);
   const [serverParticipants, setServerParticipants] = useState<
-    { name?: string; hasVideo?: boolean; tracks?: number }[]
+    { identity?: string; name?: string; hasVideo?: boolean; tracks?: number }[]
   >([]);
   const [copied, setCopied] = useState(false);
+  const reportedServerCamRef = useRef(false);
+
+  useEffect(() => {
+    reportedServerCamRef.current = false;
+  }, [collabId, studioIdentity]);
 
   const roomLabel = collabId ? `collab-${collabId}` : room.name;
 
@@ -557,10 +589,19 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
       if (!res.ok || cancelled) return;
       const data = (await res.json()) as {
         participantCount?: number;
-        participants?: { name?: string; hasVideo?: boolean; tracks?: number }[];
+        participants?: { identity?: string; name?: string; hasVideo?: boolean; tracks?: number }[];
       };
       setServerCount(data.participantCount ?? null);
       setServerParticipants(data.participants ?? []);
+      if (
+        studioIdentity &&
+        onServerCamLive &&
+        !reportedServerCamRef.current &&
+        data.participants?.some((p) => p.identity === studioIdentity && p.hasVideo)
+      ) {
+        reportedServerCamRef.current = true;
+        onServerCamLive();
+      }
     }
     poll();
     const t = setInterval(poll, 5000);
@@ -568,7 +609,7 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
       cancelled = true;
       clearInterval(t);
     };
-  }, [mode, collabId]);
+  }, [mode, collabId, studioIdentity, onServerCamLive]);
 
   if (mode === "sandbox") {
     return (
@@ -624,7 +665,7 @@ function RoomPresencePanel({ mode, collabId }: { mode: "collab" | "sandbox"; col
   );
 }
 
-function StudioVideoLayout() {
+function StudioVideoLayout({ publishComplete }: { publishComplete?: boolean }) {
   const participants = useParticipants();
   const remoteParticipants = participants.filter(
     (p): p is RemoteParticipant => !p.isLocal,
@@ -636,7 +677,7 @@ function StudioVideoLayout() {
 
   return (
     <div className="space-y-2">
-      <LocalCameraFromRoom />
+      <LocalCameraFromRoom lockPublished={Boolean(publishComplete)} />
       {remoteCameraTracks.map((trackRef) => (
         <div
           key={trackRef.participant.identity}
@@ -928,6 +969,8 @@ function StudioRoom({
   publishError,
   serverCamOk,
   onPublished,
+  sessionKey,
+  studioIdentity,
 }: {
   mode: "collab" | "sandbox";
   collabId?: string;
@@ -942,6 +985,8 @@ function StudioRoom({
   publishError?: string;
   serverCamOk?: boolean | null;
   onPublished?: () => void;
+  sessionKey: number;
+  studioIdentity?: string;
 }) {
   const state = useConnectionState();
   const previewTracks = usePreviewTracks();
@@ -951,6 +996,7 @@ function StudioRoom({
     <>
       <RemoteTrackSubscriber />
       <PublishAcquiredTracks
+        sessionKey={sessionKey}
         onError={onPublishError}
         publishComplete={publishComplete}
         onPublished={onPublished}
@@ -959,13 +1005,22 @@ function StudioRoom({
       {showVideo && (
         <>
           {state === ConnectionState.Connected && (
-            <RoomPresencePanel mode={mode} collabId={collabId} />
+            <RoomPresencePanel
+              mode={mode}
+              collabId={collabId}
+              studioIdentity={studioIdentity}
+              onServerCamLive={onPublished}
+            />
           )}
           {state === ConnectionState.Connected && (
-            <LocalPublishBadge publishError={publishError} serverCamOk={serverCamOk} />
+            <LocalPublishBadge
+              publishError={publishError}
+              serverCamOk={serverCamOk}
+              publishComplete={publishComplete}
+            />
           )}
           <div className="p-2">
-            <StudioVideoLayout />
+            <StudioVideoLayout publishComplete={publishComplete} />
           </div>
           {state === ConnectionState.Connected && (
             <>
@@ -1065,6 +1120,10 @@ export function CollabWebRtcStudio({
   );
 
   const handlePublishError = useCallback((msg: string) => {
+    if (!msg) {
+      setMediaError("");
+      return;
+    }
     setMediaError(msg);
   }, []);
 
@@ -1242,6 +1301,8 @@ export function CollabWebRtcStudio({
             publishError={mediaError || undefined}
             serverCamOk={serverCamOk}
             onPublished={handlePublished}
+            sessionKey={session.sessionKey}
+            studioIdentity={session.identity}
           />
           <StudioFooter
             onReconnect={joinStudio}
