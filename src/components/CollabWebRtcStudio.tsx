@@ -25,6 +25,9 @@ import {
 import { Camera, Loader2, Mic, MicOff, Radio, VideoOff, Wifi } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/fetch-client";
+import { studioDiag } from "@/lib/collab-studio-diagnostics";
+import { CollabStudioDiagnosticsPanel } from "@/components/CollabStudioDiagnostics";
+import type { MutableRefObject } from "react";
 
 type StudioProps = {
   mode?: "collab" | "sandbox";
@@ -275,121 +278,145 @@ async function ensureLocalMediaPublished(
 }
 
 function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
-  return <StableAttachedVideo track={track} mirror minHeight={200} className="w-full h-full object-cover rounded-lg bg-zinc-900" />;
+  const trackRef = useRef<Track | null>(track);
+  trackRef.current = track;
+  return (
+    <ImperativeVideoTile
+      trackRef={trackRef}
+      label="preview"
+      mirror
+      minHeight={200}
+      className="w-full h-full object-cover rounded-lg bg-zinc-900"
+    />
+  );
 }
 
-/** One persistent <video> — attach only when MediaStreamTrack id changes; never swap to a placeholder. */
-function StableAttachedVideo({
-  track,
+/** Video element lives outside React state — attach only when MediaStreamTrack id changes. */
+function ImperativeVideoTile({
+  trackRef,
+  label,
   mirror,
-  className,
   minHeight = 200,
+  className = "w-full h-full object-cover",
 }: {
-  track: Track | null;
+  trackRef: MutableRefObject<Track | null>;
+  label: string;
   mirror?: boolean;
-  className?: string;
   minHeight?: number;
+  className?: string;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
   const boundTrackRef = useRef<Track | null>(null);
-  const boundStreamIdRef = useRef<string | null>(null);
+  const boundIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !track || track.kind !== Track.Kind.Video) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const streamId = track.mediaStreamTrack.id;
-    if (boundStreamIdRef.current === streamId) return;
-
-    if (boundTrackRef.current) {
-      boundTrackRef.current.detach(el);
+    if (!videoElRef.current) {
+      const v = document.createElement("video");
+      v.autoplay = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.className = className;
+      v.style.minHeight = `${minHeight}px`;
+      v.style.backgroundColor = "#18181b";
+      if (mirror) v.style.transform = "scaleX(-1)";
+      container.appendChild(v);
+      videoElRef.current = v;
     }
 
-    track.attach(el);
-    void el.play().catch(() => {});
-    boundTrackRef.current = track;
-    boundStreamIdRef.current = streamId;
-  }, [track?.mediaStreamTrack?.id]);
+    const sync = () => {
+      const track = trackRef.current;
+      if (!track || track.kind !== Track.Kind.Video) return;
+      const id = track.mediaStreamTrack.id;
+      if (boundIdRef.current === id) return;
+      const el = videoElRef.current!;
+      if (boundTrackRef.current) {
+        boundTrackRef.current.detach(el);
+      }
+      track.attach(el);
+      void el.play().catch(() => {});
+      boundTrackRef.current = track;
+      boundIdRef.current = id;
+      studioDiag.bump("attaches");
+      studioDiag.log("video", `${label} attach ${id.slice(0, 8)}`);
+    };
+
+    sync();
+    const interval = setInterval(sync, 800);
+    return () => clearInterval(interval);
+  }, [trackRef, label, mirror, minHeight, className]);
 
   useEffect(() => {
-    const el = videoRef.current;
     return () => {
+      const el = videoElRef.current;
       if (el && boundTrackRef.current) {
         boundTrackRef.current.detach(el);
-        boundTrackRef.current = null;
-        boundStreamIdRef.current = null;
       }
     };
   }, []);
 
   return (
-    <video
-      ref={videoRef}
-      autoPlay
-      muted
-      playsInline
-      className={className}
-      style={{
-        minHeight,
-        transform: mirror ? "scaleX(-1)" : undefined,
-        backgroundColor: "#18181b",
-      }}
+    <div
+      ref={containerRef}
+      className="relative rounded-lg overflow-hidden bg-zinc-900 w-full"
+      style={{ minHeight }}
     />
   );
 }
 
-/** Local feed — preview track while live, fall back to room publication after recovery. */
 function LocalCameraTile() {
   const room = useRoomContext();
   const previewTracks = usePreviewTracks();
-  const [displayTrack, setDisplayTrack] = useState<LocalTrack | Track | null>(null);
-  const streamIdRef = useRef<string | null>(null);
+  const trackRef = useRef<Track | null>(null);
+  const lockedPublishedRef = useRef(false);
+  const previewTracksRef = useRef(previewTracks);
+  previewTracksRef.current = previewTracks;
 
   useEffect(() => {
     if (!room) return;
 
-    const pick = (): LocalTrack | Track | null => {
-      const preview = previewTracks.find(
+    const pick = (): Track | null => {
+      const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+      if (pub?.kind === Track.Kind.Video && pub.mediaStreamTrack.readyState === "live") {
+        lockedPublishedRef.current = true;
+        return pub;
+      }
+      if (lockedPublishedRef.current) {
+        return trackRef.current;
+      }
+      const preview = previewTracksRef.current.find(
         (t) => t.kind === Track.Kind.Video && t.mediaStreamTrack.readyState !== "ended",
       );
-      if (preview) return preview;
-      const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-      return pub?.kind === Track.Kind.Video ? pub : null;
+      return preview ?? null;
     };
 
     const sync = () => {
       const next = pick();
       if (!next) return;
-      const id = next.mediaStreamTrack.id;
-      if (streamIdRef.current === id) return;
-      streamIdRef.current = id;
-      setDisplayTrack(next);
+      if (trackRef.current?.mediaStreamTrack.id === next.mediaStreamTrack.id) return;
+      trackRef.current = next;
     };
 
     sync();
     room.on(RoomEvent.LocalTrackPublished, sync);
-    room.on(RoomEvent.Reconnected, sync);
-
+    const interval = setInterval(sync, 1000);
     return () => {
       room.off(RoomEvent.LocalTrackPublished, sync);
-      room.off(RoomEvent.Reconnected, sync);
+      clearInterval(interval);
     };
-  }, [room, previewTracks]);
+  }, [room]);
 
   return (
-    <div className="relative rounded-lg overflow-hidden bg-zinc-900" style={{ minHeight: 200 }}>
-      <StableAttachedVideo
-        track={displayTrack}
-        mirror
-        className="w-full h-full object-cover min-h-[200px]"
-        minHeight={200}
-      />
-      {!displayTrack && (
-        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs pointer-events-none">
-          Camera loading…
-        </div>
-      )}
-    </div>
+    <ImperativeVideoTile
+      trackRef={trackRef}
+      label="local"
+      mirror
+      minHeight={200}
+      className="w-full h-full object-cover min-h-[200px]"
+    />
   );
 }
 
@@ -400,8 +427,7 @@ const RemoteParticipantCamera = memo(function RemoteParticipantCamera({
   participant: RemoteParticipant;
   name: string;
 }) {
-  const [track, setTrack] = useState<Track | null>(null);
-  const streamIdRef = useRef<string | null>(null);
+  const trackRef = useRef<Track | null>(null);
 
   useEffect(() => {
     const subscribe = () => {
@@ -413,33 +439,34 @@ const RemoteParticipantCamera = memo(function RemoteParticipantCamera({
       subscribe();
       const t = participant.getTrackPublication(Track.Source.Camera)?.track;
       if (!t || t.kind !== Track.Kind.Video) return;
-      const id = t.mediaStreamTrack.id;
-      if (streamIdRef.current === id) return;
-      streamIdRef.current = id;
-      setTrack(t);
+      if (trackRef.current?.mediaStreamTrack.id === t.mediaStreamTrack.id) return;
+      trackRef.current = t;
+      studioDiag.log("remote", `${name} track ${t.mediaStreamTrack.id.slice(0, 8)}`);
     };
 
     subscribe();
     sync();
     participant.on(ParticipantEvent.TrackPublished, sync);
     participant.on(ParticipantEvent.TrackSubscribed, sync);
-
+    const interval = setInterval(sync, 1000);
     return () => {
       participant.off(ParticipantEvent.TrackPublished, sync);
       participant.off(ParticipantEvent.TrackSubscribed, sync);
+      clearInterval(interval);
     };
-  }, [participant]);
+  }, [participant, name]);
 
   return (
     <div className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]">
-      <StableAttachedVideo
-        track={track}
-        className="w-full h-full object-cover min-h-[120px]"
+      <ImperativeVideoTile
+        trackRef={trackRef}
+        label={name}
         minHeight={120}
+        className="w-full h-full object-cover min-h-[120px]"
       />
-      {!track && (
+      {!trackRef.current && (
         <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs px-2 text-center pointer-events-none">
-          {name} in room — connecting video…
+          {name} — connecting video…
         </div>
       )}
       <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
@@ -491,7 +518,88 @@ function usePreviewTracks() {
 
 const STUDIO_POLL_MS = 15_000;
 
-/** Publish on connect / reconnect only — no republish on every unpublish blip. */
+function syncDiagFromRoom(room: Room) {
+  const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+  const track = pub?.track;
+  studioDiag.patchSnapshot({
+    roomState: room.state,
+    localCamPublished: Boolean(pub?.track ?? pub?.trackSid),
+    localCamHealthy: Boolean(track?.mediaStreamTrack?.readyState === "live"),
+    localStreamId: track?.mediaStreamTrack?.id?.slice(0, 8) ?? null,
+    remoteCount: room.remoteParticipants.size,
+  });
+}
+
+/** Wire all room events into the debug log + snapshot. */
+function StudioRoomDiagnosticsWatcher() {
+  const room = useRoomContext();
+
+  useEffect(() => {
+    studioDiag.reset();
+    studioDiag.log("room", "diagnostics started");
+
+    const onConn = () => {
+      syncDiagFromRoom(room);
+      studioDiag.log("room", `connection ${room.state}`);
+    };
+
+    const onReconnecting = () => {
+      studioDiag.bump("reconnects");
+      studioDiag.warn("room", "reconnecting");
+      syncDiagFromRoom(room);
+    };
+
+    const onReconnected = () => {
+      studioDiag.log("room", "reconnected");
+      syncDiagFromRoom(room);
+    };
+
+    const onDisconnected = (reason?: unknown) => {
+      studioDiag.warn("room", `disconnected ${String(reason ?? "")}`);
+      syncDiagFromRoom(room);
+    };
+
+    const onLocalPublished = (pub: { source?: Track.Source }) => {
+      studioDiag.log("local", `published ${pub.source ?? "track"}`);
+      syncDiagFromRoom(room);
+    };
+
+    const onLocalUnpublished = (pub: { source?: Track.Source }) => {
+      studioDiag.bump("unpublishes");
+      studioDiag.warn("local", `unpublished ${pub.source ?? "track"}`);
+      syncDiagFromRoom(room);
+    };
+
+    const onParticipantChange = () => syncDiagFromRoom(room);
+
+    onConn();
+    room.on(RoomEvent.ConnectionStateChanged, onConn);
+    room.on(RoomEvent.Reconnecting, onReconnecting);
+    room.on(RoomEvent.Reconnected, onReconnected);
+    room.on(RoomEvent.Disconnected, onDisconnected);
+    room.on(RoomEvent.LocalTrackPublished, onLocalPublished);
+    room.on(RoomEvent.LocalTrackUnpublished, onLocalUnpublished);
+    room.on(RoomEvent.ParticipantConnected, onParticipantChange);
+    room.on(RoomEvent.ParticipantDisconnected, onParticipantChange);
+
+    const tick = setInterval(() => syncDiagFromRoom(room), 3000);
+    return () => {
+      clearInterval(tick);
+      room.off(RoomEvent.ConnectionStateChanged, onConn);
+      room.off(RoomEvent.Reconnecting, onReconnecting);
+      room.off(RoomEvent.Reconnected, onReconnected);
+      room.off(RoomEvent.Disconnected, onDisconnected);
+      room.off(RoomEvent.LocalTrackPublished, onLocalPublished);
+      room.off(RoomEvent.LocalTrackUnpublished, onLocalUnpublished);
+      room.off(RoomEvent.ParticipantConnected, onParticipantChange);
+      room.off(RoomEvent.ParticipantDisconnected, onParticipantChange);
+    };
+  }, [room]);
+
+  return null;
+}
+
+/** Publish once per session — no auto-republish on reconnect (causes flicker). */
 function PublishAcquiredTracks({
   sessionKey,
   onError,
@@ -506,9 +614,13 @@ function PublishAcquiredTracks({
   const onErrorRef = useRef(onError);
   const onPublishedRef = useRef(onPublished);
   const publishBusyRef = useRef(false);
+  const publishedOnceRef = useRef(false);
   const previewTracksRef = useRef(previewTracks);
   previewTracksRef.current = previewTracks;
-  const lastReconnectPublishRef = useRef(0);
+
+  useEffect(() => {
+    publishedOnceRef.current = false;
+  }, [sessionKey]);
 
   useEffect(() => {
     onErrorRef.current = onError;
@@ -533,20 +645,28 @@ function PublishAcquiredTracks({
 
     const runPublish = async () => {
       if (publishBusyRef.current || room.state !== ConnectionState.Connected) return;
-      if (localCameraTrackHealthy(room)) {
+      if (publishedOnceRef.current && localCameraTrackHealthy(room)) {
         syncLive();
+        return;
+      }
+      if (publishedOnceRef.current) {
+        studioDiag.warn("publish", "skip republish — use Reconnect studio if cam dead");
         return;
       }
       publishBusyRef.current = true;
       try {
+        studioDiag.log("publish", "starting first publish");
         const videoPreview = previewTracksRef.current.find((t) => t.kind === Track.Kind.Video);
         await ensureLocalMediaPublished(
           room,
           previewTracksRef.current,
           cameraDeviceOptions(videoPreview),
         );
+        publishedOnceRef.current = true;
+        studioDiag.log("publish", "first publish ok");
         syncLive();
       } catch (err) {
+        studioDiag.error("publish", formatMediaError(err));
         onErrorRef.current(formatMediaError(err));
       } finally {
         publishBusyRef.current = false;
@@ -559,25 +679,17 @@ function PublishAcquiredTracks({
     const onConnected = () => {
       void runPublish();
     };
-    const onReconnected = () => {
-      const now = Date.now();
-      if (now - lastReconnectPublishRef.current < 30_000) return;
-      lastReconnectPublishRef.current = now;
-      void runPublish();
-    };
 
     room.on(RoomEvent.LocalTrackPublished, onLocalPublished);
     room.on(RoomEvent.Connected, onConnected);
-    room.on(RoomEvent.Reconnected, onReconnected);
 
-    if (room.state === ConnectionState.Connected && !syncLive()) {
+    if (room.state === ConnectionState.Connected && !publishedOnceRef.current) {
       void runPublish();
     }
 
     return () => {
       room.off(RoomEvent.LocalTrackPublished, onLocalPublished);
       room.off(RoomEvent.Connected, onConnected);
-      room.off(RoomEvent.Reconnected, onReconnected);
     };
   }, [sessionKey, room]);
 
@@ -696,6 +808,7 @@ function RoomPresencePanel({
       if (me && onServerCamStatus) {
         onServerCamStatus(Boolean(me.hasVideo));
       }
+      studioDiag.patchSnapshot({ serverCam: me ? Boolean(me.hasVideo) : null });
       if (
         studioIdentity &&
         onServerCamLive &&
@@ -1071,12 +1184,14 @@ function StudioRoom({
 
   return (
     <>
+      <StudioRoomDiagnosticsWatcher />
       <RemoteTrackSubscriber />
       <PublishAcquiredTracks
         sessionKey={sessionKey}
         onError={onPublishError}
         onPublished={onPublished}
       />
+      <CollabStudioDiagnosticsPanel />
       <StudioConnectingOverlay label={connectingLabel} />
       {showVideo && (
         <>
@@ -1184,6 +1299,7 @@ export function CollabWebRtcStudio({
     setPhaseSafe("idle");
     setConnectionNotice("");
     setMediaError("");
+    studioDiag.reset();
     void studioRoom.disconnect(true).catch(() => {});
   }, [setPhaseSafe, studioRoom]);
 
@@ -1250,6 +1366,7 @@ export function CollabWebRtcStudio({
     setMediaError("");
     setPublishComplete(false);
     setServerCamOk(null);
+    studioDiag.reset();
     stopLocalTracks(previewTracksRef.current);
     previewTracksRef.current = [];
     setPreviewTracks([]);
