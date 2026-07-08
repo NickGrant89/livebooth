@@ -168,19 +168,6 @@ async function acquireLocalTracks(): Promise<LocalTrack[]> {
   }
 }
 
-function localCameraTrack(room: Room | undefined, previewTracks: LocalTrack[]): LocalTrack | null {
-  const published = room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-  if (published) return published as LocalTrack;
-  return previewTracks.find((t) => t.kind === Track.Kind.Video) ?? null;
-}
-
-function hasPublishedCamera(room: Room | undefined, previewTracks: LocalTrack[]): boolean {
-  return Boolean(
-    room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track ??
-      previewTracks.some((t) => t.kind === Track.Kind.Video),
-  );
-}
-
 function stopLocalTracks(tracks: LocalTrack[]) {
   for (const track of tracks) {
     track.stop();
@@ -317,13 +304,18 @@ async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]
 
 function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
   const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+  const attachedStreamIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!videoEl || !track || track.kind !== Track.Kind.Video) return;
+    const streamId = track.mediaStreamTrack.id;
+    if (attachedStreamIdRef.current === streamId) return;
+    attachedStreamIdRef.current = streamId;
     track.attach(videoEl);
     void videoEl.play().catch(() => {});
     return () => {
       track.detach(videoEl);
+      attachedStreamIdRef.current = null;
     };
   }, [track, videoEl]);
 
@@ -350,28 +342,80 @@ function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
   );
 }
 
+/** Local feed in studio — VideoTrack only, never flip back to pre-join preview. */
+function LocalCameraTile() {
+  const cameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
+  const localTrackRef = cameraTracks.find((t) => t.participant.isLocal);
+  const stickyRef = useRef<typeof localTrackRef>(undefined);
+  if (localTrackRef?.publication.track) {
+    stickyRef.current = localTrackRef;
+  }
+  const displayRef = localTrackRef?.publication.track
+    ? localTrackRef
+    : stickyRef.current;
+
+  if (displayRef?.publication.track) {
+    return (
+      <div
+        className="relative rounded-lg overflow-hidden bg-zinc-900"
+        style={{ minHeight: 200 }}
+      >
+        <VideoTrack
+          trackRef={displayRef}
+          className="w-full h-full object-cover min-h-[200px]"
+          style={{ transform: "scaleX(-1)" }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="w-full rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-xs"
+      style={{ minHeight: 200 }}
+    >
+      Camera loading…
+    </div>
+  );
+}
+
+function useStickyRemoteCameraTiles() {
+  const participants = useParticipants();
+  const remoteParticipants = participants.filter(
+    (p): p is RemoteParticipant => !p.isLocal,
+  );
+  const remoteCameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: true }).filter(
+    (t) => !t.participant.isLocal,
+  );
+  const stickyRef = useRef(
+    new Map<string, (typeof remoteCameraTracks)[0]>(),
+  );
+
+  for (const trackRef of remoteCameraTracks) {
+    if (trackRef.publication.track) {
+      stickyRef.current.set(trackRef.participant.identity, trackRef);
+    }
+  }
+
+  useEffect(() => {
+    const connected = new Set(remoteParticipants.map((p) => p.identity));
+    for (const identity of stickyRef.current.keys()) {
+      if (!connected.has(identity)) stickyRef.current.delete(identity);
+    }
+  }, [remoteParticipants]);
+
+  return remoteParticipants.map((participant) => {
+    const live =
+      remoteCameraTracks.find((t) => t.participant.identity === participant.identity) ??
+      stickyRef.current.get(participant.identity);
+    return { participant, trackRef: live };
+  });
+}
+
 const PreviewTracksContext = createContext<LocalTrack[]>([]);
 
 function usePreviewTracks() {
   return useContext(PreviewTracksContext);
-}
-
-function LocalCameraFromRoom({ lockPublished }: { lockPublished?: boolean }) {
-  const room = useRoomContext();
-  const previewTracks = usePreviewTracks();
-  const cameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
-  const localCamera = cameraTracks.find((t) => t.participant.isLocal)?.publication.track as
-    | LocalTrack
-    | undefined;
-  const published = room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track as
-    | LocalTrack
-    | undefined;
-  const track = (
-    lockPublished && published
-      ? published
-      : ((localCamera ?? published ?? localCameraTrack(room, previewTracks)) as LocalTrack | null)
-  ) as LocalTrack | null;
-  return <LocalPreviewVideo track={track} />;
 }
 
 /** Publish once per studio session — never re-run on connection state flicker. */
@@ -665,38 +709,34 @@ function RoomPresencePanel({
   );
 }
 
-function StudioVideoLayout({ publishComplete }: { publishComplete?: boolean }) {
-  const participants = useParticipants();
-  const remoteParticipants = participants.filter(
-    (p): p is RemoteParticipant => !p.isLocal,
-  );
-  const remoteCameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: true }).filter(
-    (t) => !t.participant.isLocal,
-  );
-  const remoteWithVideo = new Set(remoteCameraTracks.map((t) => t.participant.identity));
+function StudioVideoLayout() {
+  const remoteTiles = useStickyRemoteCameraTiles();
 
   return (
     <div className="space-y-2">
-      <LocalCameraFromRoom lockPublished={Boolean(publishComplete)} />
-      {remoteCameraTracks.map((trackRef) => (
-        <div
-          key={trackRef.participant.identity}
-          className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]"
-        >
-          <VideoTrack
-            trackRef={trackRef}
-            className="w-full h-full object-cover min-h-[120px]"
+      <LocalCameraTile />
+      {remoteTiles.map(({ participant, trackRef }) =>
+        trackRef?.publication.track ? (
+          <div
+            key={participant.identity}
+            className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]"
+          >
+            <VideoTrack
+              trackRef={trackRef}
+              className="w-full h-full object-cover min-h-[120px]"
+            />
+            <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
+              {participant.name || participant.identity}
+            </span>
+          </div>
+        ) : (
+          <RemoteWaitingTile
+            key={participant.identity}
+            participant={participant}
+            name={participant.name || participant.identity}
           />
-          <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
-            {trackRef.participant.name || trackRef.participant.identity}
-          </span>
-        </div>
-      ))}
-      {remoteParticipants
-        .filter((p) => !remoteWithVideo.has(p.identity))
-        .map((p) => (
-          <RemoteWaitingTile key={p.identity} participant={p} name={p.name || p.identity} />
-        ))}
+        ),
+      )}
     </div>
   );
 }
@@ -1020,7 +1060,7 @@ function StudioRoom({
             />
           )}
           <div className="p-2">
-            <StudioVideoLayout publishComplete={publishComplete} />
+            <StudioVideoLayout />
           </div>
           {state === ConnectionState.Connected && (
             <>
