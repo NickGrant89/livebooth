@@ -216,7 +216,6 @@ async function publishTrackWithTimeout(
   const existing = room.localParticipant.getTrackPublication(source);
   if (existing?.track) return;
 
-  track.detach();
   await Promise.race([
     room.localParticipant.publishTrack(track, { source, simulcast: false }),
     new Promise<never>((_, reject) => {
@@ -226,6 +225,10 @@ async function publishTrackWithTimeout(
       );
     }),
   ]);
+}
+
+function localCameraIsPublished(room: Room): boolean {
+  return Boolean(room.localParticipant.getTrackPublication(Track.Source.Camera)?.track);
 }
 
 async function verifyServerSeesCamera(collabId: string, identity: string): Promise<boolean> {
@@ -240,6 +243,22 @@ async function verifyServerSeesCamera(collabId: string, identity: string): Promi
 }
 
 async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]) {
+  if (localCameraIsPublished(room)) {
+    if (!room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track) {
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true);
+      } catch {
+        /* mic optional */
+      }
+    }
+    try {
+      await room.startAudio();
+    } catch {
+      /* iOS may need extra tap */
+    }
+    return;
+  }
+
   let lastError: unknown;
 
   const livePreview = previewTracks.filter(
@@ -347,7 +366,7 @@ function LocalCameraFromRoom() {
   return <LocalPreviewVideo track={track} />;
 }
 
-/** Retry publish if the join handler missed (e.g. reconnect). */
+/** Publish once when connected — do not re-run on every parent re-render. */
 function PublishAcquiredTracks({
   onError,
   publishComplete,
@@ -360,43 +379,72 @@ function PublishAcquiredTracks({
   const room = useRoomContext();
   const connectionState = useConnectionState();
   const previewTracks = usePreviewTracks();
-  const publishAttemptRef = useRef(0);
+  const onErrorRef = useRef(onError);
+  const onPublishedRef = useRef(onPublished);
+  const publishBusyRef = useRef(false);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+  useEffect(() => {
+    onPublishedRef.current = onPublished;
+  }, [onPublished]);
 
   useEffect(() => {
     if (publishComplete) return;
     if (!room || connectionState !== ConnectionState.Connected) return;
     if (previewTracks.length === 0) return;
 
-    let cancelled = false;
-    let retryTimer: ReturnType<typeof setInterval> | undefined;
+    const markLive = () => {
+      onPublishedRef.current?.();
+      onErrorRef.current("");
+    };
 
-    const attemptPublish = async () => {
-      const attemptId = ++publishAttemptRef.current;
-      try {
-        await ensureLocalMediaPublished(room, previewTracks);
-        if (cancelled || attemptId !== publishAttemptRef.current) return;
-        onError("");
-        onPublished?.();
-      } catch (err) {
-        if (cancelled || attemptId !== publishAttemptRef.current) return;
-        onError(formatMediaError(err));
+    if (localCameraIsPublished(room)) {
+      markLive();
+      return;
+    }
+
+    const onLocalPublished = () => {
+      if (localCameraIsPublished(room)) markLive();
+    };
+    const onUnpublished = () => {
+      if (!localCameraIsPublished(room)) {
+        onErrorRef.current("Camera dropped — tap Camera below.");
       }
     };
 
-    void attemptPublish();
-    retryTimer = setInterval(() => {
-      if (room.localParticipant.getTrackPublication(Track.Source.Camera)?.track) {
-        onPublished?.();
-        return;
+    room.on(RoomEvent.LocalTrackPublished, onLocalPublished);
+    room.on(RoomEvent.LocalTrackUnpublished, onUnpublished);
+
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const runPublish = async () => {
+      if (cancelled || publishBusyRef.current || localCameraIsPublished(room)) return;
+      publishBusyRef.current = true;
+      try {
+        await ensureLocalMediaPublished(room, previewTracks);
+        if (!cancelled && localCameraIsPublished(room)) markLive();
+      } catch (err) {
+        if (!cancelled) onErrorRef.current(formatMediaError(err));
+      } finally {
+        publishBusyRef.current = false;
       }
-      void attemptPublish();
-    }, 8000);
+    };
+
+    void runPublish();
+    retryTimer = setTimeout(() => {
+      if (!cancelled && !localCameraIsPublished(room)) void runPublish();
+    }, 15_000);
 
     return () => {
       cancelled = true;
-      if (retryTimer) clearInterval(retryTimer);
+      if (retryTimer) clearTimeout(retryTimer);
+      room.off(RoomEvent.LocalTrackPublished, onLocalPublished);
+      room.off(RoomEvent.LocalTrackUnpublished, onUnpublished);
     };
-  }, [room, connectionState, previewTracks, onError, publishComplete, onPublished]);
+  }, [room, connectionState, previewTracks, publishComplete]);
 
   return null;
 }
@@ -1016,6 +1064,19 @@ export function CollabWebRtcStudio({
     [mode, collabId],
   );
 
+  const handlePublishError = useCallback((msg: string) => {
+    setMediaError(msg);
+  }, []);
+
+  const sessionIdentityRef = useRef<string | undefined>(undefined);
+  sessionIdentityRef.current = session?.identity;
+
+  const handlePublished = useCallback(() => {
+    setPublishComplete(true);
+    setMediaError("");
+    void checkServerCamera(sessionIdentityRef.current);
+  }, [checkServerCamera]);
+
   useEffect(() => {
     if (!session) return;
 
@@ -1176,15 +1237,11 @@ export function CollabWebRtcStudio({
             hostStreamLive={hostStreamLive}
             connectionNotice={connectionNotice || mediaError || undefined}
             connectingLabel={joinStepLabel(joinStep === "login" ? "connect" : joinStep)}
-            onPublishError={setMediaError}
+            onPublishError={handlePublishError}
             publishComplete={publishComplete}
             publishError={mediaError || undefined}
             serverCamOk={serverCamOk}
-            onPublished={() => {
-              setPublishComplete(true);
-              setMediaError("");
-              void checkServerCamera(session.identity);
-            }}
+            onPublished={handlePublished}
           />
           <StudioFooter
             onReconnect={joinStudio}
