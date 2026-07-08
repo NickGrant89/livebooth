@@ -57,6 +57,7 @@ ufw allow 443/tcp
 ufw allow 80/tcp
 ufw allow 7881/tcp
 ufw allow 3478/udp
+ufw allow 5349/tcp
 ufw allow 50000:50100/udp
 ```
 
