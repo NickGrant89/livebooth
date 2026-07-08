@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, createContext, useContext } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, createContext, useContext, memo } from "react";
 import {
   RoomContext,
   RoomAudioRenderer,
-  VideoTrack,
   useConnectionState,
   useRoomContext,
   useParticipants,
-  useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import {
@@ -303,27 +301,55 @@ async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]
 }
 
 function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
-  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
-  const attachedStreamIdRef = useRef<string | null>(null);
+  return <StableAttachedVideo track={track} mirror minHeight={200} className="w-full h-full object-cover rounded-lg bg-zinc-900" />;
+}
+
+/** One <video> element — only re-attach when the MediaStreamTrack id changes. */
+function StableAttachedVideo({
+  track,
+  mirror,
+  className,
+  minHeight = 200,
+}: {
+  track: Track | null;
+  mirror?: boolean;
+  className?: string;
+  minHeight?: number;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const bindingRef = useRef<{ streamId: string; track: Track } | null>(null);
 
   useEffect(() => {
-    if (!videoEl || !track || track.kind !== Track.Kind.Video) return;
+    const el = videoRef.current;
+    if (!el || !track || track.kind !== Track.Kind.Video) return;
+
     const streamId = track.mediaStreamTrack.id;
-    if (attachedStreamIdRef.current === streamId) return;
-    attachedStreamIdRef.current = streamId;
-    track.attach(videoEl);
-    void videoEl.play().catch(() => {});
+    if (bindingRef.current?.streamId === streamId) return;
+
+    if (bindingRef.current) {
+      bindingRef.current.track.detach(el);
+    }
+
+    track.attach(el);
+    void el.play().catch(() => {});
+    bindingRef.current = { streamId, track };
+  }, [track?.mediaStreamTrack?.id]);
+
+  useEffect(() => {
+    const el = videoRef.current;
     return () => {
-      track.detach(videoEl);
-      attachedStreamIdRef.current = null;
+      if (el && bindingRef.current) {
+        bindingRef.current.track.detach(el);
+        bindingRef.current = null;
+      }
     };
-  }, [track, videoEl]);
+  }, []);
 
   if (!track) {
     return (
       <div
         className="w-full rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-xs"
-        style={{ minHeight: 200 }}
+        style={{ minHeight }}
       >
         No camera track
       </div>
@@ -332,85 +358,168 @@ function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
 
   return (
     <video
-      ref={setVideoEl}
+      ref={videoRef}
       autoPlay
       muted
       playsInline
-      className="w-full h-full object-cover rounded-lg bg-zinc-900"
-      style={{ minHeight: 200, transform: "scaleX(-1)" }}
+      className={className}
+      style={{ minHeight, transform: mirror ? "scaleX(-1)" : undefined }}
     />
   );
 }
 
-/** Local feed in studio — VideoTrack only, never flip back to pre-join preview. */
 function LocalCameraTile() {
-  const cameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
-  const localTrackRef = cameraTracks.find((t) => t.participant.isLocal);
-  const stickyRef = useRef<typeof localTrackRef>(undefined);
-  if (localTrackRef?.publication.track) {
-    stickyRef.current = localTrackRef;
-  }
-  const displayRef = localTrackRef?.publication.track
-    ? localTrackRef
-    : stickyRef.current;
+  const room = useRoomContext();
+  const [track, setTrack] = useState<LocalTrack | null>(null);
+  const streamIdRef = useRef<string | null>(null);
 
-  if (displayRef?.publication.track) {
+  useEffect(() => {
+    if (!room) return;
+
+    const pick = (): LocalTrack | null => {
+      const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+      return t?.kind === Track.Kind.Video ? (t as LocalTrack) : null;
+    };
+
+    const sync = () => {
+      const next = pick();
+      if (!next) return;
+      const id = next.mediaStreamTrack.id;
+      if (streamIdRef.current === id) return;
+      streamIdRef.current = id;
+      setTrack(next);
+    };
+
+    sync();
+    room.on(RoomEvent.LocalTrackPublished, sync);
+    room.on(RoomEvent.Reconnected, sync);
+    room.on(RoomEvent.LocalTrackUnpublished, () => {
+      if (!pick()) {
+        streamIdRef.current = null;
+        setTrack(null);
+      }
+    });
+
+    return () => {
+      room.off(RoomEvent.LocalTrackPublished, sync);
+      room.off(RoomEvent.Reconnected, sync);
+      room.off(RoomEvent.LocalTrackUnpublished, sync);
+    };
+  }, [room]);
+
+  if (!track) {
     return (
       <div
-        className="relative rounded-lg overflow-hidden bg-zinc-900"
+        className="w-full rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-xs"
         style={{ minHeight: 200 }}
       >
-        <VideoTrack
-          trackRef={displayRef}
-          className="w-full h-full object-cover min-h-[200px]"
-          style={{ transform: "scaleX(-1)" }}
-        />
+        Camera loading…
       </div>
     );
   }
 
   return (
-    <div
-      className="w-full rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-xs"
-      style={{ minHeight: 200 }}
-    >
-      Camera loading…
+    <div className="relative rounded-lg overflow-hidden bg-zinc-900" style={{ minHeight: 200 }}>
+      <StableAttachedVideo
+        track={track}
+        mirror
+        className="w-full h-full object-cover min-h-[200px]"
+        minHeight={200}
+      />
     </div>
   );
 }
 
-function useStickyRemoteCameraTiles() {
-  const participants = useParticipants();
-  const remoteParticipants = participants.filter(
-    (p): p is RemoteParticipant => !p.isLocal,
-  );
-  const remoteCameraTracks = useTracks([Track.Source.Camera], { onlySubscribed: true }).filter(
-    (t) => !t.participant.isLocal,
-  );
-  const stickyRef = useRef(
-    new Map<string, (typeof remoteCameraTracks)[0]>(),
-  );
-
-  for (const trackRef of remoteCameraTracks) {
-    if (trackRef.publication.track) {
-      stickyRef.current.set(trackRef.participant.identity, trackRef);
-    }
-  }
+const RemoteParticipantCamera = memo(function RemoteParticipantCamera({
+  participant,
+  name,
+}: {
+  participant: RemoteParticipant;
+  name: string;
+}) {
+  const [track, setTrack] = useState<Track | null>(null);
+  const streamIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const connected = new Set(remoteParticipants.map((p) => p.identity));
-    for (const identity of stickyRef.current.keys()) {
-      if (!connected.has(identity)) stickyRef.current.delete(identity);
-    }
-  }, [remoteParticipants]);
+    const subscribe = () => {
+      const pub = participant.getTrackPublication(Track.Source.Camera);
+      if (pub && !pub.isSubscribed) void pub.setSubscribed(true);
+    };
 
-  return remoteParticipants.map((participant) => {
-    const live =
-      remoteCameraTracks.find((t) => t.participant.identity === participant.identity) ??
-      stickyRef.current.get(participant.identity);
-    return { participant, trackRef: live };
-  });
-}
+    const sync = () => {
+      subscribe();
+      const t = participant.getTrackPublication(Track.Source.Camera)?.track;
+      if (!t || t.kind !== Track.Kind.Video) return;
+      const id = t.mediaStreamTrack.id;
+      if (streamIdRef.current === id) return;
+      streamIdRef.current = id;
+      setTrack(t);
+    };
+
+    subscribe();
+    sync();
+    participant.on(ParticipantEvent.TrackPublished, sync);
+    participant.on(ParticipantEvent.TrackSubscribed, sync);
+
+    return () => {
+      participant.off(ParticipantEvent.TrackPublished, sync);
+      participant.off(ParticipantEvent.TrackSubscribed, sync);
+    };
+  }, [participant]);
+
+  return (
+    <div className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]">
+      {track ? (
+        <StableAttachedVideo
+          track={track}
+          className="w-full h-full object-cover min-h-[120px]"
+          minHeight={120}
+        />
+      ) : (
+        <div className="min-h-[120px] flex items-center justify-center text-zinc-500 text-xs px-2 text-center">
+          {name} in room — connecting video…
+        </div>
+      )}
+      <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
+        {name}
+      </span>
+    </div>
+  );
+});
+
+const StudioVideoLayout = memo(function StudioVideoLayout() {
+  const room = useRoomContext();
+  const [remoteIds, setRemoteIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!room) return;
+    const sync = () => setRemoteIds(Array.from(room.remoteParticipants.keys()));
+    sync();
+    room.on(RoomEvent.ParticipantConnected, sync);
+    room.on(RoomEvent.ParticipantDisconnected, sync);
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, sync);
+      room.off(RoomEvent.ParticipantDisconnected, sync);
+    };
+  }, [room]);
+
+  return (
+    <div className="space-y-2">
+      <LocalCameraTile />
+      {remoteIds.map((id) => {
+        const participant = room.remoteParticipants.get(id);
+        if (!participant) return null;
+        return (
+          <RemoteParticipantCamera
+            key={id}
+            participant={participant}
+            name={participant.name || participant.identity}
+          />
+        );
+      })}
+    </div>
+  );
+});
 
 const PreviewTracksContext = createContext<LocalTrack[]>([]);
 
@@ -485,7 +594,7 @@ function PublishAcquiredTracks({
       void runPublish();
     };
     const onReconnected = () => {
-      if (!localCameraIsPublished(room)) void runPublish();
+      syncLive();
     };
 
     room.on(RoomEvent.LocalTrackPublished, onLocalPublished);
@@ -551,49 +660,6 @@ function LocalPublishBadge({
     <p className="text-[10px] text-amber-400/90 px-2">
       Publishing camera to room… tap Camera below if this stays more than a few seconds.
     </p>
-  );
-}
-
-function RemoteWaitingTile({
-  participant,
-  name,
-}: {
-  participant: RemoteParticipant;
-  name: string;
-}) {
-  const [, refresh] = useState(0);
-
-  useEffect(() => {
-    const subscribeCamera = () => {
-      const pub = participant.getTrackPublication(Track.Source.Camera);
-      if (pub) subscribeRemotePublication(pub);
-    };
-    subscribeCamera();
-    const bump = () => refresh((n) => n + 1);
-    participant.on(ParticipantEvent.TrackPublished, subscribeCamera);
-    participant.on(ParticipantEvent.TrackSubscribed, bump);
-    participant.on(ParticipantEvent.TrackUnsubscribed, bump);
-    return () => {
-      participant.off(ParticipantEvent.TrackPublished, subscribeCamera);
-      participant.off(ParticipantEvent.TrackSubscribed, bump);
-      participant.off(ParticipantEvent.TrackUnsubscribed, bump);
-    };
-  }, [participant]);
-
-  const camPub = participant.getTrackPublication(Track.Source.Camera);
-  let hint = "waiting for camera…";
-  if (camPub && !camPub.isSubscribed) hint = "connecting video…";
-  else if (camPub?.isMuted) hint = "camera off";
-
-  return (
-    <div className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]">
-      <div className="min-h-[120px] flex items-center justify-center text-zinc-500 text-xs px-2 text-center">
-        {name} in room — {hint}
-      </div>
-      <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
-        {name}
-      </span>
-    </div>
   );
 }
 
@@ -704,38 +770,6 @@ function RoomPresencePanel({
             <span className="text-amber-400/90"> · partner on wrong page or old invite?</span>
           )}
         </p>
-      )}
-    </div>
-  );
-}
-
-function StudioVideoLayout() {
-  const remoteTiles = useStickyRemoteCameraTiles();
-
-  return (
-    <div className="space-y-2">
-      <LocalCameraTile />
-      {remoteTiles.map(({ participant, trackRef }) =>
-        trackRef?.publication.track ? (
-          <div
-            key={participant.identity}
-            className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]"
-          >
-            <VideoTrack
-              trackRef={trackRef}
-              className="w-full h-full object-cover min-h-[120px]"
-            />
-            <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded">
-              {participant.name || participant.identity}
-            </span>
-          </div>
-        ) : (
-          <RemoteWaitingTile
-            key={participant.identity}
-            participant={participant}
-            name={participant.name || participant.identity}
-          />
-        ),
       )}
     </div>
   );
