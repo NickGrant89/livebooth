@@ -6,7 +6,6 @@ import {
   RoomAudioRenderer,
   useConnectionState,
   useRoomContext,
-  useParticipants,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import {
@@ -192,26 +191,6 @@ function cameraDeviceOptions(videoTrack: LocalTrack | undefined): VideoCaptureOp
   return videoCaptureForPublish();
 }
 
-async function publishTrackWithTimeout(
-  room: Room,
-  track: LocalTrack,
-  source: Track.Source,
-  timeoutMs: number,
-) {
-  const existing = room.localParticipant.getTrackPublication(source);
-  if (existing?.track) return;
-
-  await Promise.race([
-    room.localParticipant.publishTrack(track, { source, simulcast: false }),
-    new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error(`Publish ${source} timed out after ${timeoutMs / 1000}s`)),
-        timeoutMs,
-      );
-    }),
-  ]);
-}
-
 function localCameraIsPublished(room: Room): boolean {
   const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
   return Boolean(pub?.track ?? pub?.trackSid);
@@ -228,15 +207,9 @@ async function verifyServerSeesCamera(collabId: string, identity: string): Promi
   return Boolean(me?.hasVideo);
 }
 
+/** Publish the exact preview tracks acquired on Join — never call setCameraEnabled here. */
 async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]) {
   if (localCameraIsPublished(room)) {
-    if (!room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track) {
-      try {
-        await room.localParticipant.setMicrophoneEnabled(true);
-      } catch {
-        /* mic optional */
-      }
-    }
     try {
       await room.startAudio();
     } catch {
@@ -245,43 +218,31 @@ async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]
     return;
   }
 
-  let lastError: unknown;
-
-  const livePreview = previewTracks.filter(
-    (t) => t.mediaStreamTrack.readyState !== "ended",
-  );
+  const livePreview = previewTracks.filter((t) => t.mediaStreamTrack.readyState !== "ended");
   const videoTrack = livePreview.find((t) => t.kind === Track.Kind.Video);
   const audioTrack = livePreview.find((t) => t.kind === Track.Kind.Audio);
 
-  if (videoTrack) {
-    try {
-      await publishTrackWithTimeout(room, videoTrack, Track.Source.Camera, 20_000);
-    } catch (err) {
-      lastError = err;
-      try {
-        await room.localParticipant.setCameraEnabled(true, cameraDeviceOptions(videoTrack));
-      } catch (fallbackErr) {
-        lastError = fallbackErr;
-      }
-    }
-  } else {
-    try {
-      await room.localParticipant.setCameraEnabled(true, videoCaptureForPublish());
-    } catch (err) {
-      lastError = err;
-    }
+  if (!videoTrack) {
+    throw new Error(
+      "Camera track ended before publish — tap Reconnect and Allow camera when prompted.",
+    );
   }
 
-  if (audioTrack && !room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track) {
-    try {
-      await publishTrackWithTimeout(room, audioTrack, Track.Source.Microphone, 12_000);
-    } catch {
-      try {
-        await room.localParticipant.setMicrophoneEnabled(true);
-      } catch (err) {
-        lastError = err;
-      }
-    }
+  if (!room.localParticipant.getTrackPublication(Track.Source.Camera)?.trackSid) {
+    await room.localParticipant.publishTrack(videoTrack, {
+      source: Track.Source.Camera,
+      simulcast: false,
+    });
+  }
+
+  if (
+    audioTrack &&
+    !room.localParticipant.getTrackPublication(Track.Source.Microphone)?.trackSid
+  ) {
+    await room.localParticipant.publishTrack(audioTrack, {
+      source: Track.Source.Microphone,
+      simulcast: false,
+    });
   }
 
   try {
@@ -290,12 +251,9 @@ async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]
     /* iOS may need extra tap */
   }
 
-  if (!room.localParticipant.getTrackPublication(Track.Source.Camera)?.track) {
-    throw (
-      lastError ??
-      new Error(
-        "Camera not published — tap Camera below. If it keeps failing, open VPS UDP ports 50000-50100 and 3478.",
-      )
+  if (!localCameraIsPublished(room)) {
+    throw new Error(
+      "Camera not published — tap Camera below. If it keeps failing, open VPS UDP ports 50000-50100 and 3478.",
     );
   }
 }
@@ -304,7 +262,7 @@ function LocalPreviewVideo({ track }: { track: LocalTrack | null }) {
   return <StableAttachedVideo track={track} mirror minHeight={200} className="w-full h-full object-cover rounded-lg bg-zinc-900" />;
 }
 
-/** One <video> element — only re-attach when the MediaStreamTrack id changes. */
+/** One persistent <video> — attach only when MediaStreamTrack id changes; never swap to a placeholder. */
 function StableAttachedVideo({
   track,
   mirror,
@@ -317,44 +275,36 @@ function StableAttachedVideo({
   minHeight?: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const bindingRef = useRef<{ streamId: string; track: Track } | null>(null);
+  const boundTrackRef = useRef<Track | null>(null);
+  const boundStreamIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const el = videoRef.current;
     if (!el || !track || track.kind !== Track.Kind.Video) return;
 
     const streamId = track.mediaStreamTrack.id;
-    if (bindingRef.current?.streamId === streamId) return;
+    if (boundStreamIdRef.current === streamId) return;
 
-    if (bindingRef.current) {
-      bindingRef.current.track.detach(el);
+    if (boundTrackRef.current) {
+      boundTrackRef.current.detach(el);
     }
 
     track.attach(el);
     void el.play().catch(() => {});
-    bindingRef.current = { streamId, track };
+    boundTrackRef.current = track;
+    boundStreamIdRef.current = streamId;
   }, [track?.mediaStreamTrack?.id]);
 
   useEffect(() => {
     const el = videoRef.current;
     return () => {
-      if (el && bindingRef.current) {
-        bindingRef.current.track.detach(el);
-        bindingRef.current = null;
+      if (el && boundTrackRef.current) {
+        boundTrackRef.current.detach(el);
+        boundTrackRef.current = null;
+        boundStreamIdRef.current = null;
       }
     };
   }, []);
-
-  if (!track) {
-    return (
-      <div
-        className="w-full rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-xs"
-        style={{ minHeight }}
-      >
-        No camera track
-      </div>
-    );
-  }
 
   return (
     <video
@@ -363,69 +313,36 @@ function StableAttachedVideo({
       muted
       playsInline
       className={className}
-      style={{ minHeight, transform: mirror ? "scaleX(-1)" : undefined }}
+      style={{
+        minHeight,
+        transform: mirror ? "scaleX(-1)" : undefined,
+        backgroundColor: "#18181b",
+      }}
     />
   );
 }
 
+/** Local feed — always the Join-click camera track, never swapped for room publication objects. */
 function LocalCameraTile() {
-  const room = useRoomContext();
-  const [track, setTrack] = useState<LocalTrack | null>(null);
-  const streamIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!room) return;
-
-    const pick = (): LocalTrack | null => {
-      const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-      return t?.kind === Track.Kind.Video ? (t as LocalTrack) : null;
-    };
-
-    const sync = () => {
-      const next = pick();
-      if (!next) return;
-      const id = next.mediaStreamTrack.id;
-      if (streamIdRef.current === id) return;
-      streamIdRef.current = id;
-      setTrack(next);
-    };
-
-    sync();
-    room.on(RoomEvent.LocalTrackPublished, sync);
-    room.on(RoomEvent.Reconnected, sync);
-    room.on(RoomEvent.LocalTrackUnpublished, () => {
-      if (!pick()) {
-        streamIdRef.current = null;
-        setTrack(null);
-      }
-    });
-
-    return () => {
-      room.off(RoomEvent.LocalTrackPublished, sync);
-      room.off(RoomEvent.Reconnected, sync);
-      room.off(RoomEvent.LocalTrackUnpublished, sync);
-    };
-  }, [room]);
-
-  if (!track) {
-    return (
-      <div
-        className="w-full rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-xs"
-        style={{ minHeight: 200 }}
-      >
-        Camera loading…
-      </div>
-    );
-  }
+  const previewTracks = usePreviewTracks();
+  const videoTrack =
+    previewTracks.find(
+      (t) => t.kind === Track.Kind.Video && t.mediaStreamTrack.readyState !== "ended",
+    ) ?? null;
 
   return (
     <div className="relative rounded-lg overflow-hidden bg-zinc-900" style={{ minHeight: 200 }}>
       <StableAttachedVideo
-        track={track}
+        track={videoTrack}
         mirror
         className="w-full h-full object-cover min-h-[200px]"
         minHeight={200}
       />
+      {!videoTrack && (
+        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs pointer-events-none">
+          Camera loading…
+        </div>
+      )}
     </div>
   );
 }
@@ -469,14 +386,13 @@ const RemoteParticipantCamera = memo(function RemoteParticipantCamera({
 
   return (
     <div className="relative rounded-lg overflow-hidden bg-zinc-900 min-h-[120px]">
-      {track ? (
-        <StableAttachedVideo
-          track={track}
-          className="w-full h-full object-cover min-h-[120px]"
-          minHeight={120}
-        />
-      ) : (
-        <div className="min-h-[120px] flex items-center justify-center text-zinc-500 text-xs px-2 text-center">
+      <StableAttachedVideo
+        track={track}
+        className="w-full h-full object-cover min-h-[120px]"
+        minHeight={120}
+      />
+      {!track && (
+        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs px-2 text-center pointer-events-none">
           {name} in room — connecting video…
         </div>
       )}
@@ -675,9 +591,8 @@ function RoomPresencePanel({
   onServerCamLive?: () => void;
 }) {
   const room = useRoomContext();
-  const participants = useParticipants();
-  const total = participants.length;
-  const remote = participants.filter((p) => !p.isLocal);
+  const [browserCount, setBrowserCount] = useState(1);
+  const [remoteNames, setRemoteNames] = useState<string[]>([]);
   const [serverCount, setServerCount] = useState<number | null>(null);
   const [serverParticipants, setServerParticipants] = useState<
     { identity?: string; name?: string; hasVideo?: boolean; tracks?: number }[]
@@ -690,6 +605,22 @@ function RoomPresencePanel({
   }, [collabId, studioIdentity]);
 
   const roomLabel = collabId ? `collab-${collabId}` : room.name;
+
+  useEffect(() => {
+    if (!room) return;
+    const sync = () => {
+      const remotes = Array.from(room.remoteParticipants.values());
+      setBrowserCount(1 + remotes.length);
+      setRemoteNames(remotes.map((p) => p.name || p.identity));
+    };
+    sync();
+    room.on(RoomEvent.ParticipantConnected, sync);
+    room.on(RoomEvent.ParticipantDisconnected, sync);
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, sync);
+      room.off(RoomEvent.ParticipantDisconnected, sync);
+    };
+  }, [room]);
 
   useEffect(() => {
     if (mode !== "collab" || !collabId) return;
@@ -731,11 +662,11 @@ function RoomPresencePanel({
 
   return (
     <div className="px-2 pb-1 text-xs space-y-0.5">
-      <p className={remote.length > 0 ? "text-[#53fc18]" : "text-amber-300/90"}>
-        {total} DJ{total === 1 ? "" : "s"} in this room (browser)
-        {remote.length === 0
+      <p className={remoteNames.length > 0 ? "text-[#53fc18]" : "text-amber-300/90"}>
+        {browserCount} DJ{browserCount === 1 ? "" : "s"} in this room (browser)
+        {remoteNames.length === 0
           ? " — waiting for partner on Step 4…"
-          : ` · ${remote.map((p) => p.name || p.identity).join(", ")}`}
+          : ` · ${remoteNames.join(", ")}`}
       </p>
       {serverCount != null && (
         <p className="text-zinc-600 font-mono text-[10px]">
@@ -766,7 +697,7 @@ function RoomPresencePanel({
           >
             {collabId.slice(0, 8)}…{copied ? " copied" : " (copy id)"}
           </button>
-          {remote.length === 0 && total === 1 && (
+          {remoteNames.length === 0 && browserCount === 1 && (
             <span className="text-amber-400/90"> · partner on wrong page or old invite?</span>
           )}
         </p>
@@ -871,7 +802,6 @@ function EgressWatcher({
   onPublishError?: (msg: string) => void;
 }) {
   const room = useRoomContext();
-  const previewTracks = usePreviewTracks();
   const [status, setStatus] = useState("");
   const [mixActive, setMixActive] = useState(Boolean(compositorActive));
   const [debug, setDebug] = useState("");
@@ -961,7 +891,7 @@ function EgressWatcher({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [room, collabId, role, previewTracks, onPublishError]);
+  }, [room, collabId, role, onPublishError]);
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs space-y-1">
@@ -1019,7 +949,8 @@ function RemoteTrackSubscriber() {
 
 function StudioConnectingOverlay({ label }: { label: string }) {
   const state = useConnectionState();
-  if (state === ConnectionState.Connected) return null;
+  // Only block UI on first connect — reconnects keep video visible (overlay was causing flicker).
+  if (state !== ConnectionState.Connecting) return null;
 
   return (
     <div className="rounded-lg bg-black/40 p-3 text-center mx-2 mt-2">
@@ -1028,6 +959,14 @@ function StudioConnectingOverlay({ label }: { label: string }) {
     </div>
   );
 }
+
+const CollabVideoStage = memo(function CollabVideoStage() {
+  return (
+    <div className="p-2">
+      <StudioVideoLayout />
+    </div>
+  );
+});
 
 function StudioRoom({
   mode,
@@ -1093,9 +1032,7 @@ function StudioRoom({
               publishComplete={publishComplete}
             />
           )}
-          <div className="p-2">
-            <StudioVideoLayout />
-          </div>
+          <CollabVideoStage />
           {state === ConnectionState.Connected && (
             <>
               <StudioConnectionStatus notice={connectionNotice} />
