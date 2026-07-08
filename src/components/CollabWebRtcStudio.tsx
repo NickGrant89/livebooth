@@ -214,8 +214,11 @@ async function verifyServerSeesCamera(collabId: string, identity: string): Promi
   return Boolean(me?.hasVideo);
 }
 
-/** Publish or recover camera/mic — uses preview tracks first, setCameraEnabled if preview died. */
-async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]) {
+/** Publish camera/mic via LiveKit native API — survives reconnect on mobile Safari. */
+async function ensureLocalMediaPublished(
+  room: Room,
+  videoCapture?: VideoCaptureOptions,
+) {
   if (localCameraTrackHealthy(room)) {
     try {
       await room.startAudio();
@@ -225,38 +228,9 @@ async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]
     return;
   }
 
-  const livePreview = previewTracks.filter((t) => t.mediaStreamTrack.readyState !== "ended");
-  const videoPreview = livePreview.find((t) => t.kind === Track.Kind.Video);
-  const audioPreview = livePreview.find((t) => t.kind === Track.Kind.Audio);
-  const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
-  const deadCamTrack = camPub?.track;
-
-  if (deadCamTrack && !localCameraTrackHealthy(room)) {
-    try {
-      await room.localParticipant.unpublishTrack(deadCamTrack);
-    } catch {
-      /* already gone */
-    }
-  }
-
-  if (videoPreview && !room.localParticipant.getTrackPublication(Track.Source.Camera)?.trackSid) {
-    await room.localParticipant.publishTrack(videoPreview, {
-      source: Track.Source.Camera,
-      simulcast: false,
-    });
-  } else if (!localCameraTrackHealthy(room)) {
-    await room.localParticipant.setCameraEnabled(true, cameraDeviceOptions(videoPreview));
-  }
-
-  if (
-    audioPreview &&
-    !room.localParticipant.getTrackPublication(Track.Source.Microphone)?.trackSid
-  ) {
-    await room.localParticipant.publishTrack(audioPreview, {
-      source: Track.Source.Microphone,
-      simulcast: false,
-    });
-  } else if (!room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track) {
+  const capture = videoCapture ?? videoCaptureForPublish();
+  await room.localParticipant.setCameraEnabled(true, capture);
+  if (!room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track) {
     await room.localParticipant.setMicrophoneEnabled(true);
   }
 
@@ -268,7 +242,7 @@ async function ensureLocalMediaPublished(room: Room, previewTracks: LocalTrack[]
 
   if (!localCameraIsPublished(room)) {
     throw new Error(
-      "Camera not published — tap Camera below. If it keeps failing, open VPS UDP ports 50000-50100, 3478, 5349.",
+      "Camera not published — tap Camera below. If it keeps failing, check DigitalOcean firewall allows UDP 50000-50100, 3478, TCP 5349.",
     );
   }
 }
@@ -488,25 +462,27 @@ function usePreviewTracks() {
   return useContext(PreviewTracksContext);
 }
 
-/** Publish once per studio session — never re-run on connection state flicker. */
+const STUDIO_POLL_MS = 15_000;
+
+/** Publish on connect / reconnect only — no republish on every unpublish blip. */
 function PublishAcquiredTracks({
   sessionKey,
+  videoCapture,
   onError,
-  publishComplete,
   onPublished,
 }: {
   sessionKey: number;
+  videoCapture?: VideoCaptureOptions;
   onError: (msg: string) => void;
-  publishComplete?: boolean;
   onPublished?: () => void;
 }) {
   const room = useRoomContext();
-  const previewTracks = usePreviewTracks();
   const onErrorRef = useRef(onError);
   const onPublishedRef = useRef(onPublished);
   const publishBusyRef = useRef(false);
-  const previewTracksRef = useRef(previewTracks);
-  previewTracksRef.current = previewTracks;
+  const videoCaptureRef = useRef(videoCapture);
+  videoCaptureRef.current = videoCapture;
+  const lastReconnectPublishRef = useRef(0);
 
   useEffect(() => {
     onErrorRef.current = onError;
@@ -516,8 +492,6 @@ function PublishAcquiredTracks({
   }, [onPublished]);
 
   useEffect(() => {
-    if (previewTracksRef.current.length === 0 && !localCameraIsPublished(room)) return;
-
     const markLive = () => {
       onPublishedRef.current?.();
       onErrorRef.current("");
@@ -532,14 +506,13 @@ function PublishAcquiredTracks({
     };
 
     const runPublish = async () => {
-      if (publishBusyRef.current) return;
-      if (localCameraTrackHealthy(room)) {
+      if (publishBusyRef.current || localCameraTrackHealthy(room)) {
         syncLive();
         return;
       }
       publishBusyRef.current = true;
       try {
-        await ensureLocalMediaPublished(room, previewTracksRef.current);
+        await ensureLocalMediaPublished(room, videoCaptureRef.current);
         syncLive();
       } catch (err) {
         onErrorRef.current(formatMediaError(err));
@@ -555,14 +528,13 @@ function PublishAcquiredTracks({
       void runPublish();
     };
     const onReconnected = () => {
-      void runPublish();
-    };
-    const onUnpublished = () => {
+      const now = Date.now();
+      if (now - lastReconnectPublishRef.current < 30_000) return;
+      lastReconnectPublishRef.current = now;
       void runPublish();
     };
 
     room.on(RoomEvent.LocalTrackPublished, onLocalPublished);
-    room.on(RoomEvent.LocalTrackUnpublished, onUnpublished);
     room.on(RoomEvent.Connected, onConnected);
     room.on(RoomEvent.Reconnected, onReconnected);
 
@@ -572,68 +544,10 @@ function PublishAcquiredTracks({
 
     return () => {
       room.off(RoomEvent.LocalTrackPublished, onLocalPublished);
-      room.off(RoomEvent.LocalTrackUnpublished, onUnpublished);
       room.off(RoomEvent.Connected, onConnected);
       room.off(RoomEvent.Reconnected, onReconnected);
     };
   }, [sessionKey, room]);
-
-  return null;
-}
-
-/** When LiveKit server loses our camera track, republish (debounced). */
-function ServerCamRecovery({
-  collabId,
-  studioIdentity,
-  onRecovered,
-}: {
-  collabId?: string;
-  studioIdentity?: string;
-  onRecovered?: () => void;
-}) {
-  const room = useRoomContext();
-  const previewTracks = usePreviewTracks();
-  const previewTracksRef = useRef(previewTracks);
-  previewTracksRef.current = previewTracks;
-  const busyRef = useRef(false);
-  const lastAttemptRef = useRef(0);
-
-  useEffect(() => {
-    if (!collabId || !studioIdentity) return;
-    let cancelled = false;
-
-    async function poll() {
-      if (cancelled || room.state !== ConnectionState.Connected) return;
-      const res = await apiFetch(
-        `/api/livekit/room-status?collabId=${encodeURIComponent(collabId!)}`,
-      );
-      if (!res.ok || cancelled) return;
-      const data = (await res.json()) as {
-        participants?: { identity?: string; hasVideo?: boolean }[];
-      };
-      const me = data.participants?.find((p) => p.identity === studioIdentity);
-      if (me?.hasVideo) return;
-      if (busyRef.current || Date.now() - lastAttemptRef.current < 12_000) return;
-
-      busyRef.current = true;
-      lastAttemptRef.current = Date.now();
-      try {
-        await ensureLocalMediaPublished(room, previewTracksRef.current);
-        onRecovered?.();
-      } catch {
-        /* PublishAcquiredTracks / badge shows errors */
-      } finally {
-        busyRef.current = false;
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [collabId, studioIdentity, room, onRecovered]);
 
   return null;
 }
@@ -672,8 +586,8 @@ function LocalPublishBadge({
   if (isLive && serverCamOk === false) {
     return (
       <p className="text-[10px] text-amber-400/90 px-2">
-        Browser has camera but server keeps dropping it — VPS needs UDP 50000-50100, 3478, and TCP 5349
-        (TURN/TLS). Run: ufw allow 5349/tcp
+        Camera on in browser but server sees no-cam — confirm DigitalOcean firewall allows UDP
+        50000-50100, 3478, and TCP 5349, then tap Reconnect studio.
       </p>
     );
   }
@@ -761,7 +675,7 @@ function RoomPresencePanel({
       }
     }
     poll();
-    const t = setInterval(poll, 5000);
+    const t = setInterval(poll, STUDIO_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(t);
@@ -1002,7 +916,7 @@ function EgressWatcher({
     }
 
     tick();
-    const interval = setInterval(tick, 5000);
+    const interval = setInterval(tick, STUDIO_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -1101,6 +1015,7 @@ function StudioRoom({
   sessionKey,
   studioIdentity,
   onServerCamStatus,
+  videoCapture,
 }: {
   mode: "collab" | "sandbox";
   collabId?: string;
@@ -1118,6 +1033,7 @@ function StudioRoom({
   sessionKey: number;
   studioIdentity?: string;
   onServerCamStatus?: (hasVideo: boolean) => void;
+  videoCapture?: VideoCaptureOptions;
 }) {
   const state = useConnectionState();
   const previewTracks = usePreviewTracks();
@@ -1128,17 +1044,10 @@ function StudioRoom({
       <RemoteTrackSubscriber />
       <PublishAcquiredTracks
         sessionKey={sessionKey}
+        videoCapture={videoCapture}
         onError={onPublishError}
-        publishComplete={publishComplete}
         onPublished={onPublished}
       />
-      {mode === "collab" && collabId && studioIdentity && (
-        <ServerCamRecovery
-          collabId={collabId}
-          studioIdentity={studioIdentity}
-          onRecovered={onPublished}
-        />
-      )}
       <StudioConnectingOverlay label={connectingLabel} />
       {showVideo && (
         <>
@@ -1184,7 +1093,7 @@ function StudioRoom({
   );
 }
 
-type StudioSession = TokenPayload & { sessionKey: number };
+type StudioSession = TokenPayload & { sessionKey: number; videoCapture?: VideoCaptureOptions };
 
 export function CollabWebRtcStudio({
   mode = "collab",
@@ -1363,10 +1272,22 @@ export function CollabWebRtcStudio({
         return;
       }
 
+      const videoCapture = cameraDeviceOptions(
+        acquiredTracks.find((t) => t.kind === Track.Kind.Video),
+      );
+      stopLocalTracks(acquiredTracks);
+      previewTracksRef.current = [];
+      setPreviewTracks([]);
+
+      setJoinStep("camera");
+      await ensureLocalMediaPublished(studioRoom, videoCapture);
+
       connectedRef.current = true;
       setJoinStep("done");
       setPhaseSafe("live");
-      setSession({ ...data, sessionKey: Date.now() });
+      setPublishComplete(true);
+      setSession({ ...data, sessionKey: Date.now(), videoCapture });
+      void checkServerCamera(data.identity);
     } catch (err) {
       if (attempt !== attemptRef.current) return;
       stopLocalTracks(acquiredTracks);
@@ -1447,6 +1368,7 @@ export function CollabWebRtcStudio({
             sessionKey={session.sessionKey}
             studioIdentity={session.identity}
             onServerCamStatus={handleServerCamStatus}
+            videoCapture={session.videoCapture}
           />
           <StudioFooter
             onReconnect={joinStudio}
