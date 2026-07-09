@@ -44,9 +44,11 @@ function emit() {
   listeners.forEach((fn) => fn());
 }
 
-function notify(fn: () => void) {
+function notify(fn: () => void): () => void {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 function push(level: StudioLogLevel, tag: string, message: string) {
