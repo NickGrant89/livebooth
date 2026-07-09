@@ -80,8 +80,8 @@ function roomOptionsForDevice(): RoomOptions {
 }
 
 function usesTurnRelay(): boolean {
-  if (typeof window === "undefined") return true;
-  return new URLSearchParams(window.location.search).get("direct") !== "1";
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("relay") === "1";
 }
 
 function connectOptionsForDevice() {
@@ -96,21 +96,43 @@ function connectOptionsForDevice() {
   };
 }
 
+function connCheckStatusLabel(status: number): string {
+  switch (status) {
+    case 0:
+      return "idle";
+    case 1:
+      return "running";
+    case 2:
+      return "skipped";
+    case 3:
+      return "ok";
+    case 4:
+      return "failed";
+    default:
+      return String(status);
+  }
+}
+
 async function runLiveKitConnectivityChecks(url: string, token: string) {
-  const { ConnectionCheck, CheckStatus } = await import("livekit-client");
-  const statusLabel = (status: number) => CheckStatus[status] ?? String(status);
+  const { ConnectionCheck } = await import("livekit-client");
   const check = new ConnectionCheck(url, token, {
     connectOptions: connectOptionsForDevice(),
     roomOptions: roomOptionsForDevice(),
   });
   check.on("checkUpdate", (_id, info) => {
-    const label = info.name || info.description || "check";
-    studioDiag.log("connCheck", `${label}: ${statusLabel(info.status)}`);
+    const label = info.description || info.name || "check";
+    studioDiag.log("connCheck", `${label}: ${connCheckStatusLabel(info.status)}`);
   });
   await check.checkWebsocket();
   await check.checkWebRTC();
   await check.checkTURN();
-  studioDiag.log("connCheck", check.isSuccess() ? "all checks passed" : "checks FAILED — TURN or firewall");
+  await check.checkPublishVideo();
+  studioDiag.log(
+    "connCheck",
+    check.isSuccess()
+      ? `all passed (mode=${usesTurnRelay() ? "TURN relay" : "direct UDP 7882"})`
+      : "FAILED — try ?relay=1 or check firewall",
+  );
 }
 
 function formatMediaError(err: unknown): string {
@@ -193,14 +215,13 @@ function ReconnectStormBanner() {
     });
   }, []);
 
-  if (reconnects < 2) return null;
+  if (reconnects < 1) return null;
 
   return (
     <p className="text-xs text-red-400 px-2 pb-1 leading-snug">
-      Media keeps reconnecting ({reconnects}×) — VPS needs{" "}
-      <strong className="text-red-300">udp_port 7882</strong> (not 50000-50100 on 1 vCPU). DO
-      firewall inbound: UDP 7882, 3478, TCP 5349, 7881. Re-run setup on droplet, then leave and
-      rejoin.
+      Media reconnecting ({reconnects}×). VPS looks OK — try the other transport: add{" "}
+      <code className="text-red-300">{usesTurnRelay() ? "?direct=1" : "?relay=1"}</code> to the URL,
+      hard refresh, leave and rejoin.
     </p>
   );
 }
@@ -810,8 +831,8 @@ export function CollabWebRtcStudio({
         <div className="p-3 border-b border-white/10 space-y-1">
           <p className="text-xs text-zinc-400">Check camera & mic, then tap Join studio.</p>
           <p className="text-[10px] text-zinc-600">
-            Media via TURN relay (turn.livebooth.uk). Add <code className="text-zinc-500">?direct=1</code> to
-            test direct UDP.
+            Media: direct UDP (port 7882). If video loops, retry with{" "}
+            <code className="text-zinc-500">?relay=1</code> for TURN-only.
           </p>
         </div>
         <div className="lk-prejoin [&_.lk-button]:rounded-lg">
