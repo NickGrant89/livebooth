@@ -106,6 +106,28 @@ export async function createSandboxParticipantToken(options: {
   };
 }
 
+/** Remove ghost sessions from prior joins (same DJ, old tab/instance). */
+export async function evictStaleStudioSessions(options: {
+  collabId: string;
+  userId: string;
+  role: "host" | "partner";
+  keepIdentity: string;
+}) {
+  const client = getLiveKitRoomService();
+  const room = collabRoomName(options.collabId);
+  const prefix = `${options.userId}-${options.role}-`;
+  try {
+    const participants = await client.listParticipants(room);
+    for (const p of participants) {
+      if (p.identity.startsWith(prefix) && p.identity !== options.keepIdentity) {
+        await client.removeParticipant(room, p.identity);
+      }
+    }
+  } catch {
+    /* room may be empty */
+  }
+}
+
 /** Ensure collab room exists before tokens are issued. */
 export async function ensureCollabRoom(collabId: string) {
   const client = getLiveKitRoomService();

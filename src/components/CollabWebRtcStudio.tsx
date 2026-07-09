@@ -151,6 +151,24 @@ function stopLocalTracks(tracks: LocalTrack[]) {
   }
 }
 
+async function publishLocalTracksToRoom(room: Room, tracks: LocalTrack[]) {
+  const live = tracks.filter((t) => t.mediaStreamTrack.readyState !== "ended");
+  const video = live.find((t) => t.kind === Track.Kind.Video);
+  const audio = live.find((t) => t.kind === Track.Kind.Audio);
+
+  if (video && !room.localParticipant.getTrackPublication(Track.Source.Camera)?.trackSid) {
+    await room.localParticipant.publishTrack(video, {
+      source: Track.Source.Camera,
+      simulcast: false,
+    });
+  }
+  if (audio && !room.localParticipant.getTrackPublication(Track.Source.Microphone)?.trackSid) {
+    await room.localParticipant.publishTrack(audio, { source: Track.Source.Microphone });
+  }
+  await room.startAudio().catch(() => {});
+  studioDiag.log("publish", "publishTrack ok (inline after connect)");
+}
+
 function LocalPreviewVideo({ tracks }: { tracks: LocalTrack[] }) {
   const video = tracks.find((t) => t.kind === Track.Kind.Video);
   const ref = useRef<HTMLVideoElement>(null);
@@ -176,7 +194,7 @@ function LocalPreviewVideo({ tracks }: { tracks: LocalTrack[] }) {
   );
 }
 
-/** Publish pre-acquired tracks once — same path as LiveKit ConnectionCheck. */
+/** Fallback if inline publish was skipped (should not happen). */
 function PublishTracksOnce({
   tracks,
   sessionKey,
@@ -186,51 +204,21 @@ function PublishTracksOnce({
 }) {
   const room = useRoomContext();
   const tracksRef = useRef(tracks);
-  const publishedRef = useRef(false);
   tracksRef.current = tracks;
 
   useEffect(() => {
-    publishedRef.current = false;
-  }, [sessionKey]);
+    if (room.localParticipant.getTrackPublication(Track.Source.Camera)?.trackSid) return;
 
-  useEffect(() => {
     const publish = async () => {
-      if (publishedRef.current || room.state !== ConnectionState.Connected) return;
-
-      const live = tracksRef.current.filter((t) => t.mediaStreamTrack.readyState !== "ended");
-      const video = live.find((t) => t.kind === Track.Kind.Video);
-      const audio = live.find((t) => t.kind === Track.Kind.Audio);
-
+      if (room.state !== ConnectionState.Connected) return;
       try {
-        if (video && !room.localParticipant.getTrackPublication(Track.Source.Camera)?.trackSid) {
-          await room.localParticipant.publishTrack(video, {
-            source: Track.Source.Camera,
-            simulcast: false,
-          });
-        }
-        if (audio && !room.localParticipant.getTrackPublication(Track.Source.Microphone)?.trackSid) {
-          await room.localParticipant.publishTrack(audio, { source: Track.Source.Microphone });
-        }
-        await room.startAudio().catch(() => {});
-        publishedRef.current = true;
-        studioDiag.log("publish", "publishTrack ok (manual path)");
+        await publishLocalTracksToRoom(room, tracksRef.current);
       } catch (err) {
         studioDiag.error("publish", formatMediaError(err));
       }
     };
 
-    const onConnected = () => {
-      void publish();
-    };
-
-    room.on(RoomEvent.Connected, onConnected);
-    if (room.state === ConnectionState.Connected) {
-      void publish();
-    }
-
-    return () => {
-      room.off(RoomEvent.Connected, onConnected);
-    };
+    void publish();
   }, [room, sessionKey]);
 
   return null;
@@ -829,6 +817,8 @@ export function CollabWebRtcStudio({
         "Studio link",
       );
 
+      await publishLocalTracksToRoom(room, acquired);
+
       setSession({ ...data, sessionKey: Date.now() });
       setGateSafe("live");
       studioDiag.log("room", "connected");
@@ -856,6 +846,13 @@ export function CollabWebRtcStudio({
             ? "Step 4 — tap Join and Allow camera + mic when prompted."
             : "Solo test — tap Join. Use Step 4 to connect with your partner."}
         </p>
+        {mode === "collab" && (
+          <p className="text-[10px] text-zinc-500 leading-snug">
+            Using OBS? Skip this — on <strong className="text-zinc-400">/collab</strong> expand{" "}
+            <strong className="text-zinc-400">OBS / Larix RTMP</strong>. Both DJs stream RTMP; the
+            server mixes for fans (works on this VPS today).
+          </p>
+        )}
         {error && <p className="text-xs text-red-400 break-words">{error}</p>}
         <button
           type="button"

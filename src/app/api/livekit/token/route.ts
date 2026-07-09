@@ -3,6 +3,7 @@ import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import {
   createCollabParticipantToken,
   ensureCollabRoom,
+  evictStaleStudioSessions,
   isLiveKitConfigured,
 } from "@/lib/livekit";
 
@@ -53,6 +54,17 @@ export async function POST(request: Request) {
     role: isHost ? "host" : "partner",
     studioInstanceId,
   });
+
+  try {
+    await evictStaleStudioSessions({
+      collabId,
+      userId: auth.id,
+      role: isHost ? "host" : "partner",
+      keepIdentity: token.identity,
+    });
+  } catch (err) {
+    console.warn("evictStaleStudioSessions:", err);
+  }
 
   return json(token);
 }
