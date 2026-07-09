@@ -65,8 +65,8 @@ function joinTimeoutMs(): number {
 function roomOptionsForDevice(): RoomOptions {
   return {
     disconnectOnPageLeave: false,
-    adaptiveStream: true,
-    dynacast: true,
+    adaptiveStream: false,
+    dynacast: false,
     stopLocalTrackOnUnpublish: false,
     videoCaptureDefaults: {
       resolution: isMobileDevice() ? VideoPresets.h360.resolution : VideoPresets.h540.resolution,
@@ -79,18 +79,33 @@ function roomOptionsForDevice(): RoomOptions {
   };
 }
 
+function usesTurnRelay(): boolean {
+  if (typeof window === "undefined") return true;
+  return new URLSearchParams(window.location.search).get("direct") !== "1";
+}
+
 function connectOptionsForDevice() {
-  const forceRelay =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("relay") === "1";
+  const relay = usesTurnRelay();
 
   return {
     autoSubscribe: true,
     peerConnectionTimeout: joinTimeoutMs(),
     maxRetries: 5,
     websocketTimeout: 20_000,
-    rtcConfig: forceRelay ? { iceTransportPolicy: "relay" as RTCIceTransportPolicy } : undefined,
+    rtcConfig: relay ? { iceTransportPolicy: "relay" as RTCIceTransportPolicy } : undefined,
   };
+}
+
+async function runLiveKitConnectivityChecks(url: string, token: string) {
+  const { ConnectionCheck } = await import("livekit-client");
+  const check = new ConnectionCheck(url, token);
+  check.on("checkUpdate", (_id, info) => {
+    studioDiag.log("connCheck", `${info.name}: ${info.status}`);
+  });
+  await check.checkWebsocket();
+  await check.checkWebRTC();
+  await check.checkTURN();
+  studioDiag.log("connCheck", check.isSuccess() ? "all checks passed" : "checks FAILED — TURN or firewall");
 }
 
 function formatMediaError(err: unknown): string {
@@ -164,6 +179,25 @@ function captureFromChoices(choices: LocalUserChoices): {
   return { video, audio };
 }
 
+function ReconnectStormBanner() {
+  const [reconnects, setReconnects] = useState(studioDiag.getSnapshot().reconnects);
+
+  useEffect(() => {
+    return studioDiag.subscribe(() => {
+      setReconnects(studioDiag.getSnapshot().reconnects);
+    });
+  }, []);
+
+  if (reconnects < 2) return null;
+
+  return (
+    <p className="text-xs text-red-400 px-2 pb-1 leading-snug">
+      Media keeps reconnecting ({reconnects}×) — open DigitalOcean Cloud Firewall inbound: UDP
+      50000-50100, UDP 3478, TCP 5349, TCP 7881. Media uses TURN relay
+      {usesTurnRelay() ? "" : " (add ?direct=1 removed — leave and rejoin for relay)"}.
+    </p>
+  );
+}
 function syncDiagFromRoom(room: Room) {
   const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
   const track = pub?.track;
@@ -591,6 +625,7 @@ function StudioRoomContent({
     <>
       <StudioRoomDiagnosticsWatcher />
       <CollabStudioDiagnosticsPanel />
+      <ReconnectStormBanner />
       <StudioConnectionNotice notice={connectionNotice} />
       {state === ConnectionState.Connected && (
         <>
@@ -702,6 +737,9 @@ export function CollabWebRtcStudio({
       setSession(data);
       setGateSafe("prejoin");
       studioDiag.log("join", `token ok room=${data.room}`);
+      void runLiveKitConnectivityChecks(data.url, data.token).catch((err) => {
+        studioDiag.warn("connCheck", formatMediaError(err));
+      });
     } catch (err) {
       setError(formatMediaError(err));
       setGateSafe("idle");
@@ -747,8 +785,12 @@ export function CollabWebRtcStudio({
   if (gate === "prejoin" && session) {
     return (
       <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-zinc-950">
-        <div className="p-3 border-b border-white/10">
+        <div className="p-3 border-b border-white/10 space-y-1">
           <p className="text-xs text-zinc-400">Check camera & mic, then tap Join studio.</p>
+          <p className="text-[10px] text-zinc-600">
+            Media via TURN relay (turn.livebooth.uk). Add <code className="text-zinc-500">?direct=1</code> to
+            test direct UDP.
+          </p>
         </div>
         <div className="lk-prejoin [&_.lk-button]:rounded-lg">
           <PreJoin
