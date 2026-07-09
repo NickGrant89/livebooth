@@ -209,9 +209,10 @@ bind_addresses:
 
 rtc:
   tcp_port: 7881
-  port_range_start: 50000
-  port_range_end: 50100
+  # Single UDP mux port — required on 1 vCPU VPS (port ranges only open ~1 port per core).
+  udp_port: 7882
   use_external_ip: true
+  allow_tcp_fallback: true
   node_ip: ${NODE_IP}
 
 redis:
@@ -273,12 +274,12 @@ else
 fi
 
 echo ""
-echo "=== Firewall (run if ufw enabled) ==="
+echo "=== Firewall (UFW + DigitalOcean Cloud Firewall inbound) ==="
 echo "  ufw allow 1935/tcp"
 echo "  ufw allow 7881/tcp"
+echo "  ufw allow 7882/udp"
 echo "  ufw allow 3478/udp"
 echo "  ufw allow 5349/tcp"
-echo "  ufw allow 50000:50100/udp"
 echo ""
 
 echo "=== Done ==="

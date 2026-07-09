@@ -128,7 +128,7 @@ export const studioDiag = {
       return "Server keeps losing camera — likely VPS firewall (DO: UDP 50000-50100, 3478, TCP 5349) or unstable ICE.";
     }
     if (s.unpublishes >= 3) {
-      return "Local camera unpublishing repeatedly — network reconnect loop. Open DO Cloud Firewall: UDP 50000-50100, 3478, TCP 5349 + 7881.";
+      return "Peer connection failing every ~15s — on 1 vCPU VPS use udp_port 7882 (re-run setup-livekit-droplet.sh) + DO firewall UDP 7882.";
     }
     if (s.localCamHealthy && s.serverCam === false) {
       return "Browser has camera but server does not — media UDP blocked or publish never reached SFU.";

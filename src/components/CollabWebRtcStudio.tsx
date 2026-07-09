@@ -50,7 +50,7 @@ type TokenPayload = {
 type StudioGate = "idle" | "prejoin" | "live";
 
 const STUDIO_POLL_MS = 15_000;
-const JOIN_TIMEOUT_MS = 30_000;
+const JOIN_TIMEOUT_MS = 60_000;
 const JOIN_TIMEOUT_MOBILE_MS = 60_000;
 
 function isMobileDevice(): boolean {
@@ -73,7 +73,7 @@ function roomOptionsForDevice(): RoomOptions {
     },
     publishDefaults: {
       simulcast: false,
-      videoCodec: "h264",
+      videoCodec: "vp8",
       red: false,
     },
   };
@@ -97,10 +97,15 @@ function connectOptionsForDevice() {
 }
 
 async function runLiveKitConnectivityChecks(url: string, token: string) {
-  const { ConnectionCheck } = await import("livekit-client");
-  const check = new ConnectionCheck(url, token);
+  const { ConnectionCheck, CheckStatus } = await import("livekit-client");
+  const statusLabel = (status: number) => CheckStatus[status] ?? String(status);
+  const check = new ConnectionCheck(url, token, {
+    connectOptions: connectOptionsForDevice(),
+    roomOptions: roomOptionsForDevice(),
+  });
   check.on("checkUpdate", (_id, info) => {
-    studioDiag.log("connCheck", `${info.name}: ${info.status}`);
+    const label = info.name || info.description || "check";
+    studioDiag.log("connCheck", `${label}: ${statusLabel(info.status)}`);
   });
   await check.checkWebsocket();
   await check.checkWebRTC();
@@ -192,9 +197,10 @@ function ReconnectStormBanner() {
 
   return (
     <p className="text-xs text-red-400 px-2 pb-1 leading-snug">
-      Media keeps reconnecting ({reconnects}×) — open DigitalOcean Cloud Firewall inbound: UDP
-      50000-50100, UDP 3478, TCP 5349, TCP 7881. Media uses TURN relay
-      {usesTurnRelay() ? "" : " (add ?direct=1 removed — leave and rejoin for relay)"}.
+      Media keeps reconnecting ({reconnects}×) — VPS needs{" "}
+      <strong className="text-red-300">udp_port 7882</strong> (not 50000-50100 on 1 vCPU). DO
+      firewall inbound: UDP 7882, 3478, TCP 5349, 7881. Re-run setup on droplet, then leave and
+      rejoin.
     </p>
   );
 }
@@ -316,8 +322,8 @@ function LocalPublishBadge({
   if (cameraLive && serverCamOk === false) {
     return (
       <p className="text-[10px] text-amber-400/90 px-2">
-        Camera on in browser but server sees no-cam — confirm DigitalOcean firewall allows UDP
-        50000-50100, 3478, and TCP 5349, then leave and rejoin.
+        Camera on in browser but server sees no-cam — confirm DO firewall allows UDP 7882, 3478,
+        TCP 5349 + 7881, then leave and rejoin.
       </p>
     );
   }
@@ -737,7 +743,23 @@ export function CollabWebRtcStudio({
       setSession(data);
       setGateSafe("prejoin");
       studioDiag.log("join", `token ok room=${data.room}`);
-      void runLiveKitConnectivityChecks(data.url, data.token).catch((err) => {
+
+      let checkToken = data.token;
+      try {
+        const checkRes = await apiFetch("/api/livekit/sandbox", {
+          method: "POST",
+          body: JSON.stringify({
+            studioInstanceId: `${studioInstanceIdRef.current}-check`,
+          }),
+        });
+        if (checkRes.ok) {
+          const checkData = (await checkRes.json()) as { token?: string };
+          if (checkData.token) checkToken = checkData.token;
+        }
+      } catch {
+        /* connectivity check is best-effort */
+      }
+      void runLiveKitConnectivityChecks(data.url, checkToken).catch((err) => {
         studioDiag.warn("connCheck", formatMediaError(err));
       });
     } catch (err) {
