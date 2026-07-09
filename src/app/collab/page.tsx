@@ -140,6 +140,19 @@ export default function CollabPage() {
     }
   }
 
+  async function publishHostFeed(streamId: string) {
+    setLoading(true);
+    const res = await apiFetch("/api/streams/go-live/publish", {
+      method: "POST",
+      body: JSON.stringify({ streamId }),
+    });
+    setLoading(false);
+    if (res.ok) {
+      await refresh();
+      loadCollabs();
+    }
+  }
+
   if (!user) {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
@@ -172,8 +185,9 @@ export default function CollabPage() {
         Collab Mode
       </h1>
       <p className="text-zinc-400 mb-4">
-        Remote B2B sets — each DJ streams from their own location. When both feeds are live, LiveBooth
-        mixes video and audio into one synced booth on the host page. Tips split by your chosen ratio.
+        Remote B2B sets — each DJ streams from their own location via OBS or Larix (RTMP). When both
+        feeds are live, LiveBooth mixes video and audio into one synced booth on the host page. Tips
+        split by your chosen ratio.
       </p>
 
       <Link
@@ -184,81 +198,117 @@ export default function CollabPage() {
         <div>
           <p className="text-sm font-semibold text-[#53fc18]">Collab Test Lab</p>
           <p className="text-xs text-zinc-400">
-            Easier step-by-step testing — camera sandbox, quick setup, join studio.
+            Step-by-step RTMP collab setup — invite partner, stream from OBS/Larix, verify the mix.
           </p>
         </div>
       </Link>
 
-      {myHostCollab && webrtcEnabled && (
+      {(myHostCollab || myPartnerCollab) && (
         <div className="rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-3 mb-6 text-sm">
-          <p className="text-[#53fc18] font-semibold">Step 1 — tap the green button below</p>
-          <p className="text-xs text-zinc-400 mt-1">
-            <strong className="text-zinc-200">Join collab studio (camera + mic)</strong> — one tap,
-            allow camera when asked. Your partner does the same on their phone.
-          </p>
-          <Link href="#host-studio" className="text-xs text-[#53fc18] hover:underline mt-2 inline-block">
-            Jump to join button ↓
-          </Link>
-        </div>
-      )}
-
-      {myHostCollab && !webrtcEnabled && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 mb-6 text-sm text-amber-200/90">
-          WebRTC studio is off on this server — use Go Live + OBS for the host feed and RTMP on /collab
-          for your partner.
-        </div>
-      )}
-
-      {myHostCollab && !webrtcEnabled && (
-        <div className="glass rounded-2xl p-6 mb-8 border border-amber-500/30">
-          <h2 className="font-semibold mb-2 flex items-center gap-2 text-amber-300">
-            <Video className="h-4 w-4" />
-            Host studio · {myHostCollab.streamTitle}
-          </h2>
-          <p className="text-sm text-zinc-400">
-            WebRTC studio is not enabled on this deployment. Stream from{" "}
-            <Link href="/go-live" className="text-[#53fc18] hover:underline">
-              Go Live
-            </Link>{" "}
-            with OBS instead, and ask your partner to use RTMP on /collab.
+          <p className="text-[#53fc18] font-semibold">How B2B works (RTMP)</p>
+          <ol className="text-xs text-zinc-400 mt-2 space-y-1 list-decimal list-inside">
+            <li>Host streams to LiveBooth from OBS (server URL + stream key below).</li>
+            <li>Partner accepts invite and streams their RTMP key from OBS or Larix on this page.</li>
+            <li>
+              Fans watch one mixed booth at{" "}
+              {myHostCollab ? (
+                <Link href={`/stream/${myHostCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
+                  /stream/{myHostCollab.hostUsername}
+                </Link>
+              ) : myPartnerCollab ? (
+                <Link href={`/stream/${myPartnerCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
+                  /stream/{myPartnerCollab.hostUsername}
+                </Link>
+              ) : (
+                "the host booth"
+              )}
+              .
+            </li>
+          </ol>
+          <p className="text-[10px] text-zinc-500 mt-2">
+            RTMP is one-way to the server — use FaceTime, Discord, or a phone call to talk to each
+            other while you play. That is separate from LiveBooth.
           </p>
         </div>
       )}
 
-      {myHostCollab && webrtcEnabled && (
+      {myHostCollab && (
         <div id="host-studio" className="glass rounded-2xl p-6 mb-8 border border-[#53fc18]/20">
           <h2 className="font-semibold mb-2 flex items-center gap-2 text-[#53fc18]">
             <Video className="h-4 w-4" />
-            Host studio · {myHostCollab.streamTitle}
+            Host feed · {myHostCollab.streamTitle}
           </h2>
           <p className="text-xs text-zinc-500 mb-4">
-            WebRTC collab with @{myHostCollab.partnerUsername} — fans watch{" "}
+            With @{myHostCollab.partnerUsername} — stream from OBS. When both RTMP feeds are live, the
+            synced mix appears on{" "}
             {myHostCollab.hostStreamStatus === "live" ? (
               <Link href={`/stream/${myHostCollab.hostUsername}`} className="text-[#53fc18] hover:underline">
                 your booth
               </Link>
             ) : (
-              <span className="text-zinc-400">your booth (publish from Go Live first)</span>
+              <span className="text-zinc-400">your booth (publish below first)</span>
             )}
             .
           </p>
-          {myHostCollab.hostStreamStatus !== "live" && (
-            <p className="text-xs text-zinc-500 mb-4">
-              Tip: you can join the studio first. Publish from{" "}
+          {myHostCollab.compositorActive && (
+            <p className="text-xs text-[#53fc18] mb-4 font-medium">Synced B2B mix is live for fans.</p>
+          )}
+          {!myHostCollab.compositorActive && myHostCollab.partnerStream?.status === "live" && (
+            <p className="text-xs text-amber-400/90 mb-4">Partner is live — building synced mix…</p>
+          )}
+          {!myHostCollab.compositorActive && myHostCollab.partnerStream?.status !== "live" && (
+            <p className="text-xs text-amber-400/90 mb-4">Waiting for partner RTMP feed…</p>
+          )}
+          {user.liveStream && user.liveStream.id === myHostCollab.streamId ? (
+            user.liveStream.status === "live" ? (
+              <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4 mb-4">
+                <p className="text-sm text-[#53fc18] font-medium">Your host RTMP feed is live</p>
+                <Link
+                  href={`/stream/${myHostCollab.hostUsername}`}
+                  className="text-xs text-zinc-400 hover:text-[#53fc18] mt-2 inline-block"
+                >
+                  View booth →
+                </Link>
+              </div>
+            ) : (
+              <GoLivePreview
+                title={user.liveStream.title}
+                djName={user.displayName ?? user.username}
+                playbackUrl={user.liveStream.playbackUrl ?? ""}
+                rtmpUrl={user.liveStream.rtmpUrl ?? ""}
+                ingestKey={user.liveStream.ingestKey ?? ""}
+                ingestMode={user.liveStream.ingestMode}
+                rtmpOnline={rtmpOnline}
+                onPublish={() => publishHostFeed(user.liveStream!.id)}
+                publishing={loading}
+              />
+            )
+          ) : (
+            <p className="text-sm text-zinc-400 mb-4">
+              Open{" "}
               <Link href="/go-live" className="text-[#53fc18] hover:underline">
                 Go Live
               </Link>{" "}
-              when ready so fans see the LIVE badge.
+              to create a stream session and get your RTMP key.
             </p>
           )}
-          <CollabWebRtcStudio
-            key={myHostCollab.id}
-            collabId={myHostCollab.id}
-            hostUsername={myHostCollab.hostUsername}
-            role="host"
-            compositorActive={myHostCollab.compositorActive}
-            hostStreamLive={myHostCollab.hostStreamStatus === "live"}
-          />
+          {webrtcEnabled && (
+            <details className="mt-4 rounded-xl border border-white/10 p-3">
+              <summary className="text-xs text-zinc-400 cursor-pointer">
+                Browser WebRTC studio (experimental — needs larger VPS)
+              </summary>
+              <div className="mt-3">
+                <CollabWebRtcStudio
+                  key={myHostCollab.id}
+                  collabId={myHostCollab.id}
+                  hostUsername={myHostCollab.hostUsername}
+                  role="host"
+                  compositorActive={myHostCollab.compositorActive}
+                  hostStreamLive={myHostCollab.hostStreamStatus === "live"}
+                />
+              </div>
+            </details>
+          )}
         </div>
       )}
 
@@ -276,8 +326,7 @@ export default function CollabPage() {
                   split)
                 </p>
                 <p className="text-xs text-amber-400/90 mt-2">
-                  Host WebRTC studio appears here after they accept — you cannot open it until the collab is
-                  active.
+                  Host RTMP panel appears here after they accept — both DJs stream via OBS/Larix.
                 </p>
               </div>
             ))}
@@ -352,30 +401,7 @@ export default function CollabPage() {
             )}
             . You earn {Math.round(myPartnerCollab.splitRatio * 100)}% of tips.
           </p>
-          {webrtcEnabled && (
-            <div className="mb-4 space-y-3">
-              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
-                <p className="font-medium">WebRTC: use the same page as the host</p>
-                <p className="mt-1 text-zinc-400">
-                  Open{" "}
-                  <Link href="/collab/test" className="text-[#53fc18] hover:underline">
-                    /collab/test → Step 4
-                  </Link>{" "}
-                  (recommended). Room ID must match host:{" "}
-                  <code className="text-[10px] font-mono text-zinc-300">{myPartnerCollab.id.slice(0, 12)}…</code>
-                </p>
-              </div>
-              <CollabWebRtcStudio
-                key={myPartnerCollab.id}
-                collabId={myPartnerCollab.id}
-                hostUsername={myPartnerCollab.hostUsername}
-                role="partner"
-                compositorActive={myPartnerCollab.compositorActive}
-                hostStreamLive={myPartnerCollab.hostStream?.status === "live"}
-              />
-            </div>
-          )}
-          {!webrtcEnabled && myPartnerCollab.hostStream?.status === "live" && (
+          {myPartnerCollab.hostStream?.status === "live" && (
             <div className="mb-4 rounded-xl border border-white/10 overflow-hidden bg-black">
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 px-3 py-2 border-b border-white/10">
                 Host feed · {myPartnerCollab.host}
@@ -390,31 +416,10 @@ export default function CollabPage() {
               />
             </div>
           )}
-          {!webrtcEnabled && myPartnerCollab.hostStream?.status === "preparing" && (
+          {myPartnerCollab.hostStream?.status === "preparing" && (
             <p className="text-xs text-amber-400/90 mb-4">Waiting for {myPartnerCollab.host} to go live…</p>
           )}
-          {webrtcEnabled ? (
-            <details className="mb-2 rounded-xl border border-white/10 p-3">
-              <summary className="text-xs text-zinc-400 cursor-pointer">OBS / Larix RTMP (legacy)</summary>
-              <div className="mt-3">
-                {myPartnerCollab.partnerStream.status === "preparing" ? (
-                  <GoLivePreview
-                    title={myPartnerCollab.partnerStream.title}
-                    djName={user.displayName ?? user.username}
-                    playbackUrl={myPartnerCollab.partnerStream.playbackUrl}
-                    rtmpUrl={myPartnerCollab.partnerStream.rtmpUrl}
-                    ingestKey={myPartnerCollab.partnerStream.ingestKey}
-                    ingestMode={myPartnerCollab.partnerStream.ingestMode}
-                    rtmpOnline={rtmpOnline}
-                    onPublish={() => publishPartnerFeed(myPartnerCollab.partnerStream!.id)}
-                    publishing={loading}
-                  />
-                ) : (
-                  <p className="text-sm text-zinc-500">RTMP feed is live.</p>
-                )}
-              </div>
-            </details>
-          ) : myPartnerCollab.partnerStream.status === "preparing" ? (
+          {myPartnerCollab.partnerStream.status === "preparing" ? (
             <GoLivePreview
               title={myPartnerCollab.partnerStream.title}
               djName={user.displayName ?? user.username}
@@ -441,6 +446,23 @@ export default function CollabPage() {
               )}
             </div>
           )}
+          {webrtcEnabled && (
+            <details className="mt-4 rounded-xl border border-white/10 p-3">
+              <summary className="text-xs text-zinc-400 cursor-pointer">
+                Browser WebRTC studio (experimental)
+              </summary>
+              <div className="mt-3">
+                <CollabWebRtcStudio
+                  key={myPartnerCollab.id}
+                  collabId={myPartnerCollab.id}
+                  hostUsername={myPartnerCollab.hostUsername}
+                  role="partner"
+                  compositorActive={myPartnerCollab.compositorActive}
+                  hostStreamLive={myPartnerCollab.hostStream?.status === "live"}
+                />
+              </div>
+            </details>
+          )}
         </div>
       )}
 
@@ -460,30 +482,22 @@ export default function CollabPage() {
                 {c.role === "host" && c.compositorActive && (
                   <p className="text-xs text-[#53fc18] mt-1">Synced B2B mix active — one stream for fans</p>
                 )}
-                {c.role === "host" && !c.compositorActive && webrtcEnabled && (
+                {c.role === "host" && !c.compositorActive && c.partnerStream?.status === "live" && (
                   <p className="text-xs text-amber-400/90 mt-1">
-                    Open host WebRTC studio below — both DJs need camera on (OBS alone does not count).
+                    Partner RTMP is live — building synced mix… (PiP fallback until ready)
                   </p>
                 )}
-                {c.role === "host" && !c.compositorActive && !webrtcEnabled && c.partnerStream?.status === "live" && (
-                  <p className="text-xs text-amber-400/90 mt-1">Building synced mix… (PiP fallback until ready)</p>
-                )}
-                {c.role === "host" && !webrtcEnabled && c.partnerStream?.status === "preparing" && (
+                {c.role === "host" && !c.compositorActive && c.partnerStream?.status === "preparing" && (
                   <p className="text-xs text-amber-400/90 mt-1">Waiting for partner RTMP feed…</p>
                 )}
-                {c.role === "host" && c.status === "active" && webrtcEnabled && (
+                {c.role === "host" && c.status === "active" && (
                   <Link href="#host-studio" className="text-xs text-[#53fc18] hover:underline mt-2 inline-block">
-                    Open host WebRTC studio ↓
+                    Open host RTMP panel ↓
                   </Link>
-                )}
-                {c.role === "host" && c.status === "active" && !webrtcEnabled && (
-                  <p className="text-xs text-amber-400/90 mt-2">
-                    WebRTC studio unavailable — use Go Live + OBS on this deployment.
-                  </p>
                 )}
                 {c.role === "host" && c.status === "pending" && (
                   <p className="text-xs text-amber-400/90 mt-2">
-                    Waiting for partner to accept — host WebRTC studio unlocks after that.
+                    Waiting for partner to accept — host RTMP panel unlocks after that.
                   </p>
                 )}
                 <Link
@@ -546,9 +560,8 @@ export default function CollabPage() {
       {user.role === "dj" && user.liveStream && !myHostCollab && !myPartnerCollab && active.length === 0 && sent.length === 0 && (
         <div className="glass rounded-xl p-4 mb-8 border border-white/10">
           <p className="text-sm text-zinc-400">
-            <strong className="text-zinc-200">To open WebRTC as host:</strong> invite a partner above → they
-            accept on /collab → a <span className="text-[#53fc18]">Host studio</span> card appears on this
-            page with <span className="text-zinc-300">Open WebRTC studio</span>.
+            <strong className="text-zinc-200">To start a B2B set:</strong> invite a partner above → they
+            accept on /collab → both stream via OBS or Larix using the RTMP keys on this page.
           </p>
         </div>
       )}

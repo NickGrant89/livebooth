@@ -106,7 +106,7 @@ export default function CollabTestPage() {
       await refresh();
       load();
       setMsgOk(true);
-      setMsg("Accepted — tap Join studio below.");
+      setMsg("Accepted — open /collab and stream your RTMP key.");
     } else {
       const data = await res.json();
       setMsgOk(false);
@@ -135,7 +135,7 @@ export default function CollabTestPage() {
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <FlaskConical className="h-12 w-12 text-[#53fc18] mx-auto mb-4" />
         <h1 className="text-2xl font-bold mb-2">Collab Test Lab</h1>
-        <p className="text-zinc-400 mb-6">Sign in to test WebRTC collab step by step.</p>
+        <p className="text-zinc-400 mb-6">Sign in to test RTMP collab step by step.</p>
         <Link href="/login" className="btn-primary inline-block rounded-xl px-6 py-3 text-sm">
           Sign in
         </Link>
@@ -155,8 +155,8 @@ export default function CollabTestPage() {
         </Link>
       </div>
       <p className="text-zinc-400 mb-6 text-sm">
-        Easier testing — check each step, test your camera alone, then one-click setup for a real
-        collab.
+        RTMP-first testing — quick invite, stream from OBS or Larix, confirm the B2B mix on the host
+        booth. WebRTC steps are optional when enabled on the server.
       </p>
 
       <section className="glass rounded-2xl p-5 mb-6 border border-white/10">
@@ -192,24 +192,28 @@ export default function CollabTestPage() {
 
       <section className="glass rounded-2xl p-5 mb-6 border border-[#53fc18]/20">
         <h2 className="font-semibold text-sm uppercase tracking-wider text-[#53fc18] mb-2">
-          Step 2 · Test camera
+          Step 2 · Camera check (optional)
         </h2>
+        <p className="text-xs text-zinc-500 mb-3">
+          For RTMP collab you stream from OBS or Larix — skip this unless you want to test browser
+          WebRTC later.
+        </p>
         <CameraProbe paused={Boolean(diag?.studioReady || studioLive)} />
         <div className="mt-4 pt-4 border-t border-white/10">
           <p className="text-xs text-zinc-500 mb-3">
-            Step 2b — same camera through LiveKit (studio path). Only try this if Step 2a works.
+            Step 2b — LiveKit browser studio (only if WebRTC is enabled on the server).
           </p>
           {diag?.webrtcEnabled ? (
             diag.studioReady ? (
               <p className="text-sm text-zinc-500">
                 Step 2b hidden — you have an active collab below. Use <strong className="text-zinc-300">Step 4</strong>{" "}
-                only (one studio at a time; camera cannot be shared between Step 2b and Step 4).
+                for WebRTC, or stream RTMP from /collab.
               </p>
             ) : (
               <CollabWebRtcStudio mode="sandbox" onPhaseChange={(p) => setStudioLive(p === "live")} />
             )
           ) : (
-            <p className="text-sm text-amber-400/90">WebRTC is off on this server — cannot test.</p>
+            <p className="text-sm text-zinc-500">WebRTC is off — use RTMP from /collab (Step 4).</p>
           )}
         </div>
       </section>
@@ -233,7 +237,7 @@ export default function CollabTestPage() {
           <button
             type="button"
             onClick={quickStart}
-            disabled={loading || !partner.trim() || !diag?.webrtcEnabled}
+            disabled={loading || !partner.trim()}
             className="btn-primary rounded-xl px-4 py-2.5 text-sm disabled:opacity-50 flex items-center gap-2 shrink-0"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
@@ -285,57 +289,72 @@ export default function CollabTestPage() {
       {diag?.studioReady && diag.studio && (
         <section className="glass rounded-2xl p-5 mb-6 border border-[#53fc18]/30">
           <h2 className="font-semibold text-[#53fc18] mb-2">
-            Step 4 · Join together ({diag.studio.role})
+            Step 4 · Stream RTMP ({diag.studio.role})
           </h2>
-          <p className="text-xs text-amber-300/90 mb-2 font-medium">
-            Both DJs must tap Join here — Step 2b is solo only. On phone: use Safari, stay on this tab,
-            prefer Wi‑Fi.
-          </p>
           <p className="text-xs text-zinc-500 mb-4">
             {diag.studio.role === "host" ? (
               <>
-                Host (@{diag.studio.hostUsername}) — partner @
-                {diag.studio.partnerUsername} opens{" "}
-                <Link href="/collab/test" className="text-[#53fc18] hover:underline">
-                  /collab/test
+                Host (@{diag.studio.hostUsername}) — open{" "}
+                <Link href="/collab" className="text-[#53fc18] hover:underline">
+                  /collab
                 </Link>{" "}
-                → Accept → Step 4 Join.
+                for your RTMP key. Partner @
+                {diag.studio.partnerUsername} accepts on /collab and streams Larix/OBS.
               </>
             ) : (
               <>
-                Partner — host is @{diag.studio.hostUsername}. Both need camera on for the fan mix.
+                Partner — open{" "}
+                <Link href="/collab" className="text-[#53fc18] hover:underline">
+                  /collab
+                </Link>{" "}
+                for your RTMP key. Host is @{diag.studio.hostUsername}.
               </>
             )}
           </p>
-          <p className="text-[10px] font-mono text-zinc-600 mb-3">
-            Room ID (must match on both devices): {diag.studio.collabId}
-          </p>
-          <CollabWebRtcStudio
-            key={diag.studio.collabId}
-            collabId={diag.studio.collabId}
-            hostUsername={diag.studio.hostUsername}
-            role={diag.studio.role}
-            compositorActive={diag.studio.compositorActive}
-            onPhaseChange={(p) => setStudioLive(p === "live")}
-          />
-          {diag.studio.role === "host" && (
-            <Link
-              href={`/stream/${diag.studio.hostUsername}`}
-              className="text-xs text-zinc-500 hover:text-[#53fc18] mt-3 inline-block"
-            >
-              Fan booth page → /stream/{diag.studio.hostUsername}
+          <p className="text-xs text-zinc-500 mb-4">
+            When both feeds are live, fans see one mixed booth at{" "}
+            <Link href={`/stream/${diag.studio.hostUsername}`} className="text-[#53fc18] hover:underline">
+              /stream/{diag.studio.hostUsername}
             </Link>
+            . Talk to each other on FaceTime or Discord while streaming — RTMP does not carry return
+            audio.
+          </p>
+          {diag.studio.compositorActive && (
+            <p className="text-xs text-[#53fc18] mb-4 font-medium">Synced B2B mix is active.</p>
+          )}
+          <Link
+            href="/collab"
+            className="btn-primary inline-flex rounded-xl px-5 py-2.5 text-sm items-center gap-2"
+          >
+            Open /collab RTMP panel
+          </Link>
+          {diag.webrtcEnabled && (
+            <details className="mt-4 rounded-xl border border-white/10 p-3">
+              <summary className="text-xs text-zinc-400 cursor-pointer">
+                WebRTC studio (experimental)
+              </summary>
+              <div className="mt-3">
+                <CollabWebRtcStudio
+                  key={diag.studio.collabId}
+                  collabId={diag.studio.collabId}
+                  hostUsername={diag.studio.hostUsername}
+                  role={diag.studio.role}
+                  compositorActive={diag.studio.compositorActive}
+                  onPhaseChange={(p) => setStudioLive(p === "live")}
+                />
+              </div>
+            </details>
           )}
         </section>
       )}
 
       <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs text-zinc-500 space-y-1">
-        <p className="font-medium text-zinc-400">Testing checklist</p>
-        <p>1. Step 2a passes → browser allows camera.</p>
-        <p>2. Step 2b passes → LiveKit studio path works.</p>
-        <p>2. Host: Quick setup with partner username.</p>
-        <p>3. Partner: open copied link, Accept, then Step 4 Join.</p>
-        <p>4. Host: Step 4 Join on Mac. You should see &quot;2 DJs in this room&quot; and each other&apos;s video.</p>
+        <p className="font-medium text-zinc-400">RTMP testing checklist</p>
+        <p>1. Host: Quick setup with partner username (Step 3).</p>
+        <p>2. Partner: open /collab, Accept invite.</p>
+        <p>3. Host: OBS → server URL + stream key from /collab → Start streaming → Publish.</p>
+        <p>4. Partner: Larix or OBS with their RTMP key from /collab → Publish.</p>
+        <p>5. Confirm &quot;Synced B2B mix active&quot; on /collab and watch /stream/host.</p>
       </section>
     </div>
   );

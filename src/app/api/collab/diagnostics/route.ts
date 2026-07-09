@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { json, requireApiUser, isApiError } from "@/lib/api-utils";
 import { isLiveKitConfigured } from "@/lib/livekit";
+import { isCollabCompositorConfigured } from "@/lib/collab-compositor";
 import { pickCanonicalActiveCollab, pickCanonicalPendingCollab } from "@/lib/collab-pick";
 
 export const dynamic = "force-dynamic";
@@ -67,14 +68,23 @@ export async function GET() {
       })
     : null;
 
+  const compositorConfigured = isCollabCompositorConfigured();
   const checks: CheckItem[] = [
+    {
+      id: "rtmp",
+      ok: compositorConfigured,
+      label: "B2B mix compositor",
+      detail: compositorConfigured
+        ? "Compositor enabled — host + partner RTMP feeds mix into one booth."
+        : "Set COMPOSITOR_ENABLED=true and COMPOSITOR_CONTROL_URL on Vercel for synced B2B mix.",
+    },
     {
       id: "webrtc",
       ok: webrtcEnabled,
-      label: "WebRTC enabled on server",
+      label: "WebRTC studio (optional)",
       detail: webrtcEnabled
-        ? "LiveKit is configured on Vercel."
-        : "Set COLLAB_WEBRTC_ENABLED=true and LIVEKIT_* on Vercel.",
+        ? "LiveKit configured — browser studio available under Advanced on /collab."
+        : "Off by default. Enable with COLLAB_WEBRTC_ENABLED=true when the VPS is sized for it.",
     },
     {
       id: "livekit",
@@ -146,7 +156,7 @@ export async function GET() {
     username: auth.username,
     checks,
     studio,
-    studioReady: Boolean(webrtcEnabled && studio),
+    studioReady: Boolean(studio),
     pendingInvite: sentPending
       ? {
           collabId: sentPending.id,

@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { createStreamSession } from "@/lib/streaming";
 import { notifyCollabInvite } from "@/lib/notifications";
-import { isLiveKitConfigured } from "@/lib/livekit";
 import { stopCollabWebRtcEgress } from "@/lib/livekit-egress";
 import { z } from "zod";
 
@@ -20,10 +19,6 @@ export async function POST(request: Request) {
 
   if (auth.role !== "dj" && auth.role !== "admin") {
     return error("DJ accounts only", 403);
-  }
-
-  if (!isLiveKitConfigured()) {
-    return error("WebRTC collab is not enabled on this server", 503);
   }
 
   try {
@@ -83,7 +78,7 @@ export async function POST(request: Request) {
         collabId: existingCollab.id,
         streamId: stream.id,
         partnerUsername: partner.username,
-        message: "Collab already active — both DJs use /collab/test Step 4 (same room ID).",
+        message: "Collab already active — host and partner stream RTMP from /collab.",
       });
     }
 
@@ -93,7 +88,7 @@ export async function POST(request: Request) {
         step: "waiting_accept",
         collabId: existingCollab.id,
         partnerUsername: partner.username,
-        message: `Waiting for @${partner.username} to accept on /collab/test.`,
+        message: `Waiting for @${partner.username} to accept on /collab.`,
       });
     }
 
@@ -127,7 +122,7 @@ export async function POST(request: Request) {
       collabId: collabRecord.id,
       streamId: stream.id,
       partnerUsername: partner.username,
-      message: `Invite sent to @${partner.username}. They open /collab/test and tap Accept.`,
+      message: `Invite sent to @${partner.username}. They open /collab and tap Accept.`,
     });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Partner username required");
