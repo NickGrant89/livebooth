@@ -4,25 +4,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ControlBar,
   GridLayout,
-  LiveKitRoom,
   ParticipantTile,
-  PreJoin,
   RoomAudioRenderer,
+  RoomContext,
   useConnectionState,
   useRoomContext,
   useTracks,
-  type LocalUserChoices,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import {
   Track,
+  Room,
   RoomEvent,
   ConnectionState,
   VideoPresets,
-  type Room,
+  createLocalTracks,
+  type LocalTrack,
   type RoomOptions,
-  type VideoCaptureOptions,
-  type AudioCaptureOptions,
 } from "livekit-client";
 import { Loader2, Radio, Wifi } from "lucide-react";
 import Link from "next/link";
@@ -47,7 +45,9 @@ type TokenPayload = {
   identity?: string;
 };
 
-type StudioGate = "idle" | "prejoin" | "live";
+type StudioGate = "idle" | "joining" | "live";
+
+type StudioSession = TokenPayload & { sessionKey: number };
 
 const STUDIO_POLL_MS = 15_000;
 const JOIN_TIMEOUT_MS = 60_000;
@@ -94,45 +94,6 @@ function connectOptionsForDevice() {
     websocketTimeout: 20_000,
     rtcConfig: relay ? { iceTransportPolicy: "relay" as RTCIceTransportPolicy } : undefined,
   };
-}
-
-function connCheckStatusLabel(status: number): string {
-  switch (status) {
-    case 0:
-      return "idle";
-    case 1:
-      return "running";
-    case 2:
-      return "skipped";
-    case 3:
-      return "ok";
-    case 4:
-      return "failed";
-    default:
-      return String(status);
-  }
-}
-
-async function runLiveKitConnectivityChecks(url: string, token: string) {
-  const { ConnectionCheck } = await import("livekit-client");
-  const check = new ConnectionCheck(url, token, {
-    connectOptions: connectOptionsForDevice(),
-    roomOptions: roomOptionsForDevice(),
-  });
-  check.on("checkUpdate", (_id, info) => {
-    const label = info.description || info.name || "check";
-    studioDiag.log("connCheck", `${label}: ${connCheckStatusLabel(info.status)}`);
-  });
-  await check.checkWebsocket();
-  await check.checkWebRTC();
-  await check.checkTURN();
-  await check.checkPublishVideo();
-  studioDiag.log(
-    "connCheck",
-    check.isSuccess()
-      ? `all passed (mode=${usesTurnRelay() ? "TURN relay" : "direct UDP 7882"})`
-      : "FAILED — try ?relay=1 or check firewall",
-  );
 }
 
 function formatMediaError(err: unknown): string {
@@ -184,26 +145,95 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-function captureFromChoices(choices: LocalUserChoices): {
-  video: VideoCaptureOptions | boolean;
-  audio: AudioCaptureOptions | boolean;
-} {
-  const mobile = isMobileDevice();
-  const resolution = mobile ? VideoPresets.h360.resolution : VideoPresets.h540.resolution;
+function stopLocalTracks(tracks: LocalTrack[]) {
+  for (const track of tracks) {
+    track.stop();
+  }
+}
 
-  const video: VideoCaptureOptions | boolean = choices.videoEnabled
-    ? {
-        deviceId: choices.videoDeviceId || undefined,
-        resolution,
-        ...(mobile && !choices.videoDeviceId ? { facingMode: "user" as const } : {}),
+function LocalPreviewVideo({ tracks }: { tracks: LocalTrack[] }) {
+  const video = tracks.find((t) => t.kind === Track.Kind.Video);
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !video) return;
+    video.attach(el);
+    void el.play().catch(() => {});
+    return () => {
+      video.detach(el);
+    };
+  }, [video]);
+
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      muted
+      playsInline
+      className="w-full rounded-lg object-cover min-h-[160px] bg-zinc-900"
+    />
+  );
+}
+
+/** Publish pre-acquired tracks once — same path as LiveKit ConnectionCheck. */
+function PublishTracksOnce({
+  tracks,
+  sessionKey,
+}: {
+  tracks: LocalTrack[];
+  sessionKey: number;
+}) {
+  const room = useRoomContext();
+  const tracksRef = useRef(tracks);
+  const publishedRef = useRef(false);
+  tracksRef.current = tracks;
+
+  useEffect(() => {
+    publishedRef.current = false;
+  }, [sessionKey]);
+
+  useEffect(() => {
+    const publish = async () => {
+      if (publishedRef.current || room.state !== ConnectionState.Connected) return;
+
+      const live = tracksRef.current.filter((t) => t.mediaStreamTrack.readyState !== "ended");
+      const video = live.find((t) => t.kind === Track.Kind.Video);
+      const audio = live.find((t) => t.kind === Track.Kind.Audio);
+
+      try {
+        if (video && !room.localParticipant.getTrackPublication(Track.Source.Camera)?.trackSid) {
+          await room.localParticipant.publishTrack(video, {
+            source: Track.Source.Camera,
+            simulcast: false,
+          });
+        }
+        if (audio && !room.localParticipant.getTrackPublication(Track.Source.Microphone)?.trackSid) {
+          await room.localParticipant.publishTrack(audio, { source: Track.Source.Microphone });
+        }
+        await room.startAudio().catch(() => {});
+        publishedRef.current = true;
+        studioDiag.log("publish", "publishTrack ok (manual path)");
+      } catch (err) {
+        studioDiag.error("publish", formatMediaError(err));
       }
-    : false;
+    };
 
-  const audio: AudioCaptureOptions | boolean = choices.audioEnabled
-    ? { deviceId: choices.audioDeviceId || undefined }
-    : false;
+    const onConnected = () => {
+      void publish();
+    };
 
-  return { video, audio };
+    room.on(RoomEvent.Connected, onConnected);
+    if (room.state === ConnectionState.Connected) {
+      void publish();
+    }
+
+    return () => {
+      room.off(RoomEvent.Connected, onConnected);
+    };
+  }, [room, sessionKey]);
+
+  return null;
 }
 
 function ReconnectStormBanner() {
@@ -241,7 +271,7 @@ function StudioRoomDiagnosticsWatcher() {
   const room = useRoomContext();
 
   useEffect(() => {
-    studioDiag.log("room", "diagnostics started (LiveKitRoom)");
+    studioDiag.log("room", "diagnostics started (manual Room)");
 
     const onConn = () => {
       syncDiagFromRoom(room);
@@ -634,6 +664,8 @@ function StudioRoomContent({
   connectionNotice,
   serverCamOk,
   onServerCamStatus,
+  localTracks,
+  sessionKey,
 }: {
   mode: "collab" | "sandbox";
   collabId?: string;
@@ -645,11 +677,14 @@ function StudioRoomContent({
   connectionNotice?: string;
   serverCamOk?: boolean | null;
   onServerCamStatus?: (hasVideo: boolean) => void;
+  localTracks: LocalTrack[];
+  sessionKey: number;
 }) {
   const state = useConnectionState();
 
   return (
     <>
+      <PublishTracksOnce tracks={localTracks} sessionKey={sessionKey} />
       <StudioRoomDiagnosticsWatcher />
       <CollabStudioDiagnosticsPanel />
       <ReconnectStormBanner />
@@ -683,8 +718,6 @@ function StudioRoomContent({
   );
 }
 
-type StudioSession = TokenPayload;
-
 export function CollabWebRtcStudio({
   mode = "collab",
   collabId,
@@ -696,53 +729,77 @@ export function CollabWebRtcStudio({
 }: StudioProps) {
   const [gate, setGate] = useState<StudioGate>("idle");
   const [session, setSession] = useState<StudioSession | null>(null);
-  const [userChoices, setUserChoices] = useState<LocalUserChoices | null>(null);
+  const [localTracks, setLocalTracks] = useState<LocalTrack[]>([]);
   const [error, setError] = useState("");
   const [connectionNotice, setConnectionNotice] = useState("");
   const [serverCamOk, setServerCamOk] = useState<boolean | null>(null);
   const [fetching, setFetching] = useState(false);
 
+  const localTracksRef = useRef<LocalTrack[]>([]);
   const studioInstanceIdRef = useRef(
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID().slice(0, 8)
       : `${Date.now().toString(36)}`,
   );
 
-  const roomOptions = useMemo(() => roomOptionsForDevice(), []);
+  const room = useMemo(() => new Room(roomOptionsForDevice()), []);
   const connectOptions = useMemo(() => connectOptionsForDevice(), []);
 
   const setGateSafe = useCallback(
     (next: StudioGate) => {
       setGate(next);
-      onPhaseChange?.(next === "live" ? "live" : next === "prejoin" ? "joining" : "idle");
+      onPhaseChange?.(next === "live" ? "live" : next === "joining" ? "joining" : "idle");
     },
     [onPhaseChange],
   );
 
   const leaveStudio = useCallback(() => {
+    stopLocalTracks(localTracksRef.current);
+    localTracksRef.current = [];
+    setLocalTracks([]);
     setSession(null);
-    setUserChoices(null);
     setServerCamOk(null);
     setConnectionNotice("");
     setError("");
     setGateSafe("idle");
     studioDiag.reset();
-  }, [setGateSafe]);
+    void room.disconnect(true).catch(() => {});
+  }, [room, setGateSafe]);
+
+  useEffect(() => {
+    const onDisconnected = () => {
+      setConnectionNotice("Connection dropped — leave and rejoin if video stays frozen.");
+    };
+    room.on(RoomEvent.Disconnected, onDisconnected);
+    return () => {
+      room.off(RoomEvent.Disconnected, onDisconnected);
+    };
+  }, [room]);
 
   const handleServerCamStatus = useCallback((hasVideo: boolean) => {
     setServerCamOk(hasVideo);
   }, []);
 
-  async function prepareStudio() {
+  async function joinStudio() {
     if (fetching) return;
     setFetching(true);
     setError("");
     setConnectionNotice("");
     setServerCamOk(null);
     studioDiag.reset();
-    studioDiag.log("join", "fetching token");
+    studioDiag.log("join", "camera + token + connect");
+
+    let acquired: LocalTrack[] = [];
 
     try {
+      acquired = await createLocalTracks({
+        audio: true,
+        video: isMobileDevice() ? { facingMode: "user" } : true,
+      });
+      localTracksRef.current = acquired;
+      setLocalTracks(acquired);
+      setGateSafe("joining");
+
       const tokenEndpoint = mode === "sandbox" ? "/api/livekit/sandbox" : "/api/livekit/token";
       const tokenBody =
         mode === "sandbox"
@@ -761,43 +818,31 @@ export function CollabWebRtcStudio({
       const data = (await res.json()) as TokenPayload & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Could not join studio");
 
-      setSession(data);
-      setGateSafe("prejoin");
       studioDiag.log("join", `token ok room=${data.room}`);
 
-      let checkToken = data.token;
-      try {
-        const checkRes = await apiFetch("/api/livekit/sandbox", {
-          method: "POST",
-          body: JSON.stringify({
-            studioInstanceId: `${studioInstanceIdRef.current}-check`,
-          }),
-        });
-        if (checkRes.ok) {
-          const checkData = (await checkRes.json()) as { token?: string };
-          if (checkData.token) checkToken = checkData.token;
-        }
-      } catch {
-        /* connectivity check is best-effort */
+      if (room.state !== ConnectionState.Disconnected) {
+        await room.disconnect(true);
       }
-      void runLiveKitConnectivityChecks(data.url, checkToken).catch((err) => {
-        studioDiag.warn("connCheck", formatMediaError(err));
-      });
+      await withTimeout(
+        room.connect(data.url, data.token, connectOptions),
+        joinTimeoutMs(),
+        "Studio link",
+      );
+
+      setSession({ ...data, sessionKey: Date.now() });
+      setGateSafe("live");
+      studioDiag.log("room", "connected");
     } catch (err) {
+      stopLocalTracks(acquired);
+      localTracksRef.current = [];
+      setLocalTracks([]);
+      void room.disconnect(true).catch(() => {});
       setError(formatMediaError(err));
       setGateSafe("idle");
     } finally {
       setFetching(false);
     }
   }
-
-  function handlePreJoinSubmit(choices: LocalUserChoices) {
-    studioDiag.log("prejoin", `video=${choices.videoEnabled} audio=${choices.audioEnabled}`);
-    setUserChoices(choices);
-    setGateSafe("live");
-  }
-
-  const capture = userChoices ? captureFromChoices(userChoices) : { video: true, audio: true };
 
   if (gate === "idle") {
     return (
@@ -808,89 +853,39 @@ export function CollabWebRtcStudio({
         </p>
         <p className="text-xs text-zinc-400">
           {mode === "collab"
-            ? "Step 4 — tap Join, pick camera + mic, then Allow when Safari asks."
+            ? "Step 4 — tap Join and Allow camera + mic when prompted."
             : "Solo test — tap Join. Use Step 4 to connect with your partner."}
         </p>
         {error && <p className="text-xs text-red-400 break-words">{error}</p>}
         <button
           type="button"
-          onClick={() => void prepareStudio()}
+          onClick={() => void joinStudio()}
           disabled={fetching}
           className="btn-primary w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}
-          {fetching ? "Preparing…" : mode === "sandbox" ? "Test my camera" : "Join collab studio (camera + mic)"}
+          {fetching ? "Joining…" : mode === "sandbox" ? "Test my camera" : "Join collab studio (camera + mic)"}
         </button>
       </div>
     );
   }
 
-  if (gate === "prejoin" && session) {
+  if (gate === "joining") {
     return (
-      <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-zinc-950">
-        <div className="p-3 border-b border-white/10 space-y-1">
-          <p className="text-xs text-zinc-400">Check camera & mic, then tap Join studio.</p>
-          <p className="text-[10px] text-zinc-600">
-            Media: direct UDP (port 7882). If video loops, retry with{" "}
-            <code className="text-zinc-500">?relay=1</code> for TURN-only.
-          </p>
-        </div>
-        <div className="lk-prejoin [&_.lk-button]:rounded-lg">
-          <PreJoin
-            joinLabel="Join studio"
-            micLabel="Microphone"
-            camLabel="Camera"
-            defaults={{
-              videoEnabled: true,
-              audioEnabled: true,
-              username: role === "host" ? "Host" : "Partner",
-            }}
-            onError={(err) => {
-              studioDiag.error("prejoin", formatMediaError(err));
-              setError(formatMediaError(err));
-            }}
-            onSubmit={handlePreJoinSubmit}
-          />
-        </div>
-        {error && <p className="text-xs text-red-400 px-3 pb-3 break-words">{error}</p>}
-        <div className="px-3 pb-3">
-          <button type="button" onClick={leaveStudio} className="text-xs text-zinc-500 hover:text-red-400">
-            Cancel
-          </button>
-        </div>
+      <div className="rounded-xl border border-[#53fc18]/30 bg-[#53fc18]/5 p-4 space-y-3">
+        <Loader2 className="h-6 w-6 animate-spin text-[#53fc18] mx-auto" />
+        <p className="text-xs text-center text-amber-200">Connecting to studio…</p>
+        {localTracks.length > 0 && <LocalPreviewVideo tracks={localTracks} />}
+        {error && <p className="text-xs text-red-400 break-words">{error}</p>}
       </div>
     );
   }
 
-  if (!session || !userChoices) return null;
+  if (!session) return null;
 
   return (
     <div className="rounded-xl border border-[#53fc18]/30 overflow-hidden bg-black">
-      <LiveKitRoom
-        serverUrl={session.url}
-        token={session.token}
-        connect
-        video={capture.video}
-        audio={capture.audio}
-        options={roomOptions}
-        connectOptions={connectOptions}
-        data-lk-theme="default"
-        onConnected={() => {
-          studioDiag.log("room", "connected");
-          setConnectionNotice("");
-          setError("");
-        }}
-        onDisconnected={() => {
-          setConnectionNotice("Connection dropped — leave and rejoin if video stays frozen.");
-        }}
-        onError={(err) => {
-          studioDiag.error("room", err.message);
-          setConnectionNotice(formatMediaError(err));
-        }}
-        onMediaDeviceFailure={() => {
-          setConnectionNotice("Camera/mic failed — use Camera/Mic buttons below or leave and rejoin.");
-        }}
-      >
+      <RoomContext.Provider value={room}>
         <StudioRoomContent
           mode={mode}
           collabId={collabId}
@@ -902,13 +897,15 @@ export function CollabWebRtcStudio({
           connectionNotice={connectionNotice || error || undefined}
           serverCamOk={serverCamOk}
           onServerCamStatus={handleServerCamStatus}
+          localTracks={localTracks}
+          sessionKey={session.sessionKey}
         />
         <div className="px-3 pb-3 flex justify-end">
           <button type="button" onClick={leaveStudio} className="text-xs text-zinc-500 hover:text-red-400">
             Leave studio
           </button>
         </div>
-      </LiveKitRoom>
+      </RoomContext.Provider>
     </div>
   );
 }
