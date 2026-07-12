@@ -32,6 +32,8 @@ pathDefaults:
   record: yes
   recordFormat: fmp4
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordSegmentDuration: 4h
+  recordDeleteAfter: 720h
 
 paths:
   all_others:

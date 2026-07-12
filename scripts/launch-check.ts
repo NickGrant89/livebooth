@@ -20,6 +20,13 @@ const RECOMMENDED_PROD = [
   "LIVEPEER_WEBHOOK_SECRET",
 ] as const;
 
+const RTMP_RECORDING = [
+  "RTMP_SERVER_URL",
+  "HLS_SERVER_URL",
+  "RECORDINGS_PUBLIC_URL",
+  "RTMP_AUTH_ENABLED",
+] as const;
+
 const NEVER_PROD = ["NEXT_PUBLIC_DEMO_MODE", "SEED_DEMO_USERS"] as const;
 
 function loadEnvFile(): Record<string, string> {
@@ -73,6 +80,19 @@ function main() {
 
   for (const key of RECOMMENDED_PROD) {
     console.log(env[key] ? `✓ ${key}` : `○ ${key} — recommended for full features`);
+  }
+
+  const selfHostedRtmp = Boolean(env.RTMP_SERVER_URL && env.HLS_SERVER_URL && !env.LIVEPEER_API_KEY);
+  if (selfHostedRtmp) {
+    console.log("\n--- Self-hosted RTMP + full VOD recording ---\n");
+    for (const key of RTMP_RECORDING) {
+      if (key === "RTMP_AUTH_ENABLED") {
+        console.log(env[key] === "true" ? `✓ ${key}=true` : `⚠ ${key} — set true in production`);
+      } else {
+        console.log(env[key] ? `✓ ${key}` : `⚠ ${key} — required for full-length replays`);
+      }
+    }
+    console.log("  VPS: bash scripts/setup-full-recording.sh (Caddy + remux watcher)");
   }
 
   console.log("\n--- Do NOT set on production ---\n");

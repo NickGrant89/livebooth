@@ -8,8 +8,9 @@
 # HLS:  https://hls.yourdomain.com/live/lb_…/index.m3u8  (via Caddy — see Caddyfile.example)
 
 logLevel: info
-readTimeout: 30s
-writeTimeout: 30s
+# Long sets — avoid dropping OBS on brief stalls (was 30s, caused ~30s recordings for some encoders)
+readTimeout: 120s
+writeTimeout: 120s
 
 rtmp: yes
 rtmpAddress: :1935
@@ -34,9 +35,11 @@ authHTTPExclude:
 
 pathDefaults:
   record: yes
-  # fmp4 on disk; host remux watcher converts to browser-playable MP4 (see scripts/setup-recording-remux.sh)
+  # fmp4 on disk; remux watcher converts to browser-playable MP4 after stream ends
   recordFormat: fmp4
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordSegmentDuration: 4h
+  recordDeleteAfter: 720h
 
 paths:
   all_others:

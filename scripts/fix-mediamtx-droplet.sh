@@ -17,8 +17,8 @@ fi
 if [[ "${BYPASS_AUTH}" == "1" ]]; then
   cat > "${RTMP_DIR}/mediamtx.production.yml" << 'EOF'
 logLevel: info
-readTimeout: 30s
-writeTimeout: 30s
+readTimeout: 120s
+writeTimeout: 120s
 
 rtmp: yes
 rtmpAddress: :1935
@@ -45,6 +45,8 @@ pathDefaults:
   record: yes
   recordFormat: fmp4
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordSegmentDuration: 4h
+  recordDeleteAfter: 720h
 
 paths:
   all_others:
@@ -53,8 +55,8 @@ EOF
 else
   cat > "${RTMP_DIR}/mediamtx.production.yml" << EOF
 logLevel: info
-readTimeout: 30s
-writeTimeout: 30s
+readTimeout: 120s
+writeTimeout: 120s
 
 rtmp: yes
 rtmpAddress: :1935
@@ -80,6 +82,8 @@ pathDefaults:
   record: yes
   recordFormat: fmp4
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordSegmentDuration: 4h
+  recordDeleteAfter: 720h
 
 paths:
   all_others:

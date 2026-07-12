@@ -87,7 +87,7 @@ async function resolveRemoteRecordingVodUrl(ingestKey: string): Promise<string |
   return null;
 }
 
-/** Latest fmp4/mp4 for an ingest key, if MediaMTX finished writing it. */
+/** Pick the largest recording file (full set beats partial remux artifacts). */
 export function findLatestRecordingFile(ingestKey: string): string | null {
   const dir = recordingDirForIngestKey(ingestKey);
   if (!fs.existsSync(dir)) return null;
@@ -95,10 +95,20 @@ export function findLatestRecordingFile(ingestKey: string): string | null {
   const files = fs
     .readdirSync(dir)
     .filter((f) => f.endsWith(".fmp4") || f.endsWith(".mp4"))
-    .sort();
+    .map((name) => {
+      try {
+        const full = path.join(dir, name);
+        const st = fs.statSync(full);
+        return { name, size: st.size, mtime: st.mtimeMs };
+      } catch {
+        return { name, size: 0, mtime: 0 };
+      }
+    })
+    .filter((f) => f.size > 0);
 
   if (files.length === 0) return null;
-  return files[files.length - 1]!;
+  files.sort((a, b) => b.size - a.size || b.mtime - a.mtime);
+  return files[0]!.name;
 }
 
 export function getRecordingPublicUrl(ingestKey: string, filename: string): string {
@@ -145,8 +155,8 @@ export function resolveRecordingVodUrl(ingestKey: string | null | undefined): st
 
 export async function resolveRecordingVodUrlWithRetry(
   ingestKey: string | null | undefined,
-  attempts = 8,
-  delayMs = 2000,
+  attempts = 20,
+  delayMs = 3000,
 ): Promise<string | null> {
   if (!ingestKey || !isLocalRecordingEnabled()) return null;
 
