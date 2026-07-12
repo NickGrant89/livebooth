@@ -37,12 +37,9 @@ Full guide: [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md)
 
 **Beta with remote testers:** [docs/BETA-LAUNCH.md](docs/BETA-LAUNCH.md) (LAN → tunnel → Vercel hosted).
 
-### Demo accounts
+### Local dev sign-in
 
-| Role | Email | Password |
-|------|-------|----------|
-| Fan | demo@livebooth.local | password123 |
-| DJ | neonpulse@livebooth.local | password123 |
+After `npm run db:seed`, use the seeded accounts documented in [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) (local-only — never use those credentials in production).
 
 ## VeChain contracts (Phase 2)
 
