@@ -12,6 +12,8 @@ const schema = z.object({
   title: z.string().min(1),
   genre: z.string(),
   bpmRange: z.string().optional(),
+  /** Discard preparing session and issue a fresh lb_ key (fixes OBS auth disconnect loops). */
+  forceNew: z.boolean().optional(),
 });
 
 function serializeGoLiveStream(stream: {
@@ -48,12 +50,18 @@ export async function POST(request: Request) {
   const existing = await prisma.stream.findFirst({
     where: { djId: user.id, status: { in: ["preparing", "live"] } },
   });
-  if (existing) {
-    return json({ stream: serializeGoLiveStream(existing), alreadyLive: true });
-  }
 
   try {
     const body = schema.parse(await request.json());
+
+    if (existing && body.forceNew && existing.status === "preparing") {
+      await cancelStreamPreview(existing.id, user.id);
+    } else if (existing && !body.forceNew) {
+      return json({ stream: serializeGoLiveStream(existing), alreadyLive: true });
+    } else if (existing?.status === "live" && body.forceNew) {
+      return error("End your live stream before creating a new key", 409);
+    }
+
     const station = await getStationForDj(user.id);
     const stream = await createStreamSession(
       user.id,

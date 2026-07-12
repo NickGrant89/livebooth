@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError, requireApiUser } from "@/lib/api-utils";
 import { fetchUpstreamHls } from "@/lib/hls-proxy";
-import { hlsManifestBodyReady } from "@/lib/hls-playback";
+import { hlsManifestBodyReady, localHlsPlaybackPath, upstreamIngestManifestReady } from "@/lib/hls-playback";
 import { isRtmpAuthEnabled, validateRtmpPublish } from "@/lib/rtmp-auth";
 
 export const dynamic = "force-dynamic";
@@ -42,10 +42,30 @@ async function probeUpstreamHls(relativePath: string): Promise<PathProbe> {
 }
 
 async function upstreamManifestReady(relativePath: string): Promise<boolean> {
+  const match = relativePath.match(/^live\/([^/]+)\/index\.m3u8$/);
+  if (match?.[1]) {
+    return upstreamIngestManifestReady(match[1]);
+  }
   if (!HLS_SERVER_URL) return false;
   const url = `${HLS_SERVER_URL}/${relativePath.replace(/^\//, "")}`;
   try {
     const res = await fetchUpstreamHls(url, { timeoutMs: 5000 });
+    if (!res.ok) return false;
+    const text = await res.text();
+    return hlsManifestBodyReady(text);
+  } catch {
+    return false;
+  }
+}
+
+async function proxyManifestReady(ingestKey: string): Promise<boolean> {
+  const proxyPath = localHlsPlaybackPath(ingestKey);
+  const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://livebooth.uk";
+  try {
+    const res = await fetch(`${origin}${proxyPath}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
     if (!res.ok) return false;
     const text = await res.text();
     return hlsManifestBodyReady(text);
@@ -70,9 +90,10 @@ export async function GET(request: Request) {
 
   const expectedPath = `live/${ingestKey}/index.m3u8`;
 
-  const [upstream, feedReady, altLiveOnly, rtmpAuthAllowed] = await Promise.all([
+  const [upstream, feedReadyUpstream, feedReadyProxy, altLiveOnly, rtmpAuthAllowed] = await Promise.all([
     probeUpstreamHls(expectedPath),
     upstreamManifestReady(expectedPath),
+    proxyManifestReady(ingestKey),
     probeUpstreamHls("live/index.m3u8"),
     validateRtmpPublish({
       action: "publish",
@@ -80,6 +101,7 @@ export async function GET(request: Request) {
       protocol: "rtmp",
     }),
   ]);
+  const feedReady = feedReadyUpstream || feedReadyProxy;
 
   let suggestion: string | null = null;
   if (!feedReady) {
@@ -97,7 +119,7 @@ export async function GET(request: Request) {
           "LiveBooth recognizes this key, but our ingest server has no video on it yet. In OBS → Settings → Stream: Server must be exactly rtmp://rtmp.livebooth.uk:1935/live (nothing after /live), Stream key = your lb_… key only. Stop Streaming, re-paste the key, Start Streaming.";
       } else if (isRtmpAuthEnabled()) {
         suggestion =
-          "RTMP auth would reject this key. Cancel setup, start a new Go Live session, and paste the new stream key into OBS.";
+          "RTMP auth will reject this key — OBS will connect then disconnect in a loop. Cancel Go Live, start a fresh session, and paste the new lb_… key into OBS (Server + Stream key fields only).";
       } else {
         suggestion =
           "OBS may show connected but MediaMTX has no feed on this key. Click Stop Streaming in OBS, confirm the stream key matches exactly, then Start Streaming again.";

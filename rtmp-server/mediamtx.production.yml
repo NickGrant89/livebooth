@@ -25,7 +25,7 @@ apiAddress: :9997
 
 authMethod: http
 # MediaMTX on VPS calls your LiveBooth app to validate publish keys
-authHTTPAddress: https://LIVEBOOTH_APP_URL/api/rtmp/auth
+authHTTPAddress: https://livebooth.uk/api/rtmp/auth
 authHTTPExclude:
   - action: api
   - action: metrics

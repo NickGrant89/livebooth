@@ -1,5 +1,8 @@
 import { validateRtmpPublish, type MediaMtxAuthPayload } from "@/lib/rtmp-auth";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 15;
+
 /** MediaMTX HTTP auth — POST with JSON body; 20x = allow, else deny. */
 export async function POST(request: Request) {
   let payload: MediaMtxAuthPayload = {};

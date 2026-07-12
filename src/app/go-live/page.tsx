@@ -111,6 +111,33 @@ export default function GoLivePage() {
     setStep(data.stream.status === "live" ? 5 : 4);
   }
 
+  async function regenerateStreamKey() {
+    if (!title.trim() && !streamInfo?.title) {
+      setError("Add a set title first");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    const res = await apiFetch("/api/streams/go-live", {
+      method: "POST",
+      body: JSON.stringify({
+        title: streamInfo?.title || title,
+        genre,
+        bpmRange: bpmRange || undefined,
+        forceNew: true,
+      }),
+    });
+    const data = await res.json();
+    setSubmitting(false);
+    if (!res.ok) {
+      setError(data.error ?? "Could not create new stream key");
+      return;
+    }
+    setStreamInfo(data.stream);
+    await refresh();
+    setStep(4);
+  }
+
   async function publishStream() {
     if (!streamInfo?.id) return;
     setSubmitting(true);
@@ -326,6 +353,14 @@ export default function GoLivePage() {
               onPublish={publishStream}
               publishing={submitting}
             />
+            <button
+              type="button"
+              onClick={regenerateStreamKey}
+              disabled={submitting}
+              className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 py-2.5 text-sm text-amber-200 hover:bg-amber-500/15 disabled:opacity-50"
+            >
+              {submitting ? "Refreshing key…" : "OBS keeps disconnecting? Generate new stream key"}
+            </button>
             <button
               type="button"
               onClick={cancelPreview}

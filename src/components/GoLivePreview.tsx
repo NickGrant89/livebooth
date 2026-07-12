@@ -123,6 +123,12 @@ export function GoLivePreview({
           </li>
           <li className={obsConnected ? "text-[#53fc18]" : ""}>
             {obsConnected ? "✓" : "○"} OBS stream detected (HLS manifest)
+            {!obsConnected && diagnostics?.rtmpAuthAllowed === false && (
+              <span className="block text-[10px] text-red-300/90 mt-0.5">
+                This stream key is rejected — OBS will keep disconnecting. Start a new Go Live session and
+                update OBS with the new key.
+              </span>
+            )}
             {!obsConnected && diagnostics?.rtmpAuthAllowed === true && (
               <span className="block text-[10px] text-amber-200/70 mt-0.5">
                 Key is active in LiveBooth — ingest server still waiting for OBS on this key

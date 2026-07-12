@@ -117,8 +117,14 @@ export async function hlsManifestReady(url: string, depth = 0): Promise<boolean>
       if (!res.ok) return false;
       text = await res.text();
     } else if (url.startsWith("/api/hls/")) {
-      const origin = (process.env.NEXT_PUBLIC_APP_URL ?? "https://livebooth.uk").replace(/\/$/, "");
-      const res = await fetch(`${origin}${url}`, { cache: "no-store" });
+      const fetchUrl =
+        typeof window !== "undefined"
+          ? url
+          : `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://livebooth.uk").replace(/\/$/, "")}${url}`;
+      const res = await fetch(fetchUrl, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (!res.ok) return false;
       text = await res.text();
     } else {
