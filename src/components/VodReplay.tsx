@@ -9,7 +9,7 @@ import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { FanGradeShare } from "@/components/FanGradeShare";
 import { ClipExportPanel } from "@/components/ClipExportPanel";
 import { formatClipTimestamp } from "@/lib/clip-export";
-import { STAKER_VOD_EARLY_HOURS } from "@/lib/constants";
+import { STAKER_VOD_EARLY_HOURS, DJ_STAKER_VOD_EARLY_HOURS } from "@/lib/constants";
 
 type Highlight = {
   id: string;
@@ -34,7 +34,11 @@ type VodReplayProps = {
   earlyAccessBlocked?: {
     publicAt: string;
     stationSlug: string | null;
+    djUsername?: string | null;
+    accessType?: "station" | "dj";
   };
+  showStakerCta?: boolean;
+  stationSlug?: string | null;
 };
 
 function formatTimestamp(ms: number) {
@@ -57,6 +61,8 @@ export function VodReplay({
   setGrade,
   setScore,
   earlyAccessBlocked,
+  showStakerCta = false,
+  stationSlug = null,
 }: VodReplayProps) {
   const playerRef = useRef<StreamPlayerHandle>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -75,10 +81,12 @@ export function VodReplay({
     <>
       {earlyAccessBlocked ? (
         <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-6 mb-6 text-center">
-          <p className="text-lg font-bold text-white">Members-only replay window</p>
+          <p className="text-lg font-bold text-white">Supporters-only replay window</p>
           <p className="text-sm text-zinc-400 mt-2 max-w-md mx-auto">
-            Station members get replay access for the first {STAKER_VOD_EARLY_HOURS} hours after a
-            show ends. Everyone else can watch after that — or become a member now.
+            {earlyAccessBlocked.accessType === "station"
+              ? `Station members get replay access for the first ${STAKER_VOD_EARLY_HOURS} hours after a show ends.`
+              : `DJ supporters get replay access for the first ${DJ_STAKER_VOD_EARLY_HOURS} hours after a set ends.`}{" "}
+            Everyone else can watch after that — or stake now to unlock early access.
           </p>
           <p className="text-xs text-zinc-500 mt-3">
             Public replay:{" "}
@@ -87,14 +95,24 @@ export function VodReplay({
               timeStyle: "short",
             })}
           </p>
-          {earlyAccessBlocked.stationSlug && (
-            <Link
-              href={`/station/${earlyAccessBlocked.stationSlug}#stake`}
-              className="inline-flex mt-4 rounded-lg bg-[#53fc18] px-5 py-2.5 text-sm font-bold text-black"
-            >
-              Become a member
-            </Link>
-          )}
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
+            {earlyAccessBlocked.stationSlug && (
+              <Link
+                href={`/station/${earlyAccessBlocked.stationSlug}#stake`}
+                className="inline-flex rounded-lg bg-[#53fc18] px-5 py-2.5 text-sm font-bold text-black"
+              >
+                Become a member
+              </Link>
+            )}
+            {earlyAccessBlocked.djUsername && (
+              <Link
+                href={`/dj/${earlyAccessBlocked.djUsername}#stake`}
+                className="inline-flex rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-5 py-2.5 text-sm font-bold text-cyan-200"
+              >
+                Back this DJ
+              </Link>
+            )}
+          </div>
         </div>
       ) : (
         <StreamPlayer
@@ -149,6 +167,33 @@ export function VodReplay({
         setGrade={setGrade ?? null}
         setScore={setScore ?? null}
       />
+
+      {showStakerCta && (
+        <div className="mt-6 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="font-semibold text-sm text-cyan-200">Love this set?</p>
+            <p className="text-xs text-zinc-400 mt-1">
+              Stake on {djName} for early replays, cheaper unlocks, and milestone rewards on future sets.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {stationSlug && (
+              <Link
+                href={`/station/${stationSlug}#stake`}
+                className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black"
+              >
+                Station member
+              </Link>
+            )}
+            <Link
+              href={`/dj/${djUsername}#stake`}
+              className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-200"
+            >
+              Back this DJ
+            </Link>
+          </div>
+        </div>
+      )}
 
       {highlights.length > 0 && !earlyAccessBlocked && (
         <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">

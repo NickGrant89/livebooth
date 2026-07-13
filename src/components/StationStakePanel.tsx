@@ -7,6 +7,8 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { MIN_STAKE_AMOUNT, DROP_TOKEN_SYMBOL, STAKER_PERKS } from "@/lib/constants";
 import { STAKING_COPY } from "@/lib/staking-ui";
+import { StakerLeaderboard, type StakerLeaderboardEntry } from "@/components/StakerLeaderboard";
+import { estimateProportionalShare } from "@/lib/staking-rewards";
 
 interface Milestone {
   key: string;
@@ -15,7 +17,7 @@ interface Milestone {
   current: number;
   progress: number;
   claimed: boolean;
-  rewardPerStaker: number;
+  rewardPool: number;
 }
 
 export function StationStakePanel({ slug }: { slug: string }) {
@@ -23,6 +25,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
   const [totalStaked, setTotalStaked] = useState(0);
   const [stakerCount, setStakerCount] = useState(0);
   const [myStake, setMyStake] = useState<number | null>(null);
+  const [topStakers, setTopStakers] = useState<StakerLeaderboardEntry[]>([]);
   const [amount, setAmount] = useState(String(MIN_STAKE_AMOUNT));
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [flagshipDj, setFlagshipDj] = useState<{ username: string; displayName: string } | null>(null);
@@ -38,6 +41,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
         setMyStake(d.myStake?.amount ?? null);
         setMilestones(d.milestones ?? []);
         setFlagshipDj(d.flagshipDj ?? null);
+        setTopStakers(d.topStakers ?? []);
       });
   }
 
@@ -155,26 +159,37 @@ export function StationStakePanel({ slug }: { slug: string }) {
             <Target className="h-3 w-3" />
             Community milestones
           </p>
-          {milestones.map((m) => (
-            <div key={m.key}>
-              <div className="flex justify-between text-[11px] mb-0.5">
-                <span className={m.claimed ? "text-[#53fc18]" : "text-zinc-400"}>
-                  {m.label} {m.claimed && "✓"}
-                </span>
-                <span className="text-zinc-600">
-                  +{m.rewardPerStaker} {DROP_TOKEN_SYMBOL}/member
-                </span>
+          {milestones.map((m) => {
+            const yourShare =
+              myStake != null
+                ? estimateProportionalShare(myStake, totalStaked || myStake, m.rewardPool)
+                : null;
+            return (
+              <div key={m.key}>
+                <div className="flex justify-between text-[11px] mb-0.5 gap-2">
+                  <span className={m.claimed ? "text-[#53fc18]" : "text-zinc-400"}>
+                    {m.label} {m.claimed && "✓"}
+                  </span>
+                  <span className="text-zinc-600 shrink-0 text-right">
+                    {m.rewardPool} {DROP_TOKEN_SYMBOL} pool
+                    {yourShare != null && !m.claimed && (
+                      <span className="block text-cyan-400/80">~{yourShare} for you</span>
+                    )}
+                  </span>
+                </div>
+                <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${m.claimed ? "bg-[#53fc18]" : "bg-cyan-500/60"}`}
+                    style={{ width: `${m.progress}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-1 rounded-full bg-white/5 overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${m.claimed ? "bg-[#53fc18]" : "bg-cyan-500/60"}`}
-                  style={{ width: `${m.progress}%` }}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+
+      <StakerLeaderboard stakers={topStakers} title="Top members" emptyLabel="No members yet — be the first!" />
     </div>
   );
 }

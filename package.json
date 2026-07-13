@@ -22,6 +22,7 @@
     "contracts:sync-env": "npx tsx scripts/sync-contract-env.ts",
     "contracts:verify": "npx tsx scripts/verify-testnet.ts",
     "contracts:wire-safe": "cd contracts && npx hardhat run scripts/wire-safe-treasury.ts --network vechainTestnet",
+    "contracts:check-safe": "npx tsx scripts/check-safe-balance.ts",
     "smoke:withdrawal": "npx tsx scripts/smoke-withdrawal.ts",
     "smoke:onchain": "npx tsx scripts/smoke-onchain.ts",
     "smoke:deploy": "npx tsx scripts/smoke-deploy.ts",

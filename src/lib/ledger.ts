@@ -11,6 +11,8 @@ import {
 } from "./constants";
 import { applyFirstTipBonus, createStreamHighlight } from "./retention";
 import { getStakerBadgeForStream } from "./staker-perks";
+import { evaluateDjMilestones } from "./staking";
+import { evaluateStationMilestones } from "./station-staking";
 
 export async function getOrCreateBalance(userId: string) {
   let balance = await prisma.beatBalance.findUnique({ where: { userId } });
@@ -200,6 +202,15 @@ export async function processTip(
     stationId: stream?.stationId ?? null,
   });
   await broadcastChatMessageWithProfile(streamId, chatMsg, stakerBadge);
+
+  try {
+    await evaluateDjMilestones(toUserId);
+    if (stream?.stationId) {
+      await evaluateStationMilestones(stream.stationId);
+    }
+  } catch (err) {
+    console.error("milestones after tip:", err);
+  }
 
   return tip;
 }

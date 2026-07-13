@@ -6,8 +6,9 @@ export const STAKING_DEEMPHASIZED = false;
 export const STAKING_COPY = {
   stationTitle: "Become a station member",
   stationHint:
-    "Lock 50+ DROP to unlock chat badge, cheaper unlocks, early replays, and milestone rewards. Unstake anytime.",
+    "Lock 50+ DROP for chat badge, cheaper unlocks, early replays, and milestone rewards. Unstake anytime.",
   djTitle: "Back this DJ",
-  djHint: "Show support — unstake anytime. Station members get the full perk pack on station shows.",
+  djHint:
+    "Lock 50+ DROP for supporter perks — early replays, cheaper unlocks, milestone rewards. Unstake anytime.",
   ownerMilestones: "Member milestone rewards",
 } as const;

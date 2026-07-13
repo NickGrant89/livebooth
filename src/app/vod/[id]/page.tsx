@@ -56,6 +56,7 @@ export default async function VODPage({
       stationId: stream.stationId,
       endedAt: stream.endedAt,
       station: stream.station,
+      dj: { username: stream.dj.username },
     },
     session?.role,
   );
@@ -119,9 +120,16 @@ export default async function VODPage({
         setScore={setScore}
         earlyAccessBlocked={
           !vodAccess.allowed && vodAccess.reason === "early_access"
-            ? { publicAt: vodAccess.publicAt, stationSlug: vodAccess.stationSlug }
+            ? {
+                publicAt: vodAccess.publicAt,
+                stationSlug: vodAccess.stationSlug,
+                djUsername: vodAccess.djUsername,
+                accessType: vodAccess.accessType,
+              }
             : undefined
         }
+        showStakerCta={vodAccess.allowed}
+        stationSlug={stream.station?.slug ?? null}
       />
     </div>
   );

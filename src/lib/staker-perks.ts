@@ -7,6 +7,7 @@ import {
   STAKER_UNLOCK_DISCOUNT,
   STAKER_REQUEST_DISCOUNT,
   STAKER_VOD_EARLY_HOURS,
+  DJ_STAKER_VOD_EARLY_HOURS,
   TRACK_UNLOCK_COST,
   REQUEST_COST,
 } from "./constants";
@@ -139,47 +140,57 @@ export async function getFanStreamPricingWithStakerPerks(
 ) {
   const perks = await getStakerPerks(fanId, { djId, stationId });
   const stationMember = Boolean(stationId && perks.isStationStaker);
+  const perkEligible = stationMember || perks.isDjStaker;
 
   const baseUnlock = vip ? Math.ceil(TRACK_UNLOCK_COST * 0.7) : TRACK_UNLOCK_COST;
   const baseRequest = vip ? Math.ceil(REQUEST_COST * 0.7) : REQUEST_COST;
 
   return {
     vip,
-    staker: stationMember || perks.isDjStaker,
+    staker: perkEligible,
     stakerTier: perks.tier,
     stakerBadge: perks.badgeLabel,
     stationMember,
-    trackUnlockCost: stationMember
+    djStaker: perks.isDjStaker,
+    trackUnlockCost: perkEligible
       ? applyStakerDiscount(baseUnlock, STAKER_UNLOCK_DISCOUNT)
       : baseUnlock,
-    requestCost: stationMember
+    requestCost: perkEligible
       ? applyStakerDiscount(baseRequest, STAKER_REQUEST_DISCOUNT)
       : baseRequest,
-    tipGradeBoost: stationMember ? STAKER_TIP_GRADE_BOOST : 1,
+    tipGradeBoost: perkEligible ? STAKER_TIP_GRADE_BOOST : 1,
   };
 }
 
 export async function effectiveTipsForSetScore(
   streamId: string,
+  djId: string,
   stationId: string | null,
   fallbackTotal: number,
 ): Promise<number> {
-  if (!stationId) return fallbackTotal;
-
-  const [tips, stakers] = await Promise.all([
+  const [tips, stationStakers, djStakers] = await Promise.all([
     prisma.tip.findMany({
       where: { streamId },
       select: { fromUserId: true, amount: true },
     }),
-    prisma.stationStake.findMany({
-      where: { stationId },
+    stationId
+      ? prisma.stationStake.findMany({
+          where: { stationId },
+          select: { fanId: true },
+        })
+      : Promise.resolve([]),
+    prisma.djStake.findMany({
+      where: { djId },
       select: { fanId: true },
     }),
   ]);
 
   if (tips.length === 0) return fallbackTotal;
 
-  const stakerIds = new Set(stakers.map((s) => s.fanId));
+  const stakerIds = new Set([
+    ...stationStakers.map((s) => s.fanId),
+    ...djStakers.map((s) => s.fanId),
+  ]);
   let total = 0;
   for (const tip of tips) {
     total += stakerIds.has(tip.fromUserId) ? tip.amount * STAKER_TIP_GRADE_BOOST : tip.amount;
@@ -189,7 +200,30 @@ export async function effectiveTipsForSetScore(
 
 export type VodAccessResult =
   | { allowed: true }
-  | { allowed: false; reason: "early_access"; publicAt: string; stationSlug: string | null };
+  | {
+      allowed: false;
+      reason: "early_access";
+      publicAt: string;
+      stationSlug: string | null;
+      djUsername: string | null;
+      accessType: "station" | "dj";
+    };
+
+function vodPublicAt(
+  endedAt: Date,
+  stationId: string | null,
+): { publicAt: number; accessType: "station" | "dj" } {
+  if (stationId) {
+    return {
+      publicAt: endedAt.getTime() + STAKER_VOD_EARLY_HOURS * 3600_000,
+      accessType: "station",
+    };
+  }
+  return {
+    publicAt: endedAt.getTime() + DJ_STAKER_VOD_EARLY_HOURS * 3600_000,
+    accessType: "dj",
+  };
+}
 
 export async function getVodAccess(
   userId: string | null | undefined,
@@ -198,13 +232,14 @@ export async function getVodAccess(
     stationId: string | null;
     endedAt: Date | null;
     station?: { slug: string; ownerId: string } | null;
+    dj?: { username: string } | null;
   },
   userRole?: string,
 ): Promise<VodAccessResult> {
-  if (!stream.endedAt || !stream.stationId) return { allowed: true };
+  if (!stream.endedAt) return { allowed: true };
 
-  const publicAt = new Date(stream.endedAt.getTime() + STAKER_VOD_EARLY_HOURS * 3600_000);
-  if (Date.now() >= publicAt.getTime()) return { allowed: true };
+  const { publicAt, accessType } = vodPublicAt(stream.endedAt, stream.stationId);
+  if (Date.now() >= publicAt) return { allowed: true };
 
   if (userRole === "admin") return { allowed: true };
   if (userId && userId === stream.djId) return { allowed: true };
@@ -215,13 +250,16 @@ export async function getVodAccess(
       djId: stream.djId,
       stationId: stream.stationId,
     });
-    if (perks.isStationStaker) return { allowed: true };
+    if (stream.stationId && perks.isStationStaker) return { allowed: true };
+    if (perks.isDjStaker) return { allowed: true };
   }
 
   return {
     allowed: false,
     reason: "early_access",
-    publicAt: publicAt.toISOString(),
+    publicAt: new Date(publicAt).toISOString(),
     stationSlug: stream.station?.slug ?? null,
+    djUsername: stream.dj?.username ?? null,
+    accessType,
   };
 }

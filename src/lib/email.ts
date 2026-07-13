@@ -51,10 +51,14 @@ export async function sendEmail(options: {
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   const subject = "Reset your LiveBooth password";
   const html = `
-    <p>You requested a password reset for LiveBooth.</p>
-    <p><a href="${resetUrl}">Reset your password</a></p>
-    <p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>
-    <p style="color:#888;font-size:12px">${resetUrl}</p>
+    <div style="font-family:system-ui,sans-serif;max-width:480px;color:#111">
+      <p>You requested a password reset for LiveBooth.</p>
+      <p style="margin:24px 0">
+        <a href="${resetUrl}" style="background:#53fc18;color:#000;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">Reset your password</a>
+      </p>
+      <p style="color:#666;font-size:14px">This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>
+      <p style="color:#999;font-size:12px;word-break:break-all">${resetUrl}</p>
+    </div>
   `.trim();
   const text = `Reset your LiveBooth password: ${resetUrl}\n\nExpires in 1 hour.`;
 
@@ -98,11 +102,15 @@ export async function sendAdminPasswordResetEmail(to: string, resetUrl: string, 
 export async function sendEmailVerificationEmail(to: string, verifyUrl: string, displayName: string) {
   const subject = "Verify your LiveBooth email";
   const html = `
-    <p>Hi ${displayName},</p>
-    <p>Thanks for signing up for LiveBooth. Confirm your email to sign in and start using your booth.</p>
-    <p><a href="${verifyUrl}">Verify my email</a></p>
-    <p>This link expires in 24 hours. If you didn't create an account, ignore this email.</p>
-    <p style="color:#888;font-size:12px">${verifyUrl}</p>
+    <div style="font-family:system-ui,sans-serif;max-width:480px;color:#111">
+      <p>Hi ${displayName},</p>
+      <p>Thanks for signing up for LiveBooth. Confirm your email to sign in and start using your booth.</p>
+      <p style="margin:24px 0">
+        <a href="${verifyUrl}" style="background:#53fc18;color:#000;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">Verify my email</a>
+      </p>
+      <p style="color:#666;font-size:14px">This link expires in 24 hours. If you didn't create an account, you can ignore this email.</p>
+      <p style="color:#999;font-size:12px;word-break:break-all">${verifyUrl}</p>
+    </div>
   `.trim();
   const text = `Verify your LiveBooth email: ${verifyUrl}\n\nExpires in 24 hours.`;
 

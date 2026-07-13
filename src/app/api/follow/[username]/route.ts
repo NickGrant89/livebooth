@@ -1,5 +1,6 @@
 import { getSessionUser } from "@/lib/auth";
 import { evaluateAchievements } from "@/lib/achievements";
+import { evaluateDjMilestones } from "@/lib/staking";
 import { bumpQuestProgress } from "@/lib/quests";
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
@@ -57,6 +58,12 @@ export async function POST(
   }
 
   await evaluateAchievements(dj.id);
+
+  try {
+    await evaluateDjMilestones(dj.id);
+  } catch (err) {
+    console.error("dj milestones after follow:", err);
+  }
 
   return json({ ok: true });
 }

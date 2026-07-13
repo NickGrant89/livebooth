@@ -70,7 +70,7 @@ interface OwnerData {
     current: number;
     progress: number;
     claimed: boolean;
-    rewardPerStaker: number;
+    rewardPool: number;
   }>;
   embed: { url: string; snippet: string } | null;
   earnings: { total: number; tipCount: number };
@@ -546,7 +546,7 @@ export function StationOwnerDashboard() {
                   <span className={m.claimed ? "text-[#53fc18]" : ""}>
                     {m.label} ({m.current}/{m.threshold}) {m.claimed && "✓"}
                   </span>
-                  <span>+{m.rewardPerStaker} DROP/staker</span>
+                  <span>{m.rewardPool} DROP pool (split by stake)</span>
                 </div>
                 <div className="h-1 rounded-full bg-white/5">
                   <div

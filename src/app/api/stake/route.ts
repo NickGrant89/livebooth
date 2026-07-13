@@ -1,7 +1,7 @@
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
-import { stakeOnDj, unstakeFromDj, getStake, getDjStakeTotal, listTopStakers } from "@/lib/staking";
+import { stakeOnDj, unstakeFromDj, getStake, getDjStakeTotal, listTopStakers, getDjMilestoneProgress } from "@/lib/staking";
 import { z } from "zod";
 
 export async function GET(request: Request) {
@@ -18,9 +18,10 @@ export async function GET(request: Request) {
     if (stake) myStake = { amount: stake.amount };
   }
 
-  const [totals, topStakers] = await Promise.all([
+  const [totals, topStakers, milestones] = await Promise.all([
     getDjStakeTotal(dj.id),
     listTopStakers(dj.id),
+    getDjMilestoneProgress(dj.id),
   ]);
 
   return json({
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
       avatar: s.fan.avatar,
       amount: s.amount,
     })),
+    milestones,
   });
 }
 

@@ -34,6 +34,7 @@ export const STAKER_UNLOCK_DISCOUNT = 0.15;
 export const STAKER_REQUEST_DISCOUNT = 0.1;
 export const STAKER_TIP_GRADE_BOOST = 1.1;
 export const STAKER_VOD_EARLY_HOURS = 24;
+export const DJ_STAKER_VOD_EARLY_HOURS = 12;
 export const STAKER_TIER_CORE_MIN = 150;
 export const STAKER_TIER_LEGEND_MIN = 500;
 
@@ -43,8 +44,16 @@ export const STAKER_PERKS = [
   "10% off crowd requests on station shows",
   "Early replay access (24h before public)",
   "Your tips count 1.1× toward set grade",
-  "Share in station milestone DROP rewards",
-  "Monthly member draw — top stakers eligible (soon)",
+  "Share in station milestone DROP rewards (proportional to stake)",
+] as const;
+
+export const DJ_STAKER_PERKS = [
+  "Supporter badge in live chat",
+  "12h early replay on this DJ's sets",
+  "10% off track ID unlocks on this DJ's streams",
+  "10% off crowd requests",
+  "Your tips count 1.1× toward set grade",
+  "Share in DJ milestone DROP rewards (proportional to stake)",
 ] as const;
 
 /** Station tip split: 70% DJ / 20% station / 10% platform */
@@ -85,16 +94,27 @@ export const RADIO_TIERS = {
 
 export type RadioTierId = keyof typeof RADIO_TIERS;
 
-/** Station staking milestones — rewards paid to all current stakers when hit */
+/** Station staking milestones — reward pool split proportionally among stakers */
 export const STATION_MILESTONES = [
-  { key: "followers_25", metric: "followers" as const, threshold: 25, rewardPerStaker: 8, label: "25 station followers" },
-  { key: "followers_100", metric: "followers" as const, threshold: 100, rewardPerStaker: 25, label: "100 station followers" },
-  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPerStaker: 30, label: "500 DROP staked on station" },
-  { key: "staked_2000", metric: "staked" as const, threshold: 2000, rewardPerStaker: 75, label: "2,000 DROP staked on station" },
-  { key: "tips_1000", metric: "tips" as const, threshold: 1000, rewardPerStaker: 40, label: "1,000 DROP tipped on shows" },
+  { key: "followers_25", metric: "followers" as const, threshold: 25, rewardPool: 40, label: "25 station followers" },
+  { key: "followers_100", metric: "followers" as const, threshold: 100, rewardPool: 125, label: "100 station followers" },
+  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPool: 150, label: "500 DROP staked on station" },
+  { key: "staked_2000", metric: "staked" as const, threshold: 2000, rewardPool: 375, label: "2,000 DROP staked on station" },
+  { key: "tips_1000", metric: "tips" as const, threshold: 1000, rewardPool: 200, label: "1,000 DROP tipped on shows" },
 ] as const;
 
 export type StationMilestoneKey = (typeof STATION_MILESTONES)[number]["key"];
+
+/** DJ staking milestones — reward pool split proportionally among stakers */
+export const DJ_MILESTONES = [
+  { key: "followers_50", metric: "followers" as const, threshold: 50, rewardPool: 100, label: "50 followers" },
+  { key: "followers_250", metric: "followers" as const, threshold: 250, rewardPool: 300, label: "250 followers" },
+  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPool: 150, label: "500 DROP staked on DJ" },
+  { key: "staked_1500", metric: "staked" as const, threshold: 1500, rewardPool: 400, label: "1,500 DROP staked on DJ" },
+  { key: "tips_500", metric: "tips" as const, threshold: 500, rewardPool: 200, label: "500 DROP tipped on streams" },
+] as const;
+
+export type DjMilestoneKey = (typeof DJ_MILESTONES)[number]["key"];
 
 /** CSV columns for station schedule import */
 export const STATION_SCHEDULE_CSV_HEADER =

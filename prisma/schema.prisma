@@ -32,6 +32,7 @@ model User {
   totpSecret        String?
   totpEnabled       Boolean   @default(false)
   emailVerifiedAt   DateTime?
+  milestonesClaimed String    @default("[]")
   stripeConnectAccountId String? @unique
   stripeConnectOnboarded Boolean @default(false)
   createdAt         DateTime  @default(now())

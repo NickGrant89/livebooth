@@ -26,6 +26,7 @@ import { streamMetadata } from "@/lib/metadata-share";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { StreamInStreamAdBanner } from "@/components/StreamInStreamAdBanner";
 import { StreamNotLiveView } from "@/components/StreamNotLiveView";
+import { StreamStakerPromo } from "@/components/StreamStakerPromo";
 
 export const dynamic = "force-dynamic";
 
@@ -194,6 +195,15 @@ export default async function StreamPage({
               </div>
             )}
             {!isHost && <QuestStreamChip streamId={stream.id} />}
+            {!isHost && (
+              <StreamStakerPromo
+                djUsername={dj.username}
+                djDisplayName={dj.displayName}
+                stationSlug={stream.station?.slug}
+                stationName={stream.station?.name}
+                isHost={isHost}
+              />
+            )}
             {!isHost && (
               <div className="mt-3 lg:hidden">
                 <SetScorePanel streamId={stream.id} variant="fan" />

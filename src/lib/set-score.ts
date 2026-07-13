@@ -153,7 +153,12 @@ export async function computeLiveSetScore(streamId: string) {
     select: { stationId: true, totalTips: true },
   });
   const effectiveTips = streamMeta
-    ? await effectiveTipsForSetScore(streamId, streamMeta.stationId, streamMeta.totalTips)
+    ? await effectiveTipsForSetScore(
+        streamId,
+        stream.djId,
+        streamMeta.stationId,
+        streamMeta.totalTips,
+      )
     : input.totalTips;
 
   const { score, breakdown } = scoreFromComponents({
@@ -189,7 +194,12 @@ export async function computeSetScore(streamId: string) {
     select: { stationId: true, totalTips: true },
   });
   const effectiveTips = streamMeta
-    ? await effectiveTipsForSetScore(streamId, streamMeta.stationId, streamMeta.totalTips)
+    ? await effectiveTipsForSetScore(
+        streamId,
+        stream.djId,
+        streamMeta.stationId,
+        streamMeta.totalTips,
+      )
     : input.totalTips;
 
   const { score, breakdown } = scoreFromComponents({

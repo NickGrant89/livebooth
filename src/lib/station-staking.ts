@@ -3,6 +3,7 @@ import { creditUser, debitUser } from "./ledger";
 import { MIN_STAKE_AMOUNT, STATION_MILESTONES } from "./constants";
 import { getStationStats } from "./stations";
 import { notifyUser } from "./notifications";
+import { distributeProportionalRewards } from "./staking-rewards";
 
 export async function getStationFollowCount(stationId: string) {
   return prisma.stationFollow.count({ where: { stationId } });
@@ -122,19 +123,21 @@ export async function evaluateStationMilestones(stationId: string) {
     if (value < milestone.threshold) continue;
 
     const stakers = await prisma.stationStake.findMany({ where: { stationId } });
-    for (const staker of stakers) {
+    const rewards = distributeProportionalRewards(stakers, milestone.rewardPool);
+
+    for (const [fanId, reward] of rewards) {
       await creditUser(
-        staker.fanId,
-        milestone.rewardPerStaker,
+        fanId,
+        reward,
         "station_milestone",
         stationId,
         { milestone: milestone.key, label: milestone.label },
       );
       await notifyUser(
-        staker.fanId,
+        fanId,
         "station_milestone",
         `${station.name} milestone unlocked`,
-        `You earned +${milestone.rewardPerStaker} DROP — ${milestone.label}`,
+        `You earned +${reward} DROP — ${milestone.label}`,
         station.slug ? `/station/${station.slug}` : undefined,
       );
     }
