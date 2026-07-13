@@ -36,8 +36,10 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   exit 1
 fi
 
-TMP="${FILE}.remuxing.$$"
-if ffmpeg -y -loglevel error -i "$FILE" -c copy -movflags +faststart "$TMP"; then
+base="${FILE%.*}"
+ext="${FILE##*.}"
+TMP="${base}.remux-$$.${ext}"
+if ffmpeg -y -loglevel error -i "$FILE" -c copy -movflags +faststart -f mp4 "$TMP"; then
   mv "$TMP" "$FILE"
   touch "$MARKER"
 else
