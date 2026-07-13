@@ -2,7 +2,7 @@
 
 Current as of June 2026. Use this doc for deploy, VeWorld, explorer links, and on-chain tips.
 
-**Architecture:** [ONCHAIN-ROADMAP.md](./ONCHAIN-ROADMAP.md) — what stays off-chain vs on-chain.
+See also: [VECHAIN-REDEPLOY-AND-MULTISIG.md](./VECHAIN-REDEPLOY-AND-MULTISIG.md) · [MAINNET-CONTRACTS.md](./MAINNET-CONTRACTS.md)
 
 ## Quick links (verified working)
 
@@ -35,9 +35,9 @@ After `npm run contracts:deploy` + `npm run contracts:sync-env`:
 
 | Contract | Testnet address |
 |----------|-----------------|
-| DropToken (DROP) | `0x3ce357a7ddb16a35ee6cd41fe0b9e0f2e27a719c` |
-| TipRouter | `0xa54408730be4360ba192556a57c1d7695d7a8874` |
-| AchievementVault | `0xb833c389dcec15fb6064b592541a689b8c82ed89` |
+| DropToken (DROP) | `0x5ed900bdef82d2f08eca0963e1116ff0040c61df` |
+| TipRouter | `0x296b1b6d53ce3d8c53e557c2a333ac5c8b58bbe2` |
+| AchievementVault | `0x4670f14adc58b71b7e873571be5e095494039866` |
 | Chain ID | `100010` |
 
 View DROP on explorer (Testnet toggle on):
@@ -55,9 +55,9 @@ DEPLOYER_PRIVATE_KEY="0x..."          # VeWorld-derived, path m/44'/818'/0'/0/0
 NEXT_PUBLIC_VECHAIN_NODE_URL="https://testnet.vechain.org"
 NEXT_PUBLIC_VECHAIN_RPC_URL="https://rpc-testnet.vechain.energy"
 NEXT_PUBLIC_CHAIN_ID="100010"
-NEXT_PUBLIC_DROP_TOKEN_ADDRESS="0x3ce357a7ddb16a35ee6cd41fe0b9e0f2e27a719c"
-NEXT_PUBLIC_TIP_ROUTER_ADDRESS="0xa54408730be4360ba192556a57c1d7695d7a8874"
-NEXT_PUBLIC_ACHIEVEMENT_VAULT_ADDRESS="0xb833c389dcec15fb6064b592541a689b8c82ed89"
+NEXT_PUBLIC_DROP_TOKEN_ADDRESS="0x5ed900bdef82d2f08eca0963e1116ff0040c61df"
+NEXT_PUBLIC_TIP_ROUTER_ADDRESS="0x296b1b6d53ce3d8c53e557c2a333ac5c8b58bbe2"
+NEXT_PUBLIC_ACHIEVEMENT_VAULT_ADDRESS="0x4670f14adc58b71b7e873571be5e095494039866"
 ```
 
 Run `npm run contracts:sync-env` after deploy to fill contract addresses.

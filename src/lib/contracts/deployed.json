@@ -1,9 +1,10 @@
 {
   "chainId": 100010,
   "network": "vechainTestnet",
-  "dropToken": "0x3ce357a7ddb16a35ee6cd41fe0b9e0f2e27a719c",
-  "tipRouter": "0xa54408730be4360ba192556a57c1d7695d7a8874",
-  "achievementVault": "0xb833c389dcec15fb6064b592541a689b8c82ed89",
+  "dropToken": "0x5ed900bdef82d2f08eca0963e1116ff0040c61df",
+  "tipRouter": "0x296b1b6d53ce3d8c53e557c2a333ac5c8b58bbe2",
+  "achievementVault": "0x4670f14adc58b71b7e873571be5e095494039866",
   "deployer": "0x23630Aa9C614523E83a5Adb5CCe9A0E383a942f4",
-  "deployedAt": "2026-06-30T18:24:28.893Z"
+  "deployedAt": "2026-07-13T22:14:20.186Z",
+  "faucetEnabled": true
 }
