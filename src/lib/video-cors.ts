@@ -19,6 +19,39 @@ export function resolveVodPlaybackSrc(url: string): string {
   return resolved;
 }
 
+/** Derive HLS VOD playlist URL from a recording MP4 URL (same ingest folder). */
+export function hlsVodUrlForRecording(url: string): string | null {
+  const resolved = resolveVodPlaybackSrc(url);
+  if (resolved.includes("/playback/index.m3u8")) return resolved;
+  const match = resolved.match(/^(.*\/live\/lb_[^/]+)\/[^/]+\.(?:mp4|fmp4)(?:\?.*)?$/i);
+  if (match?.[1]) return `${match[1]}/playback/index.m3u8`;
+  return null;
+}
+
+export type VodPlaybackMode = "hls" | "file";
+
+/** Prefer segmented HLS VOD when the server has finished building it. */
+export async function resolveVodPlaybackMode(
+  url: string,
+): Promise<{ url: string; mode: VodPlaybackMode }> {
+  const direct = resolveVodPlaybackSrc(url);
+  if (direct.includes(".m3u8")) {
+    return { url: direct, mode: "hls" };
+  }
+
+  const hlsCandidate = hlsVodUrlForRecording(url);
+  if (hlsCandidate) {
+    try {
+      const res = await fetch(hlsCandidate, { method: "HEAD", cache: "no-store" });
+      if (res.ok) return { url: hlsCandidate, mode: "hls" };
+    } catch {
+      // fall through to MP4
+    }
+  }
+
+  return { url: direct, mode: "file" };
+}
+
 /** Fallback when direct cross-origin recording fails in the browser. */
 export function recordingUrlToProxy(url: string): string | null {
   if (typeof window === "undefined") return null;

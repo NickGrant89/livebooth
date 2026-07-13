@@ -15,6 +15,7 @@ import {
   playbackNeedsCrossOrigin,
   recordingUrlToProxy,
   resolvePlaybackUrl,
+  resolveVodPlaybackMode,
   resolveVodPlaybackSrc,
 } from "@/lib/video-cors";
 
@@ -121,6 +122,13 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     const video = videoRef.current;
     if (!video || !playbackUrl) return;
 
+    let cancelled = false;
+    let cleanupFns: (() => void)[] = [];
+    const runCleanup = () => {
+      for (const fn of cleanupFns) fn();
+      cleanupFns = [];
+    };
+
     hlsManifestReadyRef.current = false;
     vodReadyRef.current = false;
     vodFallbackTriedRef.current = false;
@@ -129,13 +137,63 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     setLiveNoSignal(false);
     setIsLoading(!isLive && !previewMode);
 
-    const isFile =
-      playbackUrl.includes("/api/vod/file/") ||
-      /\.(mp4|fmp4|webm)(\?|$)/i.test(playbackUrl);
+    const attachVodHls = (src: string) => {
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+          manifestLoadingTimeOut: 15000,
+          manifestLoadingMaxRetry: 6,
+        });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          vodReadyRef.current = true;
+          setIsLoading(false);
+          setPlaybackError(false);
+        });
+        hls.on(Hls.Events.ERROR, (_e, data) => {
+          if (!data.fatal) return;
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            hls.startLoad();
+            return;
+          }
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+            return;
+          }
+          setPlaybackError(true);
+          setIsLoading(false);
+        });
+        cleanupFns.push(() => hls.destroy());
+        return;
+      }
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.crossOrigin = "anonymous";
+        video.src = src;
+        video.addEventListener(
+          "loadedmetadata",
+          () => {
+            vodReadyRef.current = true;
+            setIsLoading(false);
+          },
+          { once: true },
+        );
+        video.addEventListener(
+          "error",
+          () => {
+            setPlaybackError(true);
+            setIsLoading(false);
+          },
+          { once: true },
+        );
+        video.load();
+      }
+    };
 
-    if (isFile) {
-      const src = resolveVodPlaybackSrc(playbackUrl);
-      video.removeAttribute("crossorigin");
+    const attachVodMp4 = (src: string) => {
+      video.crossOrigin = "anonymous";
 
       const markReady = () => {
         vodReadyRef.current = true;
@@ -145,7 +203,6 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
       const onError = () => {
         if (vodReadyRef.current) return;
-
         const proxyFallback = recordingUrlToProxy(playbackUrl);
         if (proxyFallback && !vodFallbackTriedRef.current && video.src !== proxyFallback) {
           vodFallbackTriedRef.current = true;
@@ -153,20 +210,14 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           video.load();
           return;
         }
-
         setPlaybackError(true);
         setIsLoading(false);
-      };
-      const onLoaded = () => {
-        markReady();
-        video.playbackRate = playbackSpeed;
-        video.play().catch(() => undefined);
       };
       const onLoadedMetadata = () => {
         if (Number.isFinite(video.duration) && video.duration > 0) {
           setDuration(video.duration);
-          markReady();
         }
+        markReady();
       };
       const onCanPlay = () => markReady();
       const onWaiting = () => {
@@ -176,37 +227,34 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
       video.addEventListener("error", onError);
       video.addEventListener("loadedmetadata", onLoadedMetadata);
-      video.addEventListener("loadeddata", onLoaded);
       video.addEventListener("canplay", onCanPlay);
       video.addEventListener("waiting", onWaiting);
       video.addEventListener("playing", onPlaying);
-      video.preload = "none";
+      video.preload = "metadata";
       video.playsInline = true;
       video.src = src;
       video.load();
 
-      const loadTimeout = window.setTimeout(() => {
-        if (!vodReadyRef.current && video.readyState < 1) {
-          setPlaybackError(true);
-          setIsLoading(false);
-        }
-      }, 60000);
-
-      return () => {
-        window.clearTimeout(loadTimeout);
+      cleanupFns.push(() => {
         video.removeEventListener("error", onError);
         video.removeEventListener("loadedmetadata", onLoadedMetadata);
-        video.removeEventListener("loadeddata", onLoaded);
         video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("waiting", onWaiting);
         video.removeEventListener("playing", onPlaying);
         video.removeAttribute("src");
         video.load();
-      };
-    }
+      });
 
-    const liveLike = isLive || previewMode;
-    const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playbackUrl);
+      // If HLS segments are still being built on the server, switch automatically.
+      const hlsPoll = window.setInterval(() => {
+        void resolveVodPlaybackMode(playbackUrl).then(({ url: next, mode }) => {
+          if (cancelled || mode !== "hls" || next === src) return;
+          runCleanup();
+          attachVodHls(next);
+        });
+      }, 20_000);
+      cleanupFns.push(() => window.clearInterval(hlsPoll));
+    };
 
     const markVideoReady = () => {
       if (video.readyState >= 2 && (video.videoWidth > 0 || video.readyState >= 3)) {
@@ -218,7 +266,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
     const attachNativeLiveHls = () => {
       setIsLoading(!previewMode);
-      if (liveLike) setAwaitingVideo(true);
+      if (isLive || previewMode) setAwaitingVideo(true);
       const onPlaying = () => {
         setAwaitingVideo(false);
         setIsLoading(false);
@@ -238,20 +286,18 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       );
       video.load();
       video.play().catch(() => undefined);
-      return () => {
+      cleanupFns.push(() => {
         video.removeEventListener("loadeddata", markVideoReady);
         video.removeEventListener("canplay", markVideoReady);
         video.removeEventListener("playing", onPlaying);
         video.removeAttribute("src");
         video.load();
-      };
+      });
     };
 
-    if (mediaMtxHls && preferNativeMediaMtxHls()) {
-      return attachNativeLiveHls();
-    }
-
-    if (Hls.isSupported()) {
+    const attachLiveHlsJs = () => {
+      const liveLike = isLive || previewMode;
+      const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playbackUrl);
       setIsLoading(!previewMode);
       if (isLive && mediaMtxHls) setAwaitingVideo(true);
       let manifestFailures = 0;
@@ -349,29 +395,71 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         }
       }, 8000);
 
-      return () => {
+      cleanupFns.push(() => {
         window.clearTimeout(retryTimeout);
         video.removeEventListener("playing", onPlaying);
         video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("waiting", onWaiting);
         if (!hlsStopped) hls.destroy();
-      };
-    }
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      if (liveLike) {
-        return attachNativeLiveHls();
+      });
+    };
+
+    void (async () => {
+      if (!isLive && !previewMode) {
+        const looksLikeFile =
+          playbackUrl.includes("/api/vod/file/") ||
+          playbackUrl.includes("/recordings/") ||
+          /\.(mp4|fmp4|webm|m3u8)(\?|$)/i.test(playbackUrl);
+
+        if (looksLikeFile) {
+          const { url: src, mode } = await resolveVodPlaybackMode(playbackUrl);
+          if (cancelled) return;
+          if (mode === "hls") {
+            attachVodHls(src);
+          } else {
+            attachVodMp4(src);
+          }
+          return;
+        }
       }
-      setIsLoading(true);
-      video.src = playbackUrl;
-      video.addEventListener(
-        "loadedmetadata",
-        () => {
-          setIsLoading(false);
-          video.play().catch(() => undefined);
-        },
-        { once: true },
-      );
-    }
+
+      if (cancelled) return;
+
+      const liveLike = isLive || previewMode;
+      const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playbackUrl);
+
+      if (mediaMtxHls && preferNativeMediaMtxHls()) {
+        attachNativeLiveHls();
+        return;
+      }
+
+      if (Hls.isSupported()) {
+        attachLiveHlsJs();
+        return;
+      }
+
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        if (liveLike) {
+          attachNativeLiveHls();
+          return;
+        }
+        setIsLoading(true);
+        video.src = playbackUrl;
+        video.addEventListener(
+          "loadedmetadata",
+          () => {
+            setIsLoading(false);
+            video.play().catch(() => undefined);
+          },
+          { once: true },
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      runCleanup();
+    };
   }, [playbackUrl, isLive, previewMode]);
 
   useEffect(() => {
