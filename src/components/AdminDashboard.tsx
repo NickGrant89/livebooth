@@ -651,6 +651,11 @@ export function AdminDashboard() {
                 <div>
                   <p className="font-semibold text-white">{String(u.displayName)} <span className="text-zinc-500 font-normal">@{String(u.username)}</span></p>
                   <p className="text-xs text-zinc-500">{String(u.email)} · {String(u.role)} · {String(u.balance)} DROP{u.suspendedAt ? " · SUSPENDED" : ""}</p>
+                  {u.createdAt ? (
+                    <p className="text-[10px] text-zinc-600 mt-0.5">
+                      Signed up {new Date(String(u.createdAt)).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
                   <button
