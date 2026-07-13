@@ -46,6 +46,62 @@ function LoginForm() {
     router.refresh();
   }
 
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
+
+  async function resendVerification() {
+    const emailInput = document.getElementById("email") as HTMLInputElement | null;
+    const email = emailInput?.value?.trim();
+    if (!email) return;
+    setResendLoading(true);
+    setResendSent(false);
+    await apiFetch("/api/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    setResendLoading(false);
+    setResendSent(true);
+  }
+
+  if (state?.requiresVerification) {
+    return (
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center mb-8">
+          <Logo size="lg" showTagline link={false} />
+          <h1 className="text-2xl font-bold tracking-tight mt-6">Verify your email</h1>
+          <p className="text-zinc-500 mt-2 text-sm text-center">
+            {state.email
+              ? `Check ${state.email} for the verification link before signing in.`
+              : "Check your inbox for the verification link before signing in."}
+          </p>
+        </div>
+        <div className="glass rounded-2xl p-8 space-y-4">
+          {state.error && (
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-200">
+              {state.error}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={resendVerification}
+            disabled={resendLoading}
+            className="btn-primary w-full rounded-xl py-3.5 text-sm"
+          >
+            {resendLoading ? "Sending…" : "Resend verification email"}
+          </button>
+          {resendSent && (
+            <p className="text-sm text-[#53fc18] text-center">If that account needs verification, a new link has been sent.</p>
+          )}
+          <p className="text-center text-sm text-zinc-500">
+            <Link href="/verify-email" className="text-[#53fc18] hover:underline">
+              Open verification help
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (state?.requiresTotp && state.pendingToken) {
     return (
       <div className="w-full max-w-md">

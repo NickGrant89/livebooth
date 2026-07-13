@@ -94,3 +94,17 @@ export async function sendAdminPasswordResetEmail(to: string, resetUrl: string, 
 
   return sendEmail({ to, subject, html, text });
 }
+
+export async function sendEmailVerificationEmail(to: string, verifyUrl: string, displayName: string) {
+  const subject = "Verify your LiveBooth email";
+  const html = `
+    <p>Hi ${displayName},</p>
+    <p>Thanks for signing up for LiveBooth. Confirm your email to sign in and start using your booth.</p>
+    <p><a href="${verifyUrl}">Verify my email</a></p>
+    <p>This link expires in 24 hours. If you didn't create an account, ignore this email.</p>
+    <p style="color:#888;font-size:12px">${verifyUrl}</p>
+  `.trim();
+  const text = `Verify your LiveBooth email: ${verifyUrl}\n\nExpires in 24 hours.`;
+
+  return sendEmail({ to, subject, html, text });
+}

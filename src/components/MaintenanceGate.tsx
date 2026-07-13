@@ -22,7 +22,10 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
 
   const isAdminRoute = pathname?.startsWith("/admin");
   const isAdmin = user?.role === "admin";
-  const isAuthRoute = pathname?.startsWith("/login") || pathname?.startsWith("/signup");
+  const isAuthRoute =
+    pathname?.startsWith("/login") ||
+    pathname?.startsWith("/signup") ||
+    pathname?.startsWith("/verify-email");
 
   if (
     status?.maintenanceMode &&

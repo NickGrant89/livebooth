@@ -157,6 +157,7 @@ export async function POST(request: Request) {
         passwordHash,
         role: body.role,
         avatar: body.displayName.slice(0, 2).toUpperCase(),
+        emailVerifiedAt: new Date(),
         balance: { create: { balance: welcomeBonus, totalEarned: 0 } },
       },
     });

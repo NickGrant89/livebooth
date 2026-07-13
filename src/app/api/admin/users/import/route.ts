@@ -100,6 +100,7 @@ export async function POST(request: Request) {
         passwordHash,
         role,
         avatar: (displayName || username).slice(0, 2).toUpperCase(),
+        emailVerifiedAt: new Date(),
         balance: { create: { balance: welcomeBonus, totalEarned: 0 } },
       },
     });

@@ -10,6 +10,12 @@ import { getOrCreateBalance } from "@/lib/ledger";
 import { CREATOR_TYPES, type CreatorType } from "@/lib/constants";
 import { getPlatformSettings, getWelcomeBonus } from "@/lib/platform-settings";
 import { isRateLimitedFromHeaders } from "@/lib/rate-limit";
+import {
+  emailVerificationEnabled,
+  maskEmail,
+  userNeedsEmailVerification,
+} from "@/lib/email-verification";
+import { sendUserVerificationEmail } from "@/lib/send-verification-email";
 import type { AuthFormState } from "@/app/actions/auth-types";
 
 export type { AuthFormState } from "@/app/actions/auth-types";
@@ -60,6 +66,14 @@ export async function loginAction(
     if (user.suspendedAt) {
       return {
         error: user.suspendedReason ?? "This account has been suspended. Contact support@livebooth.local",
+      };
+    }
+
+    if (userNeedsEmailVerification(user)) {
+      return {
+        requiresVerification: true,
+        email: maskEmail(user.email),
+        error: "Verify your email before signing in. Check your inbox for the verification link.",
       };
     }
 
@@ -126,6 +140,7 @@ export async function signupAction(
     if (existing) return { error: "Email or username already taken" };
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const verifyNow = !emailVerificationEnabled();
     const user = await prisma.user.create({
       data: {
         email,
@@ -135,6 +150,7 @@ export async function signupAction(
         role: role === "dj" ? "dj" : role === "station" ? "station" : "fan",
         creatorType: role === "dj" ? creatorType : "dj",
         avatar: displayName.slice(0, 2).toUpperCase(),
+        emailVerifiedAt: verifyNow ? new Date() : null,
       },
     });
     await getOrCreateBalance(user.id);
@@ -143,6 +159,11 @@ export async function signupAction(
       where: { userId: user.id },
       data: { balance: welcomeBonus },
     });
+
+    if (userNeedsEmailVerification(user)) {
+      await sendUserVerificationEmail(user);
+      redirect(`/verify-email?email=${encodeURIComponent(email)}`);
+    }
 
     const jwt = await createSession(user.id);
     await setSessionCookie(jwt);

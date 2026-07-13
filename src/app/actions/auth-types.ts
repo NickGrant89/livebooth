@@ -4,4 +4,6 @@ export type AuthFormState = {
   requiresTotp?: boolean;
   pendingToken?: string;
   username?: string;
+  requiresVerification?: boolean;
+  email?: string;
 } | null;

@@ -31,6 +31,7 @@ model User {
   suspendedReason   String?
   totpSecret        String?
   totpEnabled       Boolean   @default(false)
+  emailVerifiedAt   DateTime?
   stripeConnectAccountId String? @unique
   stripeConnectOnboarded Boolean @default(false)
   createdAt         DateTime  @default(now())
@@ -69,6 +70,7 @@ model User {
   supportTickets         SupportTicket[]
   assignedSupportTickets SupportTicket[] @relation("AssignedSupportTickets")
   passwordResetTokens  PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   withdrawalRequests   WithdrawalRequest[]
   adminAuditLogs       AdminAuditLog[]
 }
@@ -584,6 +586,19 @@ model SupportTicketMessage {
 }
 
 model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model EmailVerificationToken {
   id        String    @id @default(cuid())
   userId    String
   token     String    @unique

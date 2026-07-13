@@ -4,6 +4,11 @@ import { prisma } from "@/lib/db";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { json, error } from "@/lib/api-utils";
 import { getPlatformSettings, getWelcomeBonus } from "@/lib/platform-settings";
+import {
+  emailVerificationEnabled,
+  userNeedsEmailVerification,
+} from "@/lib/email-verification";
+import { sendUserVerificationEmail } from "@/lib/send-verification-email";
 
 const schema = z.object({
   email: z.string().email(),
@@ -26,6 +31,7 @@ export async function POST(request: Request) {
 
     const passwordHash = await bcrypt.hash(body.password, 10);
     const welcomeBonus = await getWelcomeBonus();
+    const verifyNow = !emailVerificationEnabled();
     const user = await prisma.user.create({
       data: {
         email: body.email,
@@ -34,9 +40,30 @@ export async function POST(request: Request) {
         passwordHash,
         role: body.role,
         avatar: body.displayName.slice(0, 2).toUpperCase(),
+        emailVerifiedAt: verifyNow ? new Date() : null,
         balance: { create: { balance: welcomeBonus, totalEarned: 0 } },
       },
     });
+
+    if (userNeedsEmailVerification(user)) {
+      const mail = await sendUserVerificationEmail(user);
+      return json(
+        {
+          requiresVerification: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            role: user.role,
+          },
+          message: "Check your email to verify your account before signing in.",
+          ...(process.env.NODE_ENV !== "production" && mail.devVerifyUrl
+            ? { devVerifyUrl: mail.devVerifyUrl }
+            : {}),
+        },
+        201,
+      );
+    }
 
     const jwt = await createSession(user.id);
     await setSessionCookie(jwt);

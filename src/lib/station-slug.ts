@@ -23,6 +23,7 @@ const RESERVED = new Set([
   "vod",
   "forgot-password",
   "reset-password",
+  "verify-email",
   "health",
 ]);
 
