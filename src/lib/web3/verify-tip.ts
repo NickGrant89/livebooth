@@ -1,20 +1,11 @@
 import {
-  createPublicClient,
   decodeEventLog,
-  http,
   keccak256,
   toBytes,
   type Hash,
 } from "viem";
-import { vechainTestnet } from "./chains";
 import { ABIS, CONTRACTS, parseDrop } from "./contracts";
-
-const RPC_URL =
-  process.env.NEXT_PUBLIC_VECHAIN_RPC_URL ?? "https://rpc-testnet.vechain.energy";
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+import { createVeChainPublicClient, sleep } from "./public-client";
 
 /** Normalize VeChain / EVM tx id to 0x + 64 hex. */
 export function normalizeTxHash(raw: string): Hash | null {
@@ -34,10 +25,7 @@ export async function verifyOnChainTip(params: {
     return { ok: false, reason: "TipRouter not configured" };
   }
 
-  const client = createPublicClient({
-    chain: vechainTestnet,
-    transport: http(RPC_URL),
-  });
+  const client = createVeChainPublicClient();
 
   let receipt = null;
   for (let attempt = 0; attempt < 12; attempt++) {
@@ -56,7 +44,6 @@ export async function verifyOnChainTip(params: {
   if (receipt.status !== "success") {
     return { ok: false, reason: "Transaction failed on-chain" };
   }
-
   const streamBytes = keccak256(toBytes(params.streamId));
   const expectedAmountWei = parseDrop(params.expectedAmount);
   const djLower = params.expectedDj.toLowerCase();

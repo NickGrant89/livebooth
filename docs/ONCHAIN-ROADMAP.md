@@ -90,6 +90,7 @@ Fan app (default) ──► SQLite ledger (mirror + chat)
 - [ ] Mainnet deploy + audited contracts
 - [ ] `CLAIM_SIGNER` hardened (HSM / separate key from deployer)
 - [ ] Buy DROP → optional wallet delivery
+- [x] Server verifies achievement claim txs on-chain (`verify-claim.ts`)
 
 ### Phase C — Fiat ↔ chain bridge (❌ not started)
 
