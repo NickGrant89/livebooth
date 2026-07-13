@@ -179,12 +179,56 @@ export function normalizeToClientVodUrl(url: string | null | undefined): string 
   return null;
 }
 
+async function remoteHlsPlaybackReady(ingestKey: string): Promise<string | null> {
+  if (!isRemoteRecordingEnabled()) return null;
+  const relativePath = `live/${ingestKey}/playback/index.m3u8`;
+  for (const base of getRecordingsPublicBaseUrls()) {
+    const url = getRemoteRecordingFileUrl(relativePath, base);
+    if (!url) continue;
+    try {
+      const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+      if (res.ok) return url;
+    } catch {
+      // try next base
+    }
+  }
+  return null;
+}
+
+function findLocalHlsPlaybackUrl(ingestKey: string): string | null {
+  const m3u8 = path.join(recordingDirForIngestKey(ingestKey), "playback", "index.m3u8");
+  if (!fs.existsSync(m3u8)) return null;
+  if (isRemoteRecordingEnabled()) {
+    return getRemoteRecordingFileUrl(`live/${ingestKey}/playback/index.m3u8`);
+  }
+  return `/api/vod/file/live/${encodeURIComponent(ingestKey)}/playback/index.m3u8`;
+}
+
 function isLiveHlsArchiveUrl(url: string): boolean {
+  if (url.includes("/recordings/")) return false;
   return (
     url.includes("/api/hls/") ||
     (url.includes("/live/") && url.includes(".m3u8")) ||
     (url.includes("hls.livebooth.uk") && url.includes(".m3u8"))
   );
+}
+
+async function resolveBestRecordingPlaybackUrl(ingestKey: string): Promise<string | null> {
+  const localHls = findLocalHlsPlaybackUrl(ingestKey);
+  if (localHls) return localHls;
+
+  const remoteHls = await remoteHlsPlaybackReady(ingestKey);
+  if (remoteHls) return remoteHls;
+
+  const localFile = findLatestRecordingFile(ingestKey);
+  if (localFile) return getRecordingPublicUrl(ingestKey, localFile);
+
+  if (isRemoteRecordingEnabled()) {
+    const filename = await findLatestRemoteRecordingFilename(ingestKey);
+    if (filename) return getRecordingPublicUrl(ingestKey, filename);
+  }
+
+  return null;
 }
 
 /** Keep direct VPS URLs — only rewrite legacy paths missing the /recordings/ base. */
@@ -205,13 +249,8 @@ export async function resolveEndedStreamPlaybackUrl(
     return null;
   }
 
-  const localFile = findLatestRecordingFile(ingestKey);
-  if (localFile) return getRecordingPublicUrl(ingestKey, localFile);
-
-  if (isRemoteRecordingEnabled()) {
-    const filename = await findLatestRemoteRecordingFilename(ingestKey);
-    if (filename) return getRecordingPublicUrl(ingestKey, filename);
-  }
+  const resolved = await resolveBestRecordingPlaybackUrl(ingestKey);
+  if (resolved) return resolved;
 
   const fromStored = normalizeToClientVodUrl(storedUrl);
   if (fromStored) return fromStored;
@@ -225,6 +264,8 @@ export async function resolveEndedStreamPlaybackUrl(
 
 export function resolveRecordingVodUrl(ingestKey: string | null | undefined): string | null {
   if (!ingestKey || !isLocalRecordingEnabled()) return null;
+  const localHls = findLocalHlsPlaybackUrl(ingestKey);
+  if (localHls) return localHls;
   const localFile = findLatestRecordingFile(ingestKey);
   if (localFile) return getRecordingPublicUrl(ingestKey, localFile);
   return null;
@@ -238,13 +279,8 @@ export async function resolveRecordingVodUrlWithRetry(
   if (!ingestKey || !isLocalRecordingEnabled()) return null;
 
   for (let i = 0; i < attempts; i++) {
-    const localFile = findLatestRecordingFile(ingestKey);
-    if (localFile) return getRecordingPublicUrl(ingestKey, localFile);
-
-    if (isRemoteRecordingEnabled()) {
-      const remote = await resolveRemoteRecordingVodUrl(ingestKey);
-      if (remote) return remote;
-    }
+    const url = await resolveBestRecordingPlaybackUrl(ingestKey);
+    if (url) return url;
 
     if (i < attempts - 1) {
       await new Promise((r) => setTimeout(r, delayMs));

@@ -44,3 +44,21 @@ else
   rm -f "$TMP"
   exit 1
 fi
+
+# HLS VOD — small segments start playback in seconds (vs 200MB+ MP4 range storms).
+HLS_DIR="$(dirname "$FILE")/playback"
+rm -rf "$HLS_DIR"
+mkdir -p "$HLS_DIR"
+if ffmpeg -y -loglevel error -i "$FILE" \
+  -c copy \
+  -hls_time 6 \
+  -hls_list_size 0 \
+  -hls_playlist_type vod \
+  -hls_flags independent_segments \
+  -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
+  "${HLS_DIR}/index.m3u8"; then
+  touch "${HLS_DIR}/.ready"
+else
+  rm -rf "$HLS_DIR"
+  echo "WARN: HLS VOD generation failed for ${FILE}" >&2
+fi

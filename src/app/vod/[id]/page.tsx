@@ -5,7 +5,7 @@ import { VodReplay } from "@/components/VodReplay";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { getVodAccess } from "@/lib/staker-perks";
-import { isDemoPlayback, isFilePlaybackUrl } from "@/lib/streaming";
+import { isDemoPlayback, isFilePlaybackUrl, isVodPlaybackUrl } from "@/lib/streaming";
 import {
   resolveEndedStreamPlaybackUrl,
 } from "@/lib/vod-recording";
@@ -87,7 +87,7 @@ export default async function VODPage({
     }
   }
 
-  if (playbackUrl && !isFilePlaybackUrl(playbackUrl) && !isDemoPlayback(playbackUrl)) {
+  if (playbackUrl && !isVodPlaybackUrl(playbackUrl)) {
     playbackUrl = null;
   }
 

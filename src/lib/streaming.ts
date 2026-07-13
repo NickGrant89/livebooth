@@ -7,12 +7,13 @@ import {
   DEMO_HLS,
   isDemoPlayback,
   isFilePlaybackUrl,
+  isVodPlaybackUrl,
   hasStreamReplay,
 } from "./playback-url";
 import { getProxiedHlsPlaybackUrl } from "./hls-proxy";
 import { localHlsPlaybackPath } from "./hls-playback";
 
-export { isDemoPlayback, isFilePlaybackUrl, hasStreamReplay };
+export { isDemoPlayback, isFilePlaybackUrl, isVodPlaybackUrl, hasStreamReplay };
 
 const LIVEPEER_API_KEY = process.env.LIVEPEER_API_KEY;
 const RTMP_SERVER_URL = process.env.RTMP_SERVER_URL?.replace(/\/$/, "");

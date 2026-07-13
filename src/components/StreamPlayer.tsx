@@ -180,7 +180,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       video.addEventListener("canplay", onCanPlay);
       video.addEventListener("waiting", onWaiting);
       video.addEventListener("playing", onPlaying);
-      video.preload = "metadata";
+      video.preload = "none";
       video.playsInline = true;
       video.src = src;
       video.load();
@@ -685,7 +685,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             ? "Demo HLS"
             : playbackUrl?.includes("/api/vod/file/") ||
                 playbackUrl?.includes("/recordings/") ||
-                /\.(mp4|fmp4)(\?|$)/i.test(playbackUrl ?? "")
+                /\.(mp4|fmp4|m3u8)(\?|$)/i.test(playbackUrl ?? "")
               ? "Recording"
               : playbackUrl
                 ? "HLS Stream"
