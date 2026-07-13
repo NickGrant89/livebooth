@@ -27,12 +27,14 @@ export interface DropTokenInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "MAX_FAUCET"
+      | "MAX_SUPPLY"
       | "allowance"
       | "approve"
       | "balanceOf"
       | "decimals"
       | "decreaseAllowance"
       | "faucet"
+      | "faucetEnabled"
       | "increaseAllowance"
       | "lastFaucetAt"
       | "name"
@@ -51,6 +53,10 @@ export interface DropTokenInterface extends Interface {
 
   encodeFunctionData(
     functionFragment: "MAX_FAUCET",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "MAX_SUPPLY",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -73,6 +79,10 @@ export interface DropTokenInterface extends Interface {
   encodeFunctionData(
     functionFragment: "faucet",
     values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "faucetEnabled",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "increaseAllowance",
@@ -107,6 +117,7 @@ export interface DropTokenInterface extends Interface {
   ): string;
 
   decodeFunctionResult(functionFragment: "MAX_FAUCET", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "MAX_SUPPLY", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "allowance", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "approve", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
@@ -116,6 +127,10 @@ export interface DropTokenInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "faucet", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "faucetEnabled",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "increaseAllowance",
     data: BytesLike
@@ -240,6 +255,8 @@ export interface DropToken extends BaseContract {
 
   MAX_FAUCET: TypedContractMethod<[], [bigint], "view">;
 
+  MAX_SUPPLY: TypedContractMethod<[], [bigint], "view">;
+
   allowance: TypedContractMethod<
     [owner: AddressLike, spender: AddressLike],
     [bigint],
@@ -263,6 +280,8 @@ export interface DropToken extends BaseContract {
   >;
 
   faucet: TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
+
+  faucetEnabled: TypedContractMethod<[], [boolean], "view">;
 
   increaseAllowance: TypedContractMethod<
     [spender: AddressLike, addedValue: BigNumberish],
@@ -308,6 +327,9 @@ export interface DropToken extends BaseContract {
     nameOrSignature: "MAX_FAUCET"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "MAX_SUPPLY"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "allowance"
   ): TypedContractMethod<
     [owner: AddressLike, spender: AddressLike],
@@ -337,6 +359,9 @@ export interface DropToken extends BaseContract {
   getFunction(
     nameOrSignature: "faucet"
   ): TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "faucetEnabled"
+  ): TypedContractMethod<[], [boolean], "view">;
   getFunction(
     nameOrSignature: "increaseAllowance"
   ): TypedContractMethod<

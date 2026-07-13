@@ -2,6 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export { AchievementVault__factory } from "./AchievementVault__factory";
-export { BeatToken__factory } from "./BeatToken__factory";
 export { DropToken__factory } from "./DropToken__factory";
 export { TipRouter__factory } from "./TipRouter__factory";

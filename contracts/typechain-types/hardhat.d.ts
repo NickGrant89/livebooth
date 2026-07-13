@@ -34,10 +34,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.AchievementVault__factory>;
     getContractFactory(
-      name: "BeatToken",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.BeatToken__factory>;
-    getContractFactory(
       name: "DropToken",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.DropToken__factory>;
@@ -72,11 +68,6 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.AchievementVault>;
     getContractAt(
-      name: "BeatToken",
-      address: string | ethers.Addressable,
-      signer?: ethers.Signer
-    ): Promise<Contracts.BeatToken>;
-    getContractAt(
       name: "DropToken",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -107,10 +98,6 @@ declare module "hardhat/types/runtime" {
       name: "AchievementVault",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.AchievementVault>;
-    deployContract(
-      name: "BeatToken",
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.BeatToken>;
     deployContract(
       name: "DropToken",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -145,11 +132,6 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.AchievementVault>;
-    deployContract(
-      name: "BeatToken",
-      args: any[],
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.BeatToken>;
     deployContract(
       name: "DropToken",
       args: any[],

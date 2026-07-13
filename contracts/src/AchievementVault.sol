@@ -2,25 +2,28 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title AchievementVault — DROP rewards claimed with server-signed vouchers
-contract AchievementVault is ReentrancyGuard {
+contract AchievementVault is Ownable, ReentrancyGuard {
     IERC20 public immutable dropToken;
     address public claimSigner;
     mapping(bytes32 => bool) public claimed;
 
     event RewardClaimed(address indexed user, bytes32 indexed claimId, uint256 amount);
+    event ClaimSignerUpdated(address indexed signer);
 
     constructor(address token, address signer) {
         dropToken = IERC20(token);
         claimSigner = signer;
     }
 
-    function setClaimSigner(address signer) external {
-        require(msg.sender == claimSigner, "unauthorized");
+    function setClaimSigner(address signer) external onlyOwner {
+        require(signer != address(0), "invalid signer");
         claimSigner = signer;
+        emit ClaimSignerUpdated(signer);
     }
 
     function fund(uint256 amount) external {

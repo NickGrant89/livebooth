@@ -6,7 +6,7 @@ describe("LiveBooth contracts", () => {
     const [platform, dj, fan] = await ethers.getSigners();
 
     const DropToken = await ethers.getContractFactory("DropToken");
-    const drop = await DropToken.deploy();
+    const drop = await DropToken.deploy(true);
     await drop.waitForDeployment();
 
     const TipRouter = await ethers.getContractFactory("TipRouter");
@@ -29,7 +29,7 @@ describe("LiveBooth contracts", () => {
     const [signer, user] = await ethers.getSigners();
 
     const DropToken = await ethers.getContractFactory("DropToken");
-    const drop = await DropToken.deploy();
+    const drop = await DropToken.deploy(true);
     await drop.waitForDeployment();
 
     const AchievementVault = await ethers.getContractFactory("AchievementVault");
@@ -54,5 +54,42 @@ describe("LiveBooth contracts", () => {
 
     await vault.connect(user).claim(claimId, amount, deadline, signature);
     expect(await drop.balanceOf(user.address)).to.equal(amount);
+  });
+
+  it("enforces max supply on faucet mint", async () => {
+    const [, user] = await ethers.getSigners();
+    const DropToken = await ethers.getContractFactory("DropToken");
+    const drop = await DropToken.deploy(true);
+    await drop.waitForDeployment();
+
+    await expect(drop.connect(user).faucet(ethers.parseEther("501"))).to.be.revertedWith(
+      "invalid amount",
+    );
+  });
+
+  it("disables faucet on mainnet-style deploy", async () => {
+    const [, user] = await ethers.getSigners();
+    const DropToken = await ethers.getContractFactory("DropToken");
+    const drop = await DropToken.deploy(false);
+    await drop.waitForDeployment();
+
+    expect(await drop.faucetEnabled()).to.equal(false);
+    await expect(drop.connect(user).faucet(ethers.parseEther("100"))).to.be.revertedWith(
+      "faucet disabled",
+    );
+  });
+
+  it("allows owner to rotate platform treasury", async () => {
+    const [owner, nextTreasury] = await ethers.getSigners();
+    const DropToken = await ethers.getContractFactory("DropToken");
+    const drop = await DropToken.deploy(false);
+    await drop.waitForDeployment();
+
+    const TipRouter = await ethers.getContractFactory("TipRouter");
+    const router = await TipRouter.deploy(await drop.getAddress(), owner.address);
+    await router.waitForDeployment();
+
+    await router.setPlatformTreasury(nextTreasury.address);
+    expect(await router.platformTreasury()).to.equal(nextTreasury.address);
   });
 });

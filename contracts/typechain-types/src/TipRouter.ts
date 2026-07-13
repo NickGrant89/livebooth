@@ -25,23 +25,49 @@ import type {
 
 export interface TipRouterInterface extends Interface {
   getFunction(
-    nameOrSignature: "PLATFORM_BPS" | "dropToken" | "platformTreasury" | "tip"
+    nameOrSignature:
+      | "PLATFORM_BPS"
+      | "dropToken"
+      | "owner"
+      | "platformTreasury"
+      | "renounceOwnership"
+      | "setPlatformTreasury"
+      | "tip"
+      | "transferOwnership"
   ): FunctionFragment;
 
-  getEvent(nameOrSignatureOrTopic: "Tip"): EventFragment;
+  getEvent(
+    nameOrSignatureOrTopic:
+      | "OwnershipTransferred"
+      | "PlatformTreasuryUpdated"
+      | "Tip"
+  ): EventFragment;
 
   encodeFunctionData(
     functionFragment: "PLATFORM_BPS",
     values?: undefined
   ): string;
   encodeFunctionData(functionFragment: "dropToken", values?: undefined): string;
+  encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "platformTreasury",
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "renounceOwnership",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setPlatformTreasury",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
     functionFragment: "tip",
     values: [AddressLike, BigNumberish, BytesLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transferOwnership",
+    values: [AddressLike]
   ): string;
 
   decodeFunctionResult(
@@ -49,11 +75,49 @@ export interface TipRouterInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "dropToken", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "platformTreasury",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "renounceOwnership",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setPlatformTreasury",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "tip", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "transferOwnership",
+    data: BytesLike
+  ): Result;
+}
+
+export namespace OwnershipTransferredEvent {
+  export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
+  export type OutputTuple = [previousOwner: string, newOwner: string];
+  export interface OutputObject {
+    previousOwner: string;
+    newOwner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace PlatformTreasuryUpdatedEvent {
+  export type InputTuple = [treasury: AddressLike];
+  export type OutputTuple = [treasury: string];
+  export interface OutputObject {
+    treasury: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace TipEvent {
@@ -131,10 +195,26 @@ export interface TipRouter extends BaseContract {
 
   dropToken: TypedContractMethod<[], [string], "view">;
 
+  owner: TypedContractMethod<[], [string], "view">;
+
   platformTreasury: TypedContractMethod<[], [string], "view">;
+
+  renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
+
+  setPlatformTreasury: TypedContractMethod<
+    [treasury: AddressLike],
+    [void],
+    "nonpayable"
+  >;
 
   tip: TypedContractMethod<
     [dj: AddressLike, amount: BigNumberish, streamId: BytesLike],
+    [void],
+    "nonpayable"
+  >;
+
+  transferOwnership: TypedContractMethod<
+    [newOwner: AddressLike],
     [void],
     "nonpayable"
   >;
@@ -150,8 +230,17 @@ export interface TipRouter extends BaseContract {
     nameOrSignature: "dropToken"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
+    nameOrSignature: "owner"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "platformTreasury"
   ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "renounceOwnership"
+  ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "setPlatformTreasury"
+  ): TypedContractMethod<[treasury: AddressLike], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "tip"
   ): TypedContractMethod<
@@ -159,7 +248,24 @@ export interface TipRouter extends BaseContract {
     [void],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "transferOwnership"
+  ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
 
+  getEvent(
+    key: "OwnershipTransferred"
+  ): TypedContractEvent<
+    OwnershipTransferredEvent.InputTuple,
+    OwnershipTransferredEvent.OutputTuple,
+    OwnershipTransferredEvent.OutputObject
+  >;
+  getEvent(
+    key: "PlatformTreasuryUpdated"
+  ): TypedContractEvent<
+    PlatformTreasuryUpdatedEvent.InputTuple,
+    PlatformTreasuryUpdatedEvent.OutputTuple,
+    PlatformTreasuryUpdatedEvent.OutputObject
+  >;
   getEvent(
     key: "Tip"
   ): TypedContractEvent<
@@ -169,6 +275,28 @@ export interface TipRouter extends BaseContract {
   >;
 
   filters: {
+    "OwnershipTransferred(address,address)": TypedContractEvent<
+      OwnershipTransferredEvent.InputTuple,
+      OwnershipTransferredEvent.OutputTuple,
+      OwnershipTransferredEvent.OutputObject
+    >;
+    OwnershipTransferred: TypedContractEvent<
+      OwnershipTransferredEvent.InputTuple,
+      OwnershipTransferredEvent.OutputTuple,
+      OwnershipTransferredEvent.OutputObject
+    >;
+
+    "PlatformTreasuryUpdated(address)": TypedContractEvent<
+      PlatformTreasuryUpdatedEvent.InputTuple,
+      PlatformTreasuryUpdatedEvent.OutputTuple,
+      PlatformTreasuryUpdatedEvent.OutputObject
+    >;
+    PlatformTreasuryUpdated: TypedContractEvent<
+      PlatformTreasuryUpdatedEvent.InputTuple,
+      PlatformTreasuryUpdatedEvent.OutputTuple,
+      PlatformTreasuryUpdatedEvent.OutputObject
+    >;
+
     "Tip(address,address,uint256,uint256,bytes32)": TypedContractEvent<
       TipEvent.InputTuple,
       TipEvent.OutputTuple,

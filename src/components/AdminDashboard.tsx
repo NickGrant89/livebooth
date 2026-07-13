@@ -22,6 +22,7 @@ import { SupportTicketAdminCard } from "@/components/AdminSupportTicketCard";
 import { AdminAnalyticsPanel } from "@/components/admin/AdminAnalyticsPanel";
 import { AdminSettingsPanel } from "@/components/admin/AdminSettingsPanel";
 import { AdminStationResidents } from "@/components/admin/AdminStationResidents";
+import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
 
 type Tab = "overview" | "analytics" | "users" | "streams" | "archives" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "settings" | "audit";
 
@@ -225,15 +226,6 @@ export function AdminDashboard() {
     }
   }
 
-  async function deleteArchive(streamId: string, title: string) {
-    if (!confirm(`Delete archive "${title}"?`)) return;
-    const res = await apiFetch(`/api/streams/${streamId}/archive`, { method: "DELETE" });
-    if (res.ok) {
-      setMsg("Archive deleted");
-      loadArchives();
-    }
-  }
-
   async function loadStreams() {
     const res = await apiFetch("/api/admin/streams");
     if (res.ok) {
@@ -335,6 +327,14 @@ export function AdminDashboard() {
       loadStreams();
     }
   }
+
+  useEffect(() => {
+    const onArchivesUpdated = () => {
+      if (tab === "archives") void loadArchives();
+    };
+    window.addEventListener("livebooth:archives-updated", onArchivesUpdated);
+    return () => window.removeEventListener("livebooth:archives-updated", onArchivesUpdated);
+  }, [tab]);
 
   useEffect(() => {
     setLoading(true);
@@ -750,41 +750,28 @@ export function AdminDashboard() {
           );})}
         </div>
       ) : tab === "archives" ? (
-        <div className="space-y-2">
-          {archives.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No archived sets</p>
-          ) : (
-            archives.map((s) => {
-              const dj = s.dj as { username: string; displayName: string };
-              const hasReplay = Boolean(s.hasReplay);
-              return (
-                <div key={String(s.id)} className="rounded-xl border border-white/10 bg-[#141416] p-4 flex flex-wrap justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-white">{String(s.title)}</p>
-                    <p className="text-xs text-zinc-500 mt-1">
-                      @{dj.username} · {s.peakViewers != null ? `${s.peakViewers} peak` : ""}
-                      {hasReplay ? " · replay available" : " · no replay file"}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {hasReplay && (
-                      <Link href={`/vod/${String(s.id)}`} className="text-xs text-[#53fc18] underline self-center">
-                        Watch
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => deleteArchive(String(s.id), String(s.title))}
-                      className="rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+        <DjArchiveList
+          variant="admin"
+          canDelete
+          streams={archives.map((s) => {
+            const dj = s.dj as { username: string; displayName: string };
+            return {
+              id: String(s.id),
+              title: String(s.title),
+              genre: "other",
+              peakViewers: Number(s.peakViewers ?? 0),
+              totalTips: Number(s.totalTips ?? 0),
+              setGrade: null,
+              setScore: null,
+              startedAt: null,
+              endedAt: s.endedAt ? new Date(String(s.endedAt)) : null,
+              vodUrl: s.vodUrl ? String(s.vodUrl) : null,
+              playbackUrl: s.playbackUrl ? String(s.playbackUrl) : null,
+              hasReplay: Boolean(s.hasReplay),
+              dj,
+            } satisfies ArchiveStream;
+          })}
+        />
       ) : tab === "promotions" ? (
         promotions ? (
         <div className="space-y-6">

@@ -16,8 +16,6 @@ export type { IERC20 } from "./@openzeppelin/contracts/token/ERC20/IERC20";
 export { IERC20__factory } from "./factories/@openzeppelin/contracts/token/ERC20/IERC20__factory";
 export type { AchievementVault } from "./src/AchievementVault";
 export { AchievementVault__factory } from "./factories/src/AchievementVault__factory";
-export type { BeatToken } from "./src/BeatToken";
-export { BeatToken__factory } from "./factories/src/BeatToken__factory";
 export type { DropToken } from "./src/DropToken";
 export { DropToken__factory } from "./factories/src/DropToken__factory";
 export type { TipRouter } from "./src/TipRouter";

@@ -10,6 +10,7 @@ import { DjArchiveList, DjProfileTabs } from "@/components/DjArchiveList";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { getStationAffiliationForUser } from "@/lib/stations";
+import { pruneDjArchive } from "@/lib/archive-cleanup";
 import { genreLabels, DROP_TOKEN_SYMBOL, DAY_LABELS, getCreatorTypeLabel } from "@/lib/constants";
 import { ShareProfileButton } from "@/components/ShareLiveButton";
 import { djProfileMetadata } from "@/lib/metadata-share";
@@ -65,6 +66,10 @@ export default async function DJProfilePage({
   const isOwnProfile = session?.id === dj.id;
   const isCreator = dj.role === "dj" || dj.role === "admin" || dj.role === "station";
   const isDj = dj.role === "dj" || dj.role === "admin";
+
+  if (isOwnProfile && tab === "archive") {
+    await pruneDjArchive(dj.id);
+  }
 
   const [liveStream, archiveStreams, stationAffiliation, totalLikes, vipSubCount] = await Promise.all([
     prisma.stream.findFirst({

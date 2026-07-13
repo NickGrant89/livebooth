@@ -31,10 +31,18 @@ export interface AchievementVaultInterface extends Interface {
       | "claimed"
       | "dropToken"
       | "fund"
+      | "owner"
+      | "renounceOwnership"
       | "setClaimSigner"
+      | "transferOwnership"
   ): FunctionFragment;
 
-  getEvent(nameOrSignatureOrTopic: "RewardClaimed"): EventFragment;
+  getEvent(
+    nameOrSignatureOrTopic:
+      | "ClaimSignerUpdated"
+      | "OwnershipTransferred"
+      | "RewardClaimed"
+  ): EventFragment;
 
   encodeFunctionData(
     functionFragment: "claim",
@@ -47,8 +55,17 @@ export interface AchievementVaultInterface extends Interface {
   encodeFunctionData(functionFragment: "claimed", values: [BytesLike]): string;
   encodeFunctionData(functionFragment: "dropToken", values?: undefined): string;
   encodeFunctionData(functionFragment: "fund", values: [BigNumberish]): string;
+  encodeFunctionData(functionFragment: "owner", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "renounceOwnership",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "setClaimSigner",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transferOwnership",
     values: [AddressLike]
   ): string;
 
@@ -60,10 +77,44 @@ export interface AchievementVaultInterface extends Interface {
   decodeFunctionResult(functionFragment: "claimed", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "dropToken", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "fund", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "renounceOwnership",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "setClaimSigner",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "transferOwnership",
+    data: BytesLike
+  ): Result;
+}
+
+export namespace ClaimSignerUpdatedEvent {
+  export type InputTuple = [signer: AddressLike];
+  export type OutputTuple = [signer: string];
+  export interface OutputObject {
+    signer: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace OwnershipTransferredEvent {
+  export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
+  export type OutputTuple = [previousOwner: string, newOwner: string];
+  export interface OutputObject {
+    previousOwner: string;
+    newOwner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace RewardClaimedEvent {
@@ -146,8 +197,18 @@ export interface AchievementVault extends BaseContract {
 
   fund: TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
 
+  owner: TypedContractMethod<[], [string], "view">;
+
+  renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
+
   setClaimSigner: TypedContractMethod<
     [signer: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  transferOwnership: TypedContractMethod<
+    [newOwner: AddressLike],
     [void],
     "nonpayable"
   >;
@@ -181,9 +242,32 @@ export interface AchievementVault extends BaseContract {
     nameOrSignature: "fund"
   ): TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "owner"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "renounceOwnership"
+  ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "setClaimSigner"
   ): TypedContractMethod<[signer: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "transferOwnership"
+  ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
 
+  getEvent(
+    key: "ClaimSignerUpdated"
+  ): TypedContractEvent<
+    ClaimSignerUpdatedEvent.InputTuple,
+    ClaimSignerUpdatedEvent.OutputTuple,
+    ClaimSignerUpdatedEvent.OutputObject
+  >;
+  getEvent(
+    key: "OwnershipTransferred"
+  ): TypedContractEvent<
+    OwnershipTransferredEvent.InputTuple,
+    OwnershipTransferredEvent.OutputTuple,
+    OwnershipTransferredEvent.OutputObject
+  >;
   getEvent(
     key: "RewardClaimed"
   ): TypedContractEvent<
@@ -193,6 +277,28 @@ export interface AchievementVault extends BaseContract {
   >;
 
   filters: {
+    "ClaimSignerUpdated(address)": TypedContractEvent<
+      ClaimSignerUpdatedEvent.InputTuple,
+      ClaimSignerUpdatedEvent.OutputTuple,
+      ClaimSignerUpdatedEvent.OutputObject
+    >;
+    ClaimSignerUpdated: TypedContractEvent<
+      ClaimSignerUpdatedEvent.InputTuple,
+      ClaimSignerUpdatedEvent.OutputTuple,
+      ClaimSignerUpdatedEvent.OutputObject
+    >;
+
+    "OwnershipTransferred(address,address)": TypedContractEvent<
+      OwnershipTransferredEvent.InputTuple,
+      OwnershipTransferredEvent.OutputTuple,
+      OwnershipTransferredEvent.OutputObject
+    >;
+    OwnershipTransferred: TypedContractEvent<
+      OwnershipTransferredEvent.InputTuple,
+      OwnershipTransferredEvent.OutputTuple,
+      OwnershipTransferredEvent.OutputObject
+    >;
+
     "RewardClaimed(address,bytes32,uint256)": TypedContractEvent<
       RewardClaimedEvent.InputTuple,
       RewardClaimedEvent.OutputTuple,

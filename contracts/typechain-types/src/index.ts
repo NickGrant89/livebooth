@@ -2,6 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { AchievementVault } from "./AchievementVault";
-export type { BeatToken } from "./BeatToken";
 export type { DropToken } from "./DropToken";
 export type { TipRouter } from "./TipRouter";

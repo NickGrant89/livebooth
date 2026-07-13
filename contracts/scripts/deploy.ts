@@ -6,8 +6,11 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying LiveBooth contracts with:", deployer.address);
 
+  const network = await ethers.provider.getNetwork();
+  const faucetEnabled = Number(network.chainId) === 100010;
+
   const DropToken = await ethers.getContractFactory("DropToken");
-  const drop = await DropToken.deploy();
+  const drop = await DropToken.deploy(faucetEnabled);
   await drop.waitForDeployment();
   const dropAddress = await drop.getAddress();
   console.log("DropToken:", dropAddress);
@@ -29,7 +32,8 @@ async function main() {
   await vault.fund(fundAmount);
   console.log("Vault funded with 1M DROP");
 
-  const network = await ethers.provider.getNetwork();
+  console.log("Faucet enabled:", faucetEnabled);
+
   const addresses = {
     chainId: Number(network.chainId),
     network:
@@ -43,6 +47,7 @@ async function main() {
     achievementVault: vaultAddress,
     deployer: deployer.address,
     deployedAt: new Date().toISOString(),
+    faucetEnabled,
   };
 
   const outDir = path.join(__dirname, "../../src/lib/contracts");
