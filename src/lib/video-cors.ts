@@ -1,13 +1,22 @@
 /** CORS helpers for canvas-based clip export from <video>. */
 
+const RECORDINGS_CDN =
+  process.env.NEXT_PUBLIC_RECORDINGS_PUBLIC_URL?.replace(/\/$/, "") ??
+  "https://hls.livebooth.uk/recordings";
+
 export function resolvePlaybackUrl(url: string): string {
   if (typeof window === "undefined") return url;
   return url.startsWith("/") ? `${window.location.origin}${url}` : url;
 }
 
-/** VOD archives — direct VPS URL when possible (Caddy serves with CORS + Range). */
+/** VOD archives — bypass slow Vercel proxy; load directly from recordings CDN. */
 export function resolveVodPlaybackSrc(url: string): string {
-  return resolvePlaybackUrl(url);
+  const resolved = resolvePlaybackUrl(url);
+  if (resolved.includes("/api/vod/file/")) {
+    const rel = resolved.split("/api/vod/file/")[1];
+    if (rel) return `${RECORDINGS_CDN}/${rel}`;
+  }
+  return resolved;
 }
 
 /** Fallback when direct cross-origin recording fails in the browser. */
