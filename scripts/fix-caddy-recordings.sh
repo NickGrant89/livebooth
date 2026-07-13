@@ -28,6 +28,9 @@ ${HLS_DOMAIN} {
 		root * ${RECORDINGS_ROOT}
 		file_server browse
 		header Access-Control-Allow-Origin *
+		header Access-Control-Expose-Headers "Content-Length, Content-Range, Accept-Ranges"
+		header Accept-Ranges bytes
+		header Cache-Control "public, max-age=86400"
 	}
 	reverse_proxy 127.0.0.1:8888
 }

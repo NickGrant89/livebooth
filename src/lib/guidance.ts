@@ -110,8 +110,21 @@ export const DJ_OBS_STEPS = [
   "Open OBS → Settings → Stream → Service: Custom",
   "Server: rtmp://rtmp.livebooth.uk:1935/live",
   "Stream key: paste from Go Live (key field only — not in the server URL)",
-  "Click Start Streaming — confirm bitrate shows in the OBS status bar",
+  "Mac (M1/M2/M3): Settings → Output → Encoder = Apple VT H264 Hardware Encoder (not x264)",
+  "Settings → Output → keyframe interval = 2 seconds (not 0/auto)",
+  "Add a video source (Display Capture or webcam) — image-only scenes can fail ingest",
+  "Click Start Streaming — confirm bitrate shows in the OBS status bar (not just Connected)",
   "Return to Go Live — wait for Signal detected, then click Looks good — go live",
+];
+
+/** Shown when OBS connects then drops every ~3 seconds (WriteN RTMP send error 32). */
+export const DJ_OBS_DISCONNECT_LOOP_TIPS = [
+  "Stop Streaming in OBS first — the reconnect loop makes debugging harder",
+  "Generate a new stream key on Go Live and paste it into OBS (Stream key field only)",
+  "Encoder: Apple VT H264 Hardware Encoder (Mac) or NVENC (Windows) — avoid software x264 on older OBS",
+  "Keyframe interval: 2 sec · Profile: main or high · Resolution: 1280×720 @ 30 fps",
+  "Remove broken sources (red missing files in OBS) and add Display Capture or a webcam",
+  "Upgrade OBS if below v30 — v26 often disconnects from modern RTMP servers",
 ];
 
 export const GO_LIVE_STEPS = [

@@ -15,6 +15,7 @@ function vodHeaders(name: string, extra?: Record<string, string>): Record<string
     "Content-Type": recordingsContentType(name),
     "Accept-Ranges": "bytes",
     "Cache-Control": "public, max-age=3600",
+    "Access-Control-Allow-Origin": "*",
     Vary: "Range",
     ...extra,
   };
@@ -65,6 +66,12 @@ export async function GET(
   }
 
   if (isRemoteRecordingEnabled()) {
+    const direct = getRemoteRecordingFileUrl(relativePath);
+    const forceProxy = new URL(request.url).searchParams.has("proxy");
+    if (direct && !forceProxy) {
+      return Response.redirect(direct, 307);
+    }
+
     const bases = getRecordingsPublicBaseUrls();
 
     for (const base of bases) {

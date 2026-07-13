@@ -64,6 +64,7 @@ async function listRemoteRecordingFilename(
     const html = await res.text();
     const unique = parseRecordingFilenamesFromListing(html);
     if (unique.length === 0) return null;
+    // ISO date filenames — latest recording last when sorted lexicographically
     return unique.sort().at(-1)!;
   } catch {
     return null;
@@ -111,13 +112,79 @@ export function findLatestRecordingFile(ingestKey: string): string | null {
   return files[0]!.name;
 }
 
+/** Same-origin proxy path — fallback when direct VPS URL fails in the browser. */
+export function getClientRecordingPlaybackUrl(ingestKey: string, filename: string): string {
+  const relativePath = `live/${ingestKey}/${filename}`;
+  return `/api/vod/file/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+/** Browser playback URL — direct from VPS (fast Range requests); proxy is fallback only. */
 export function getRecordingPublicUrl(ingestKey: string, filename: string): string {
   const relativePath = `live/${ingestKey}/${filename}`;
   if (isRemoteRecordingEnabled()) {
     const direct = getRemoteRecordingFileUrl(relativePath);
     if (direct) return direct;
   }
-  return `/api/vod/file/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+  return getClientRecordingPlaybackUrl(ingestKey, filename);
+}
+
+function relativePathFromVodUrl(url: string): string | null {
+  if (url.includes("/api/vod/file/")) {
+    const idx = url.indexOf("/api/vod/file/");
+    return decodeURIComponent(url.slice(idx + "/api/vod/file/".length));
+  }
+  try {
+    const parsed = new URL(url, "https://livebooth.uk");
+    const match = parsed.pathname.match(/\/recordings\/(.+)$/i);
+    if (match?.[1]) return decodeURIComponent(match[1]);
+  } catch {
+    // ignore
+  }
+  const rel = url.match(/^live\/([^/?]+)$/i);
+  if (rel) return rel[0];
+  return null;
+}
+
+/** Rewrite stored proxy or legacy URLs to the fastest direct playback URL when possible. */
+export function normalizeToClientVodUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+
+  const relative = relativePathFromVodUrl(url);
+  if (relative && isRemoteRecordingEnabled()) {
+    const direct = getRemoteRecordingFileUrl(relative);
+    if (direct) return direct;
+  }
+
+  if (url.includes("/api/vod/file/")) return url;
+
+  try {
+    const parsed = new URL(url, "https://livebooth.uk");
+    const match = parsed.pathname.match(/\/recordings\/live\/([^/]+)\/([^/]+)$/i);
+    if (match?.[1] && match[2]) {
+      return getRecordingPublicUrl(decodeURIComponent(match[1]), decodeURIComponent(match[2]));
+    }
+  } catch {
+    // ignore
+  }
+
+  const rel = url.match(/^live\/([^/]+)\/([^/?]+)$/i);
+  if (rel?.[1] && rel[2]) {
+    return getRecordingPublicUrl(rel[1], rel[2]);
+  }
+
+  if (/\.(mp4|fmp4|webm)(\?|$)/i.test(url) && url.startsWith("/")) {
+    return url;
+  }
+
+  return null;
+}
+
+function isLiveHlsArchiveUrl(url: string): boolean {
+  return (
+    url.includes("/api/hls/") ||
+    (url.includes("/live/") && url.includes(".m3u8")) ||
+    (url.includes("hls.livebooth.uk") && url.includes(".m3u8"))
+  );
 }
 
 /** Keep direct VPS URLs — only rewrite legacy paths missing the /recordings/ base. */
@@ -132,7 +199,10 @@ export async function resolveEndedStreamPlaybackUrl(
   storedUrl: string | null | undefined,
 ): Promise<string | null> {
   if (!ingestKey || !isLocalRecordingEnabled()) {
-    return storedUrl ?? null;
+    const normalized = normalizeToClientVodUrl(storedUrl);
+    if (normalized) return normalized;
+    if (storedUrl && !isLiveHlsArchiveUrl(storedUrl)) return storedUrl;
+    return null;
   }
 
   const localFile = findLatestRecordingFile(ingestKey);
@@ -143,7 +213,14 @@ export async function resolveEndedStreamPlaybackUrl(
     if (filename) return getRecordingPublicUrl(ingestKey, filename);
   }
 
-  return normalizeVodPlaybackUrl(storedUrl);
+  const fromStored = normalizeToClientVodUrl(storedUrl);
+  if (fromStored) return fromStored;
+
+  if (storedUrl && !isLiveHlsArchiveUrl(storedUrl) && /\.(mp4|fmp4|webm)(\?|$)/i.test(storedUrl)) {
+    return storedUrl;
+  }
+
+  return null;
 }
 
 export function resolveRecordingVodUrl(ingestKey: string | null | undefined): string | null {

@@ -13,7 +13,9 @@ import {
 import {
   ensureVideoExportReady,
   playbackNeedsCrossOrigin,
+  recordingUrlToProxy,
   resolvePlaybackUrl,
+  resolveVodPlaybackSrc,
 } from "@/lib/video-cors";
 
 const VOD_SKIP_SECONDS = 10;
@@ -132,7 +134,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       /\.(mp4|fmp4|webm)(\?|$)/i.test(playbackUrl);
 
     if (isFile) {
-      const src = resolvePlaybackUrl(playbackUrl);
+      const src = resolveVodPlaybackSrc(playbackUrl);
       video.removeAttribute("crossorigin");
 
       const markReady = () => {
@@ -144,26 +146,10 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       const onError = () => {
         if (vodReadyRef.current) return;
 
-        const proxyFallback = src.includes("hls.livebooth.uk/recordings/")
-          ? `${window.location.origin}${src.replace(/^https:\/\/hls\.livebooth\.uk\/recordings/, "/api/vod/file")}`
-          : src.includes("/api/vod/file/") && playbackUrl.includes("hls.livebooth.uk/recordings/")
-            ? resolvePlaybackUrl(playbackUrl)
-            : null;
-
+        const proxyFallback = recordingUrlToProxy(playbackUrl);
         if (proxyFallback && !vodFallbackTriedRef.current && video.src !== proxyFallback) {
           vodFallbackTriedRef.current = true;
           video.src = proxyFallback;
-          video.load();
-          return;
-        }
-
-        if (
-          src.includes("/api/vod/file/") &&
-          !vodFallbackTriedRef.current &&
-          playbackUrl.includes("hls.livebooth.uk")
-        ) {
-          vodFallbackTriedRef.current = true;
-          video.src = resolvePlaybackUrl(playbackUrl);
           video.load();
           return;
         }
@@ -176,6 +162,12 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         video.playbackRate = playbackSpeed;
         video.play().catch(() => undefined);
       };
+      const onLoadedMetadata = () => {
+        if (Number.isFinite(video.duration) && video.duration > 0) {
+          setDuration(video.duration);
+          markReady();
+        }
+      };
       const onCanPlay = () => markReady();
       const onWaiting = () => {
         if (!vodReadyRef.current) setIsLoading(true);
@@ -183,24 +175,27 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       const onPlaying = () => markReady();
 
       video.addEventListener("error", onError);
+      video.addEventListener("loadedmetadata", onLoadedMetadata);
       video.addEventListener("loadeddata", onLoaded);
       video.addEventListener("canplay", onCanPlay);
       video.addEventListener("waiting", onWaiting);
       video.addEventListener("playing", onPlaying);
-      video.preload = "auto";
+      video.preload = "metadata";
       video.playsInline = true;
       video.src = src;
       video.load();
 
       const loadTimeout = window.setTimeout(() => {
-        if (!vodReadyRef.current && video.readyState < 2) {
+        if (!vodReadyRef.current && video.readyState < 1) {
+          setPlaybackError(true);
           setIsLoading(false);
         }
-      }, 45000);
+      }, 60000);
 
       return () => {
         window.clearTimeout(loadTimeout);
         video.removeEventListener("error", onError);
+        video.removeEventListener("loadedmetadata", onLoadedMetadata);
         video.removeEventListener("loadeddata", onLoaded);
         video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("waiting", onWaiting);
@@ -686,7 +681,15 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           </>
         )}
         <span className="text-[10px] text-zinc-600 uppercase ml-auto shrink-0">
-          {demoPlayback ? "Demo HLS" : playbackUrl?.includes("/api/vod/file/") ? "Recording" : playbackUrl ? "HLS Stream" : "No signal"}
+          {demoPlayback
+            ? "Demo HLS"
+            : playbackUrl?.includes("/api/vod/file/") ||
+                playbackUrl?.includes("/recordings/") ||
+                /\.(mp4|fmp4)(\?|$)/i.test(playbackUrl ?? "")
+              ? "Recording"
+              : playbackUrl
+                ? "HLS Stream"
+                : "No signal"}
         </span>
       </div>
     </div>

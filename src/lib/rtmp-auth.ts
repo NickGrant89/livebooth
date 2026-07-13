@@ -1,5 +1,23 @@
 import { prisma } from "./db";
 
+/** Short-lived cache — helps OBS reconnect loops and Vercel cold starts. */
+const publishAllowCache = new Map<string, number>();
+const CACHE_TTL_MS = 120_000;
+
+function cacheAllow(ingestKey: string) {
+  publishAllowCache.set(ingestKey, Date.now() + CACHE_TTL_MS);
+}
+
+function cacheHit(ingestKey: string): boolean | null {
+  const expires = publishAllowCache.get(ingestKey);
+  if (!expires) return null;
+  if (expires < Date.now()) {
+    publishAllowCache.delete(ingestKey);
+    return null;
+  }
+  return true;
+}
+
 export type MediaMtxAuthPayload = {
   user?: string;
   password?: string;
@@ -28,6 +46,9 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
   const ingestKey = extractIngestKey(payload.path, payload.user, payload.password, payload.query);
   if (!ingestKey) return false;
 
+  const cached = cacheHit(ingestKey);
+  if (cached === true) return true;
+
   const stream = await prisma.stream.findFirst({
     where: {
       ingestKey,
@@ -35,7 +56,10 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
     },
     select: { id: true },
   });
-  if (stream) return true;
+  if (stream) {
+    cacheAllow(ingestKey);
+    return true;
+  }
 
   // Compositor mixed output (lb_*_mix) — internal FFmpeg publisher
   if (ingestKey.endsWith("_mix")) {
@@ -47,7 +71,10 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
       },
       select: { id: true },
     });
-    return Boolean(collab);
+    if (collab) {
+      cacheAllow(ingestKey);
+      return true;
+    }
   }
 
   return false;

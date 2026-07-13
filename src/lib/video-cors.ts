@@ -5,6 +5,29 @@ export function resolvePlaybackUrl(url: string): string {
   return url.startsWith("/") ? `${window.location.origin}${url}` : url;
 }
 
+/** VOD archives — direct VPS URL when possible (Caddy serves with CORS + Range). */
+export function resolveVodPlaybackSrc(url: string): string {
+  return resolvePlaybackUrl(url);
+}
+
+/** Fallback when direct cross-origin recording fails in the browser. */
+export function recordingUrlToProxy(url: string): string | null {
+  if (typeof window === "undefined") return null;
+  if (url.includes("/api/vod/file/")) return resolvePlaybackUrl(url);
+
+  try {
+    const resolved = resolvePlaybackUrl(url);
+    const parsed = new URL(resolved);
+    const match = parsed.pathname.match(/\/recordings\/(.+)$/i);
+    if (match?.[1]) {
+      return `${window.location.origin}/api/vod/file/${match[1]}`;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 /** True when clip export must reload the video with CORS (cross-origin file URLs only). */
 export function playbackNeedsCrossOrigin(url: string): boolean {
   if (!url) return false;

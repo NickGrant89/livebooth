@@ -12,7 +12,7 @@
     "rtmp:start": "docker compose -f rtmp-server/docker-compose.yml up -d",
     "rtmp:stop": "docker compose -f rtmp-server/docker-compose.yml down",
     "rtmp:logs": "docker compose -f rtmp-server/docker-compose.yml logs -f",
-    "rtmp:status": "curl -s http://127.0.0.1:9997/v3/paths/list | head -c 2000",
+    "deploy:rtmp-fix": "bash scripts/deploy-rtmp-fix-to-droplet.sh",
     "contracts:compile": "cd contracts && npm run compile",
     "contracts:test": "cd contracts && npm test",
     "contracts:deploy": "cd contracts && npm run deploy:vechain",

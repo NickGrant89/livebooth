@@ -6,6 +6,7 @@ import { StreamPlayer } from "@/components/StreamPlayer";
 import { RtmpCredentials } from "@/components/RtmpCredentials";
 import { hlsManifestReady, resolveClientHlsPlaybackUrl } from "@/lib/hls-playback";
 import { apiFetch } from "@/lib/fetch-client";
+import { DJ_OBS_DISCONNECT_LOOP_TIPS } from "@/lib/guidance";
 
 type PreviewStatus = "waiting" | "checking" | "ready" | "error";
 
@@ -174,6 +175,20 @@ export function GoLivePreview({
             {diagnostics?.upstream?.hint && (
               <p className="text-[10px] text-amber-200/60 font-mono">{diagnostics.upstream.hint}</p>
             )}
+            <div className="rounded-md bg-black/30 border border-red-500/20 px-2.5 py-2 space-y-1.5">
+              <p className="font-semibold text-red-200/90">
+                OBS keeps disconnecting every few seconds?
+              </p>
+              <p className="text-[10px] text-red-100/70">
+                Log pattern: <span className="font-mono">WriteN, RTMP send error 32</span> — the ingest
+                server closed your connection (often H.264 encoder settings or VPS memory).
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-[10px] text-red-100/75">
+                {DJ_OBS_DISCONNECT_LOOP_TIPS.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
 

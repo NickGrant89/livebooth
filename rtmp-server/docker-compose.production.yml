@@ -9,6 +9,18 @@ networks:
     driver: bridge
 
 services:
+  auth-proxy:
+    build: ./auth-proxy
+    container_name: livebooth-auth-proxy
+    restart: unless-stopped
+    networks:
+      - livebooth
+    environment:
+      RTMP_AUTH_UPSTREAM: ${RTMP_AUTH_UPSTREAM:-https://livebooth.uk/api/rtmp/auth}
+      AUTH_CACHE_TTL_MS: ${AUTH_CACHE_TTL_MS:-120000}
+    ports:
+      - "127.0.0.1:8091:8091"
+
   mediamtx:
     image: bluenviron/mediamtx:1
     container_name: livebooth-rtmp
@@ -26,6 +38,8 @@ services:
       - "127.0.0.1:8888:8888"
       - "127.0.0.1:9997:9997"
     command: /mediamtx.yml
+    depends_on:
+      - auth-proxy
 
   compositor:
     build: ./compositor

@@ -18,9 +18,9 @@ if grep -q 'LIVEBOOTH_APP_URL' "${CFG}"; then
   echo "Patched LIVEBOOTH_APP_URL placeholder → ${APP_URL}"
 fi
 
-if ! grep -q "authHTTPAddress: ${APP_URL}/api/rtmp/auth" "${CFG}"; then
-  sed -i "s|authHTTPAddress:.*|authHTTPAddress: ${APP_URL}/api/rtmp/auth|" "${CFG}"
-  echo "Set authHTTPAddress → ${APP_URL}/api/rtmp/auth"
+if ! grep -q "authHTTPAddress: http://auth-proxy:8091/auth" "${CFG}"; then
+  sed -i "s|authHTTPAddress:.*|authHTTPAddress: http://auth-proxy:8091/auth|" "${CFG}"
+  echo "Set authHTTPAddress → http://auth-proxy:8091/auth (local proxy → Vercel)"
 fi
 
 grep authHTTPAddress "${CFG}"
@@ -33,7 +33,7 @@ curl -s -X POST "${APP_URL}/api/rtmp/auth" \
   -w "\nHTTP:%{http_code}\n"
 
 cd "${RTMP_DIR}"
-docker compose -f docker-compose.production.yml up -d mediamtx
+docker compose -f docker-compose.rtmp-solo.yml up -d --build
 sleep 2
 docker logs livebooth-rtmp --tail 8 2>&1 || true
 echo ""

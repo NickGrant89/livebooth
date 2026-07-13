@@ -24,8 +24,9 @@ api: yes
 apiAddress: :9997
 
 authMethod: http
-# MediaMTX on VPS calls your LiveBooth app to validate publish keys
-authHTTPAddress: https://livebooth.uk/api/rtmp/auth
+# On VPS with docker-compose.rtmp-solo.yml: MediaMTX → auth-proxy → Vercel (see deploy-rtmp-fix-to-droplet.sh)
+# Direct Vercel (works if CA certs mounted in mediamtx container):
+authHTTPAddress: http://auth-proxy:8091/auth
 authHTTPExclude:
   - action: api
   - action: metrics

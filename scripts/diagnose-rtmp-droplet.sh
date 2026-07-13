@@ -26,8 +26,13 @@ curl -s -X POST "${APP_URL}/api/rtmp/auth" \
   -w " HTTP:%{http_code}\n"
 echo ""
 
-echo "--- Recent MediaMTX logs (look for auth / publish / forbidden) ---"
-docker logs livebooth-rtmp --tail 40 2>&1 || true
+echo "--- Memory ---"
+free -h 2>/dev/null || true
+echo ""
+
+echo "--- Recent MediaMTX logs (auth / H264 parse / forbidden / x509) ---"
+docker logs livebooth-rtmp --tail 60 2>&1 | grep -iE 'parse|h264|forbidden|403|x509|certificate|closed|publisher|error' || \
+  docker logs livebooth-rtmp --tail 40 2>&1 || true
 echo ""
 
 echo "--- Active paths ---"
@@ -56,8 +61,12 @@ fi
 
 echo ""
 echo "If auth from host is 200 but ffmpeg still fails, read docker logs above."
+echo "If ffmpeg works 8s+ but OBS drops at ~3s → OBS encoder (Mac: Apple VT H264, keyframe 2s)."
 echo "Common fixes:"
-echo "  1. Wrong authHTTPAddress in mediamtx.production.yml → run fix-mediamtx-droplet.sh"
-echo "  2. HTTP request failed in logs → MediaMTX cannot reach ${APP_URL}"
+echo "  1. Wrong authHTTPAddress in mediamtx.production.yml → run ensure-mediamtx-auth.sh"
+echo "  2. HTTP request failed / x509 in logs → run fix-mediamtx-droplet.sh (mounts CA certs)"
 echo "  3. server replied with code 403 → Go Live first; use the current lb_ key"
-echo "  4. Bypass test: BYPASS_AUTH=1 bash fix-mediamtx-droplet.sh (re-enable auth after)"
+echo "  4. unable to parse H264 in logs → OBS: hardware encoder + keyframe interval 2"
+echo "  5. OOM / low memory → stop compositor + LiveKit on 2GB VPS for solo tests"
+echo "  6. Full diagnose: INGEST_KEY=${KEY} bash fix-obs-disconnect-droplet.sh"
+echo "  7. Bypass test: BYPASS_AUTH=1 bash fix-mediamtx-droplet.sh (re-enable auth after)"

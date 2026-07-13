@@ -1,0 +1,31 @@
+# Solo RTMP ingest — MediaMTX + auth proxy only (recommended on 2GB VPS for OBS go-live).
+# Run from rtmp-server/:
+#   docker compose -f docker-compose.rtmp-solo.yml up -d --build --force-recreate
+#
+# Stops LiveKit/compositor from starving MediaMTX. Re-enable full stack when you need collab WebRTC.
+
+services:
+  auth-proxy:
+    build: ./auth-proxy
+    container_name: livebooth-auth-proxy
+    restart: unless-stopped
+    environment:
+      RTMP_AUTH_UPSTREAM: ${RTMP_AUTH_UPSTREAM:-https://livebooth.uk/api/rtmp/auth}
+      AUTH_CACHE_TTL_MS: ${AUTH_CACHE_TTL_MS:-120000}
+    ports:
+      - "127.0.0.1:8091:8091"
+
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    container_name: livebooth-rtmp
+    restart: unless-stopped
+    volumes:
+      - ./recordings:/recordings
+      - ./mediamtx.production.yml:/mediamtx.yml:ro
+    ports:
+      - "1935:1935"
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:9997:9997"
+    command: /mediamtx.yml
+    depends_on:
+      - auth-proxy
