@@ -27,6 +27,8 @@
     "smoke:onchain": "npx tsx scripts/smoke-onchain.ts",
     "smoke:deploy": "npx tsx scripts/smoke-deploy.ts",
     "launch:check": "npx tsx scripts/launch-check.ts",
+    "phase2:verify": "bash scripts/phase2-verify.sh",
+    "droplet:checklist": "bash scripts/droplet-backup-checklist.sh",
     "admin:promote": "npx tsx scripts/promote-admin.ts",
     "build": "prisma generate && next build",
     "vercel-build": "prisma generate && npx tsx scripts/migrate-deploy.ts && next build",
