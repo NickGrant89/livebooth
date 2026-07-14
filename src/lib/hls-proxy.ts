@@ -76,7 +76,9 @@ function cacheHlsSession(streamKey: string, session: string): void {
 /** Cache session after a successful upstream response (e.g. index.m3u8 Set-Cookie). */
 export function rememberHlsSession(pathParts: string[], session: string | null | undefined): void {
   if (!session) return;
-  const streamKey = liveStreamSessionKey(pathParts);
+  // Live booth streams use per-viewer sessions in query params — never share server cache.
+  if (liveStreamSessionKey(pathParts)) return;
+  const streamKey = pathParts.slice(0, 2).join("/");
   if (streamKey) cacheHlsSession(streamKey, session);
 }
 
@@ -113,22 +115,24 @@ export async function resolveUpstreamHlsSession(
   clientCookieHeader: string | null | undefined,
   querySession?: string | null,
 ): Promise<string | null> {
-  const streamKey = liveStreamSessionKey(pathParts);
-  if (querySession) {
-    if (streamKey) cacheHlsSession(streamKey, querySession);
-    return querySession;
+  const liveKey = liveStreamSessionKey(pathParts);
+
+  if (querySession) return querySession;
+
+  // Live booth: per-viewer sessions travel in manifest query params — ignore shared cookies/cache.
+  if (liveKey) {
+    return null;
   }
+
   const fromClient = parseHlsSessionCookie(clientCookieHeader);
-  if (fromClient) {
-    if (streamKey) cacheHlsSession(streamKey, fromClient);
-    return fromClient;
-  }
+  if (fromClient) return fromClient;
+
+  const streamKey = pathParts.slice(0, 2).join("/");
   if (!streamKey) return null;
 
   const cached = cachedHlsSession(streamKey);
   if (cached) return cached;
 
-  // index.m3u8 is public; MediaMTX returns hlsSession in Set-Cookie on that response.
   const manifestName = pathParts[pathParts.length - 1] ?? "";
   if (manifestName === "index.m3u8") return null;
 
@@ -182,7 +186,7 @@ export function rewriteM3u8ForProxy(
   return body
     .split("\n")
     .map((line) => {
-      const uriMatch = line.match(/URI="([^"]+)"/);
+      const uriMatch = line.match(/URI="([^"]+)"/i) ?? line.match(/URI='([^']+)'/i);
       if (uriMatch?.[1]) {
         const rewritten = toProxyPath(uriMatch[1], dir, hlsSession);
         return line.replace(uriMatch[1], rewritten);
