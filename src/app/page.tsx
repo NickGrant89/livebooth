@@ -10,7 +10,7 @@ import { getSessionUser } from "@/lib/auth";
 import { genreLabels, DROP_TOKEN_SYMBOL, APP_TAGLINE, DAY_LABELS } from "@/lib/constants";
 import { fetchDiscoverLiveStreams } from "@/lib/discover-home";
 import { fetchForYouLiveStreams } from "@/lib/discover-for-you";
-import { fetchPublicStations, fetchUpcomingStationShows, formatSlotLabel } from "@/lib/stations-discover";
+import { fetchPublicStations, fetchUpcomingStationShows, formatSlotLabel, stationPublicHref } from "@/lib/stations-discover";
 import { getHeroLabel, isGridPromoted } from "@/lib/discover-ranking";
 import { QuestPanel } from "@/components/QuestPanel";
 import { HomeDiscoverRefresh } from "@/components/HomeDiscoverRefresh";
@@ -255,7 +255,7 @@ export default async function HomePage({
             {radioStations.map((s) => (
               <Link
                 key={s.id}
-                href={s.isLive && s.liveDjUsername ? `/stream/${s.liveDjUsername}` : `/station/${s.slug}`}
+                href={stationPublicHref(s)}
                 className="glass rounded-xl p-4 hover:border-[#53fc18]/20 transition-colors"
               >
                 <div className="flex items-center gap-3">

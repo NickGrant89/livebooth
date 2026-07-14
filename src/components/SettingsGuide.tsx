@@ -19,7 +19,7 @@ export function SettingsGuide() {
         subtitle="Configure your channel before booking residents"
         steps={STATION_QUICK_START}
         role="station"
-        variant="dj"
+        variant="station"
         dismissKey="lb_dismiss_settings_station"
       />
     );

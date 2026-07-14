@@ -165,6 +165,26 @@ export default function DashboardPage() {
     );
   }
 
+  if (user.role === "station") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <Radio className="h-16 w-16 text-[#53fc18] mx-auto mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Radio station</h1>
+        <p className="text-zinc-400 mb-6 max-w-md mx-auto">
+          Your channel dashboard has go-live, residents, branding, and stats — all in Settings.
+        </p>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Link href="/settings#station-dashboard" className="rounded-lg bg-[#53fc18] px-6 py-3 text-sm font-bold text-black">
+            Open station dashboard
+          </Link>
+          <Link href="/residencies" className="rounded-lg border border-white/10 px-6 py-3 text-sm text-zinc-300 hover:bg-white/5">
+            Browse radio stations
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (user.role !== "dj" && user.role !== "admin") {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">

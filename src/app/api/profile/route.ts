@@ -17,6 +17,8 @@ const updateSchema = z.object({
   newPassword: z.string().min(6).optional(),
 });
 
+import { getOwnedStation } from "@/lib/stations";
+
 export async function GET() {
   const auth = await requireApiUser();
   if (isApiError(auth)) return auth;
@@ -30,10 +32,18 @@ export async function GET() {
   });
   if (!user) return error("User not found", 404);
 
+  const station =
+    user.role === "station"
+      ? await getOwnedStation(user.id).then((s) =>
+          s ? { slug: s.slug, name: s.name } : null,
+        )
+      : null;
+
   return json({
     user: {
       ...serializeUser(user),
       email: user.email,
+      station,
     },
   });
 }

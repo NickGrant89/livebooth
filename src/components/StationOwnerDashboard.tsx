@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Loader2,
   Target,
+  BookOpen,
 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch-client";
 import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, STATION_SCHEDULE_CSV_HEADER } from "@/lib/constants";
@@ -240,19 +241,35 @@ export function StationOwnerDashboard() {
         <div>
           <h2 className="font-bold text-lg flex items-center gap-2 text-[#53fc18]">
             <Radio className="h-5 w-5" />
-            Station dashboard
+            {station.name}
           </h2>
           <p className="text-xs text-zinc-500 mt-1">
-            {station.tierMeta.label} tier · up to {station.tierMeta.maxResidents} residents
+            {station.tierMeta.label} tier · {station.residents.length}/{station.tierMeta.maxResidents} residents
+            {station.tagline ? ` · ${station.tagline}` : ""}
           </p>
         </div>
-        <Link
-          href={`/station/${station.slug}`}
-          className="flex items-center gap-1 text-sm text-[#53fc18] hover:underline"
-        >
-          View public channel
-          <ExternalLink className="h-3.5 w-3.5" />
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/station/${station.slug}`}
+            className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-white/10"
+          >
+            View channel
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+          <Link
+            href={`/station/${station.slug}/live`}
+            className="flex items-center gap-1 rounded-lg border border-[#53fc18]/30 bg-[#53fc18]/10 px-3 py-1.5 text-xs font-semibold text-[#53fc18] hover:bg-[#53fc18]/20"
+          >
+            Live booth
+          </Link>
+          <Link
+            href="/help/stations"
+            className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:text-white"
+          >
+            <BookOpen className="h-3 w-3" />
+            Guide
+          </Link>
+        </div>
       </div>
 
       {message && (
@@ -297,7 +314,7 @@ export function StationOwnerDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Followers", value: stats.followerCount, icon: Users },
-          { label: "Staked", value: `${stats.totalStaked} ${DROP_TOKEN_SYMBOL}`, icon: Target },
+          { label: "Members", value: stats.stakerCount ?? stats.totalStaked, icon: Target },
           {
             label: "Station tips",
             value: `${Math.round(earnings?.total ?? stats.dropEarned ?? 0)} ${DROP_TOKEN_SYMBOL}`,

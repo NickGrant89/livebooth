@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Send, UserRound } from "lucide-react";
 
+import { inviteRoleLabel } from "@/lib/invite-copy";
+
 type Message = {
   id: string;
   senderRole: string;
@@ -14,6 +16,13 @@ type AdminOption = {
   id: string;
   username: string;
   displayName: string;
+};
+
+type TicketUser = {
+  username?: string;
+  displayName?: string;
+  role?: string;
+  email?: string;
 };
 
 type Props = {
@@ -44,6 +53,11 @@ export function SupportTicketAdminCard({
 
   const assignedAdmin = ticket.assignedAdmin as AdminOption | null | undefined;
   const assignedAdminId = ticket.assignedAdminId ? String(ticket.assignedAdminId) : "";
+  const ticketUser = ticket.user as TicketUser | null | undefined;
+  const contactName = ticketUser?.displayName?.trim() || "Guest";
+  const contactUsername = ticketUser?.username?.trim();
+  const contactEmail = String(ticket.email || ticketUser?.email || "").trim() || "No email";
+  const contactRole = ticketUser?.role ? inviteRoleLabel(ticketUser.role) : null;
 
   useEffect(() => {
     if (unread && open && onOpen && !markedRead.current) {
@@ -79,9 +93,25 @@ export function SupportTicketAdminCard({
             {unread && <span className="h-2 w-2 rounded-full bg-[#53fc18] shrink-0" aria-label="Unread" />}
             {String(ticket.subject)}
           </p>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            {String(ticket.email)} · {String(ticket.category)} · {messages.length} msg
-            {messages.length !== 1 ? "s" : ""}
+          <p className="text-xs text-zinc-400 mt-0.5 truncate">
+            <span className="text-zinc-200 font-medium">{contactName}</span>
+            {contactUsername ? (
+              <span className="text-zinc-500"> @{contactUsername}</span>
+            ) : null}
+            {contactRole ? <span className="text-zinc-600"> · {contactRole}</span> : null}
+          </p>
+          <p className="text-xs text-zinc-500 mt-0.5 truncate">
+            {contactEmail !== "No email" ? (
+              <a href={`mailto:${contactEmail}`} className="hover:text-[#53fc18] hover:underline" onClick={(e) => e.stopPropagation()}>
+                {contactEmail}
+              </a>
+            ) : (
+              contactEmail
+            )}
+            {" · "}
+            {String(ticket.category)}
+            {" · "}
+            {messages.length} msg{messages.length !== 1 ? "s" : ""}
             {assignedAdmin ? (
               <span className="text-zinc-400">
                 {" "}
@@ -126,6 +156,23 @@ export function SupportTicketAdminCard({
               </select>
             </div>
           )}
+          <div className="pt-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-xs text-zinc-400 space-y-0.5">
+            <p>
+              <span className="text-zinc-500 uppercase text-[10px] font-semibold tracking-wide">Contact</span>
+            </p>
+            <p className="text-zinc-200">
+              {contactName}
+              {contactUsername ? <span className="text-zinc-500"> @{contactUsername}</span> : null}
+              {contactRole ? <span className="text-zinc-600"> · {contactRole}</span> : null}
+            </p>
+            {contactEmail !== "No email" && (
+              <p>
+                <a href={`mailto:${contactEmail}`} className="text-[#53fc18] hover:underline">
+                  {contactEmail}
+                </a>
+              </p>
+            )}
+          </div>
           <div className="max-h-64 overflow-y-auto space-y-2 py-3">
             {messages.length === 0 ? (
               <p className="text-xs text-zinc-500">{String(ticket.body)}</p>
@@ -140,7 +187,7 @@ export function SupportTicketAdminCard({
                   }`}
                 >
                   <p className="text-[10px] uppercase text-zinc-500 mb-0.5">
-                    {m.senderRole === "admin" ? "Support" : "User"}
+                    {m.senderRole === "admin" ? "Support" : contactName}
                   </p>
                   <p className="text-zinc-300 whitespace-pre-wrap">{m.body}</p>
                   <p className="text-[10px] text-zinc-600 mt-1">

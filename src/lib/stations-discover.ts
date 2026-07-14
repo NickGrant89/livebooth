@@ -31,6 +31,8 @@ export type PublicStationCard = {
   isLive: boolean;
   liveDjUsername: string | null;
   liveTitle: string | null;
+  /** True when the station video channel (not a resident DJ) is live. */
+  stationChannelLive: boolean;
   nextShow: {
     showTitle: string;
     djUsername: string;
@@ -121,6 +123,7 @@ export async function fetchPublicStations(limit = 24): Promise<PublicStationCard
       isLive: Boolean(live),
       liveDjUsername: live?.dj.username ?? null,
       liveTitle: live?.title ?? null,
+      stationChannelLive: Boolean(live?.stationChannel),
       nextShow: next
         ? {
             showTitle: next.showTitle || next.dj.displayName,
@@ -137,6 +140,15 @@ export async function fetchPublicStations(limit = 24): Promise<PublicStationCard
     if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
     return b.followerCount - a.followerCount;
   });
+}
+
+/** Best public URL for a station card — prefers branded live page when the channel is on air. */
+export function stationPublicHref(
+  s: Pick<PublicStationCard, "slug" | "isLive" | "liveDjUsername" | "stationChannelLive">,
+): string {
+  if (s.isLive && s.stationChannelLive) return `/station/${s.slug}/live`;
+  if (s.isLive && s.liveDjUsername) return `/stream/${s.liveDjUsername}`;
+  return `/station/${s.slug}`;
 }
 
 /** Station owner DROP from resident show tips (ledger type station_tip). */

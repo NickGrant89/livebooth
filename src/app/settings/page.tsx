@@ -26,6 +26,7 @@ interface ProfileData {
   role: string;
   creatorType: string;
   genres: string[];
+  station?: { slug: string; name: string } | null;
 }
 
 export default function SettingsPage() {
@@ -61,6 +62,7 @@ export default function SettingsPage() {
           role: data.user.role,
           creatorType: data.user.creatorType ?? "dj",
           genres: data.user.genres ?? [],
+          station: data.user.station ?? null,
         });
       })
       .catch(() => setError("Could not load profile"))
@@ -159,23 +161,38 @@ export default function SettingsPage() {
   const isStation = profile.role === "station";
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className={`mx-auto px-4 py-8 ${isStation ? "max-w-4xl" : "max-w-2xl"}`}>
       <SettingsGuide />
+
+      {isStation && <div className="mb-8"><StationOwnerSection /></div>}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <User className="h-7 w-7 text-[#53fc18]" />
-            Profile settings
+            {isStation ? "Account settings" : "Profile settings"}
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">Update how you appear on LiveBooth</p>
+          <p className="text-sm text-zinc-500 mt-1">
+            {isStation ? "Your login identity — the public channel is managed above" : "Update how you appear on LiveBooth"}
+          </p>
         </div>
-        <Link
-          href={`/dj/${profile.username}`}
-          className="flex items-center gap-1 text-sm text-[#53fc18] hover:underline"
-        >
-          View public profile
-          <ExternalLink className="h-3.5 w-3.5" />
-        </Link>
+        {isStation && profile.station ? (
+          <Link
+            href={`/station/${profile.station.slug}`}
+            className="flex items-center gap-1 text-sm text-[#53fc18] hover:underline"
+          >
+            View public channel
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        ) : (
+          <Link
+            href={`/dj/${profile.username}`}
+            className="flex items-center gap-1 text-sm text-[#53fc18] hover:underline"
+          >
+            View public profile
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -272,8 +289,6 @@ export default function SettingsPage() {
             </div>
           )}
         </section>
-
-        {isStation && <StationOwnerSection />}
 
         {isDj && <ScheduleEditor />}
 

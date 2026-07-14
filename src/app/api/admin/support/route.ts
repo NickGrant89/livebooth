@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     prisma.supportTicket.findMany({
       where,
       include: {
-        user: { select: { username: true, displayName: true, role: true } },
+        user: { select: { username: true, displayName: true, role: true, email: true } },
         assignedAdmin: { select: { id: true, username: true, displayName: true } },
         messages: { orderBy: { createdAt: "asc" }, take: 50 },
       },

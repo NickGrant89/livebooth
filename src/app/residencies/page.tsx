@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Building2, Radio, Users, ChevronRight } from "lucide-react";
 import { StationBrandAvatar } from "@/components/StationBrandAvatar";
-import { fetchPublicStations, formatSlotLabel } from "@/lib/stations-discover";
+import { fetchPublicStations, formatSlotLabel, stationPublicHref } from "@/lib/stations-discover";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function ResidenciesPage() {
           the next show.
         </p>
         <Link
-          href="/signup"
+          href="/help/stations"
           className="inline-flex mt-4 rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-2 text-sm font-semibold text-[#53fc18] hover:bg-[#53fc18]/20"
         >
           Launch your station →
@@ -39,7 +39,7 @@ export default async function ResidenciesPage() {
           {stations.map((s) => (
             <Link
               key={s.id}
-              href={s.isLive && s.liveDjUsername ? `/stream/${s.liveDjUsername}` : `/station/${s.slug}`}
+              href={stationPublicHref(s)}
               className="group rounded-2xl border border-white/10 bg-[#141416] p-5 hover:border-[#53fc18]/30 transition-colors"
             >
               <div className="flex items-start gap-4">

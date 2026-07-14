@@ -13,12 +13,13 @@ interface GuidanceCardProps {
   role: string;
   dismissKey?: string;
   compact?: boolean;
-  variant?: "fan" | "dj" | "neutral";
+  variant?: "fan" | "dj" | "station" | "neutral";
 }
 
 const accent = {
   fan: "border-purple-500/25 bg-purple-500/5 text-purple-300",
   dj: "border-[#53fc18]/25 bg-[#53fc18]/5 text-[#53fc18]",
+  station: "border-amber-500/25 bg-amber-500/5 text-amber-300",
   neutral: "border-white/10 bg-white/[0.02] text-zinc-300",
 };
 
