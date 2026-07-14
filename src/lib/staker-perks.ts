@@ -1,20 +1,20 @@
 import { prisma } from "./db";
 import {
-  MIN_STAKE_AMOUNT,
-  STAKER_TIER_CORE_MIN,
-  STAKER_TIER_LEGEND_MIN,
-  STAKER_TIP_GRADE_BOOST,
-  STAKER_UNLOCK_DISCOUNT,
-  STAKER_REQUEST_DISCOUNT,
+  MEMBER_TIER_BADGE,
+  MEMBER_TIER_REQUEST_DISCOUNT,
+  MEMBER_TIER_TIP_GRADE_BOOST,
+  MEMBER_TIER_UNLOCK_DISCOUNT,
   STAKER_VOD_EARLY_HOURS,
   DJ_STAKER_VOD_EARLY_HOURS,
   TRACK_UNLOCK_COST,
   REQUEST_COST,
+  type MemberTier,
 } from "./constants";
 import type { ChatMessagePayload } from "./chat-hub";
 import { attachChatProfiles } from "./chat-profiles";
+import { isMembershipActive } from "./membership";
 
-export type StakerTier = "member" | "core" | "legend";
+export type StakerTier = MemberTier;
 
 export type StakerPerksSnapshot = {
   isStationStaker: boolean;
@@ -23,20 +23,35 @@ export type StakerPerksSnapshot = {
   djStakeAmount: number;
   tier: StakerTier | null;
   badgeLabel: string | null;
+  requestPriority: boolean;
 };
 
-export function tierFromStakeAmount(amount: number): StakerTier | null {
-  if (amount < MIN_STAKE_AMOUNT) return null;
-  if (amount >= STAKER_TIER_LEGEND_MIN) return "legend";
-  if (amount >= STAKER_TIER_CORE_MIN) return "core";
-  return "member";
+function tierFromRecord(
+  record: { tier: string; monthlyAmount: number; status: string; nextBillingAt: Date | null } | null,
+): StakerTier | null {
+  if (!record || !isMembershipActive(record)) return null;
+  return record.tier === "supporter" ? "supporter" : "member";
 }
 
 export function badgeLabelForTier(tier: StakerTier | null): string | null {
   if (!tier) return null;
-  if (tier === "legend") return "Legend";
-  if (tier === "core") return "Core";
-  return "Member";
+  return MEMBER_TIER_BADGE[tier];
+}
+
+/** @deprecated */
+export function tierFromStakeAmount(amount: number): StakerTier | null {
+  if (amount >= 75) return "supporter";
+  if (amount >= 25) return "member";
+  return null;
+}
+
+function pickBestTier(
+  stationTier: StakerTier | null,
+  djTier: StakerTier | null,
+): StakerTier | null {
+  if (stationTier === "supporter" || djTier === "supporter") return "supporter";
+  if (stationTier || djTier) return "member";
+  return null;
 }
 
 export async function getStakerPerks(
@@ -50,6 +65,7 @@ export async function getStakerPerks(
     djStakeAmount: 0,
     tier: null,
     badgeLabel: null,
+    requestPriority: false,
   };
   if (!fanId) return empty;
 
@@ -66,17 +82,20 @@ export async function getStakerPerks(
       : null,
   ]);
 
-  const stationStakeAmount = stationStake?.amount ?? 0;
-  const djStakeAmount = djStake?.amount ?? 0;
-  const tier = tierFromStakeAmount(Math.max(stationStakeAmount, djStakeAmount));
+  const stationActive = stationStake && isMembershipActive(stationStake);
+  const djActive = djStake && isMembershipActive(djStake);
+  const stationTier = tierFromRecord(stationStake);
+  const djTier = tierFromRecord(djStake);
+  const tier = pickBestTier(stationTier, djTier);
 
   return {
-    isStationStaker: stationStakeAmount >= MIN_STAKE_AMOUNT,
-    isDjStaker: djStakeAmount >= MIN_STAKE_AMOUNT,
-    stationStakeAmount,
-    djStakeAmount,
+    isStationStaker: Boolean(stationActive),
+    isDjStaker: Boolean(djActive),
+    stationStakeAmount: stationActive ? stationStake!.monthlyAmount : 0,
+    djStakeAmount: djActive ? djStake!.monthlyAmount : 0,
     tier,
     badgeLabel: badgeLabelForTier(tier),
+    requestPriority: tier === "supporter",
   };
 }
 
@@ -112,18 +131,15 @@ export async function enrichChatPayloads(
     }),
   ]);
 
-  const stationMap = new Map(stationStakes.map((s) => [s.fanId, s.amount]));
-  const djMap = new Map(djStakes.map((s) => [s.fanId, s.amount]));
+  const stationMap = new Map(stationStakes.map((s) => [s.fanId, s]));
+  const djMap = new Map(djStakes.map((s) => [s.fanId, s]));
 
   return withProfiles.map((msg) => {
     if (!msg.userId) return msg;
-    const stationAmt = stream.stationId ? (stationMap.get(msg.userId) ?? 0) : 0;
-    const djAmt = djMap.get(msg.userId) ?? 0;
-    const tier = tierFromStakeAmount(Math.max(stationAmt, djAmt));
-    const stakerBadge =
-      (stream.stationId && stationAmt >= MIN_STAKE_AMOUNT) || djAmt >= MIN_STAKE_AMOUNT
-        ? badgeLabelForTier(tier)
-        : null;
+    const stationTier = tierFromRecord(stationMap.get(msg.userId) ?? null);
+    const djTier = tierFromRecord(djMap.get(msg.userId) ?? null);
+    const tier = pickBestTier(stationTier, djTier);
+    const stakerBadge = badgeLabelForTier(tier);
     return stakerBadge ? { ...msg, stakerBadge } : msg;
   });
 }
@@ -139,11 +155,19 @@ export async function getFanStreamPricingWithStakerPerks(
   vip: boolean,
 ) {
   const perks = await getStakerPerks(fanId, { djId, stationId });
-  const stationMember = Boolean(stationId && perks.isStationStaker);
+  const stationMember = perks.isStationStaker;
   const perkEligible = stationMember || perks.isDjStaker;
+  const tier = perks.tier ?? "member";
 
-  const baseUnlock = vip ? Math.ceil(TRACK_UNLOCK_COST * 0.7) : TRACK_UNLOCK_COST;
-  const baseRequest = vip ? Math.ceil(REQUEST_COST * 0.7) : REQUEST_COST;
+  const unlockDiscount = perkEligible ? MEMBER_TIER_UNLOCK_DISCOUNT[tier] : 0;
+  const requestDiscount = perkEligible ? MEMBER_TIER_REQUEST_DISCOUNT[tier] : 0;
+  const vipUnlockDiscount = vip ? 0.3 : 0;
+  const vipRequestDiscount = vip ? 0.3 : 0;
+
+  const baseUnlock = TRACK_UNLOCK_COST;
+  const baseRequest = REQUEST_COST;
+  const afterVipUnlock = Math.ceil(baseUnlock * (1 - vipUnlockDiscount));
+  const afterVipRequest = Math.ceil(baseRequest * (1 - vipRequestDiscount));
 
   return {
     vip,
@@ -152,13 +176,14 @@ export async function getFanStreamPricingWithStakerPerks(
     stakerBadge: perks.badgeLabel,
     stationMember,
     djStaker: perks.isDjStaker,
+    requestPriority: perks.requestPriority || vip,
     trackUnlockCost: perkEligible
-      ? applyStakerDiscount(baseUnlock, STAKER_UNLOCK_DISCOUNT)
-      : baseUnlock,
+      ? applyStakerDiscount(afterVipUnlock, unlockDiscount)
+      : afterVipUnlock,
     requestCost: perkEligible
-      ? applyStakerDiscount(baseRequest, STAKER_REQUEST_DISCOUNT)
-      : baseRequest,
-    tipGradeBoost: perkEligible ? STAKER_TIP_GRADE_BOOST : 1,
+      ? applyStakerDiscount(afterVipRequest, requestDiscount)
+      : afterVipRequest,
+    tipGradeBoost: perkEligible ? MEMBER_TIER_TIP_GRADE_BOOST[tier] : 1,
   };
 }
 
@@ -175,25 +200,29 @@ export async function effectiveTipsForSetScore(
     }),
     stationId
       ? prisma.stationStake.findMany({
-          where: { stationId },
-          select: { fanId: true },
+          where: { stationId, status: "active" },
+          select: { fanId: true, tier: true },
         })
       : Promise.resolve([]),
     prisma.djStake.findMany({
-      where: { djId },
-      select: { fanId: true },
+      where: { djId, status: "active" },
+      select: { fanId: true, tier: true },
     }),
   ]);
 
   if (tips.length === 0) return fallbackTotal;
 
-  const stakerIds = new Set([
-    ...stationStakers.map((s) => s.fanId),
-    ...djStakers.map((s) => s.fanId),
-  ]);
+  const boostFor = (fanId: string) => {
+    const st = stationStakers.find((s) => s.fanId === fanId);
+    const dj = djStakers.find((s) => s.fanId === fanId);
+    const tier =
+      st?.tier === "supporter" || dj?.tier === "supporter" ? "supporter" : st || dj ? "member" : null;
+    return tier ? MEMBER_TIER_TIP_GRADE_BOOST[tier as MemberTier] : 1;
+  };
+
   let total = 0;
   for (const tip of tips) {
-    total += stakerIds.has(tip.fromUserId) ? tip.amount * STAKER_TIP_GRADE_BOOST : tip.amount;
+    total += tip.amount * boostFor(tip.fromUserId);
   }
   return total;
 }

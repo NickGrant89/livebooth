@@ -31,32 +31,101 @@ export const STREAM_TITLE_MAX = 120;
 export const STREAM_DESCRIPTION_MAX = 500;
 export const MIN_STAKE_AMOUNT = 50;
 
-/** Staker membership perks (v2) */
+/** Membership tiers (v3) — monthly recurring, revenue share to creators */
+export type MemberTier = "member" | "supporter";
+
+export const MEMBER_TIER_PRICES: Record<MemberTier, number> = {
+  member: 25,
+  supporter: 75,
+};
+
+/** @deprecated use MEMBER_TIER_PRICES.member */
+export const MIN_MEMBERSHIP_AMOUNT = MEMBER_TIER_PRICES.member;
+
+export const MEMBER_BILLING_DAYS = 30;
+
+export const MEMBER_DJ_CREATOR_SHARE = 0.85;
+export const MEMBER_STATION_OWNER_SHARE = 0.75;
+export const MEMBER_STATION_LIVE_DJ_SHARE = 0.1;
+export const MEMBER_PLATFORM_SHARE = 0.15;
+
+export const MEMBER_TIER_UNLOCK_DISCOUNT: Record<MemberTier, number> = {
+  member: 0.1,
+  supporter: 0.2,
+};
+
+export const MEMBER_TIER_REQUEST_DISCOUNT: Record<MemberTier, number> = {
+  member: 0.1,
+  supporter: 0.15,
+};
+
+export const MEMBER_TIER_TIP_GRADE_BOOST: Record<MemberTier, number> = {
+  member: 1.1,
+  supporter: 1.15,
+};
+
+export const STAKER_VOD_EARLY_HOURS = 24;
+export const DJ_STAKER_VOD_EARLY_HOURS = 12;
+
+export const DJ_MEMBER_COMMUNITY_GOAL = {
+  targetMrr: 200,
+  label: "30-day member replay vault",
+  description: "When monthly member support hits 200 DROP, all DJ members unlock extended replays.",
+} as const;
+
+export const STATION_MEMBER_COMMUNITY_GOAL = {
+  targetMrr: 500,
+  label: "Extended station archive",
+  description: "When monthly station members hit 500 DROP, every member gets longer replay access.",
+} as const;
+
+export const MEMBER_TIER_BADGE: Record<MemberTier, string> = {
+  member: "Member",
+  supporter: "Supporter",
+};
+
+export const MEMBER_PERKS_MEMBER = [
+  "Member badge in live chat",
+  "10% off track IDs & requests",
+  "Early replay access",
+  "85% of your fee supports the DJ each month",
+  "Share in milestone DROP rewards",
+] as const;
+
+export const MEMBER_PERKS_SUPPORTER = [
+  "Supporter badge + chat priority",
+  "20% off track IDs, 15% off requests",
+  "Request queue priority on live sets",
+  "Early replay access",
+  "85% of your fee supports the DJ each month",
+] as const;
+
+export const STATION_MEMBER_PERKS_MEMBER = [
+  "Station member badge in chat",
+  "10% off unlocks & requests on all station shows",
+  "24h early replay on station shows",
+  "75% of your fee supports the station each month",
+  "Share in station milestone rewards",
+] as const;
+
+export const STATION_MEMBER_PERKS_SUPPORTER = [
+  "Supporter badge on every station show",
+  "20% off unlocks, 15% off requests",
+  "Request priority during station live sets",
+  "24h early replay on all station shows",
+  "75% to station + 10% to the live DJ when you join during a show",
+] as const;
+
+/** @deprecated — use MEMBER_PERKS_* */
 export const STAKER_UNLOCK_DISCOUNT = 0.15;
 export const STAKER_REQUEST_DISCOUNT = 0.1;
 export const STAKER_TIP_GRADE_BOOST = 1.1;
-export const STAKER_VOD_EARLY_HOURS = 24;
-export const DJ_STAKER_VOD_EARLY_HOURS = 12;
+/** @deprecated — use MemberTier */
 export const STAKER_TIER_CORE_MIN = 150;
 export const STAKER_TIER_LEGEND_MIN = 500;
 
-export const STAKER_PERKS = [
-  "Member badge in live chat",
-  "15% off track ID unlocks on station shows",
-  "10% off crowd requests on station shows",
-  "Early replay access (24h before public)",
-  "Your tips count 1.1× toward set grade",
-  "Share in station milestone DROP rewards (proportional to stake)",
-] as const;
-
-export const DJ_STAKER_PERKS = [
-  "Supporter badge in live chat",
-  "12h early replay on this DJ's sets",
-  "10% off track ID unlocks on this DJ's streams",
-  "10% off crowd requests",
-  "Your tips count 1.1× toward set grade",
-  "Share in DJ milestone DROP rewards (proportional to stake)",
-] as const;
+export const STAKER_PERKS = STATION_MEMBER_PERKS_MEMBER;
+export const DJ_STAKER_PERKS = MEMBER_PERKS_MEMBER;
 
 /** Station tip split: 70% DJ / 20% station / 10% platform */
 export const STATION_TIP_DJ_SHARE = 0.7;

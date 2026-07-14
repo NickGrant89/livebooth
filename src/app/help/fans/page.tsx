@@ -121,7 +121,7 @@ export default function FanGuidePage() {
           <strong className="text-zinc-300">{MIN_STAKE_AMOUNT} {DROP_TOKEN_SYMBOL}</strong>. Unstake anytime — full amount returned instantly.
         </p>
         <GuideStep n={1} title="Back a DJ">
-          On a DJ profile (<code className="text-xs bg-white/10 px-1 rounded">/dj/username#stake</code>) or from a live stream promo,
+          On a DJ profile (<code className="text-xs bg-white/10 px-1 rounded">/dj/username#membership</code>) or from a live stream promo,
           use <strong className="text-zinc-300">Back this DJ</strong>. Perks on that DJ&apos;s streams:
         </GuideStep>
         <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
@@ -130,7 +130,7 @@ export default function FanGuidePage() {
           ))}
         </ul>
         <GuideStep n={2} title="Become a station member">
-          On a station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#stake</code>),
+          On a station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#membership</code>),
           use <strong className="text-zinc-300">Become a member</strong>. Best value on station shows:
         </GuideStep>
         <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">

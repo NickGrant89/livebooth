@@ -27,6 +27,7 @@ import { getPlatformSettings } from "@/lib/platform-settings";
 import { StreamInStreamAdBanner } from "@/components/StreamInStreamAdBanner";
 import { StreamNotLiveView } from "@/components/StreamNotLiveView";
 import { StreamStakerPromo } from "@/components/StreamStakerPromo";
+import { CommunityGoalBar } from "@/components/CommunityGoalBar";
 import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
 
 export const dynamic = "force-dynamic";
@@ -215,6 +216,7 @@ export default async function StreamPage({
               </div>
             )}
             {!isHost && <QuestStreamChip streamId={stream.id} />}
+            {!isHost && <CommunityGoalBar streamId={stream.id} />}
             {!isHost && (
               <StreamStakerPromo
                 djUsername={dj.username}

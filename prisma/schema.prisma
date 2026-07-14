@@ -373,17 +373,23 @@ model Notification {
 }
 
 model DjStake {
-  id        String   @id @default(cuid())
-  fanId     String
-  djId      String
-  amount    Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  fan       User     @relation("StakesMade", fields: [fanId], references: [id], onDelete: Cascade)
-  dj        User     @relation("StakesReceived", fields: [djId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  fanId         String
+  djId          String
+  amount        Float
+  tier          String    @default("member")
+  status        String    @default("active")
+  monthlyAmount Float     @default(25)
+  nextBillingAt DateTime?
+  lifetimePaid  Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  fan           User      @relation("StakesMade", fields: [fanId], references: [id], onDelete: Cascade)
+  dj            User      @relation("StakesReceived", fields: [djId], references: [id], onDelete: Cascade)
 
   @@unique([fanId, djId])
   @@index([djId])
+  @@index([status, nextBillingAt])
 }
 
 model StreamHighlight {
@@ -466,17 +472,23 @@ model StationFollow {
 }
 
 model StationStake {
-  id        String       @id @default(cuid())
-  fanId     String
-  stationId String
-  amount    Float
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  fan       User         @relation("StationStakesMade", fields: [fanId], references: [id], onDelete: Cascade)
-  station   RadioStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  fanId         String
+  stationId     String
+  amount        Float
+  tier          String       @default("member")
+  status        String       @default("active")
+  monthlyAmount Float        @default(25)
+  nextBillingAt DateTime?
+  lifetimePaid  Float        @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  fan           User         @relation("StationStakesMade", fields: [fanId], references: [id], onDelete: Cascade)
+  station       RadioStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   @@unique([fanId, stationId])
   @@index([stationId])
+  @@index([status, nextBillingAt])
 }
 
 model StreamReport {

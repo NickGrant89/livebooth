@@ -16,6 +16,8 @@ import { prisma } from "@/lib/db";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { isDemoPlayback, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { StreamPageLayout } from "@/components/StreamPageLayout";
+import { CommunityGoalBar } from "@/components/CommunityGoalBar";
+import { StreamStakerPromo } from "@/components/StreamStakerPromo";
 import { StationBrandAvatar } from "@/components/StationBrandAvatar";
 import { getStationBySlug, getLiveStreamForStation } from "@/lib/stations";
 import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
@@ -174,6 +176,16 @@ export default async function StationLivePage({
               />
             </div>
             {!isHost && <QuestStreamChip streamId={stream.id} />}
+            {!isHost && <CommunityGoalBar streamId={stream.id} />}
+            {!isHost && (
+              <StreamStakerPromo
+                djUsername={hostUser.username}
+                djDisplayName={displayName}
+                stationSlug={station.slug}
+                stationName={station.name}
+                isHost={isHost}
+              />
+            )}
             {!isHost && (
               <div className="mt-3 lg:hidden">
                 <SetScorePanel streamId={stream.id} variant="fan" />

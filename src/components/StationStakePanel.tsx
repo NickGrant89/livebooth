@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Target, TrendingUp } from "lucide-react";
+import { Radio, Target, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
-import { MIN_STAKE_AMOUNT, DROP_TOKEN_SYMBOL, STAKER_PERKS } from "@/lib/constants";
-import { STAKING_COPY } from "@/lib/staking-ui";
+import { DROP_TOKEN_SYMBOL, type MemberTier } from "@/lib/constants";
+import { MEMBERSHIP_COPY } from "@/lib/staking-ui";
+import { MembershipTierPicker } from "@/components/MembershipTierPicker";
 import { StakerLeaderboard, type StakerLeaderboardEntry } from "@/components/StakerLeaderboard";
-import { estimateProportionalShare } from "@/lib/staking-rewards";
 
 interface Milestone {
   key: string;
@@ -20,15 +20,27 @@ interface Milestone {
   rewardPool: number;
 }
 
+type MyMembership = {
+  tier: MemberTier;
+  monthlyAmount: number;
+  nextBillingAt: string | null;
+};
+
 export function StationStakePanel({ slug }: { slug: string }) {
   const { user, refresh } = useAuth();
-  const [totalStaked, setTotalStaked] = useState(0);
-  const [stakerCount, setStakerCount] = useState(0);
-  const [myStake, setMyStake] = useState<number | null>(null);
+  const [totalMrr, setTotalMrr] = useState(0);
+  const [memberCount, setMemberCount] = useState(0);
+  const [myMembership, setMyMembership] = useState<MyMembership | null>(null);
   const [topStakers, setTopStakers] = useState<StakerLeaderboardEntry[]>([]);
-  const [amount, setAmount] = useState(String(MIN_STAKE_AMOUNT));
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [communityGoal, setCommunityGoal] = useState<{
+    label: string;
+    currentMrr: number;
+    targetMrr: number;
+    progress: number;
+  } | null>(null);
   const [flagshipDj, setFlagshipDj] = useState<{ username: string; displayName: string } | null>(null);
+  const [tier, setTier] = useState<MemberTier>("member");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -36,12 +48,14 @@ export function StationStakePanel({ slug }: { slug: string }) {
     apiFetch(`/api/stations/${slug}/stake`)
       .then((r) => r.json())
       .then((d) => {
-        setTotalStaked(d.totalStaked ?? 0);
-        setStakerCount(d.stakerCount ?? 0);
-        setMyStake(d.myStake?.amount ?? null);
+        setTotalMrr(d.totalMrr ?? d.totalStaked ?? 0);
+        setMemberCount(d.memberCount ?? d.stakerCount ?? 0);
+        setMyMembership(d.myMembership ?? null);
         setMilestones(d.milestones ?? []);
         setFlagshipDj(d.flagshipDj ?? null);
         setTopStakers(d.topStakers ?? []);
+        setCommunityGoal(d.communityGoal ?? null);
+        if (d.myMembership?.tier) setTier(d.myMembership.tier);
       });
   }
 
@@ -49,7 +63,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
     load();
   }, [slug]);
 
-  async function stake() {
+  async function join() {
     if (!user) {
       window.location.href = "/login";
       return;
@@ -58,138 +72,131 @@ export function StationStakePanel({ slug }: { slug: string }) {
     setError("");
     const res = await apiFetch(`/api/stations/${slug}/stake`, {
       method: "POST",
-      body: JSON.stringify({ amount: parseInt(amount, 10) }),
+      body: JSON.stringify({ tier }),
     });
     const data = await res.json();
     setLoading(false);
     if (res.ok) {
-      setMyStake(parseInt(amount, 10));
       await refresh();
       load();
     } else {
-      setError(data.error ?? "Stake failed");
+      setError(data.error ?? "Could not join");
     }
   }
 
-  async function unstake() {
+  async function cancel() {
     setLoading(true);
     const res = await apiFetch(`/api/stations/${slug}/stake`, { method: "DELETE" });
     setLoading(false);
     if (res.ok) {
-      setMyStake(null);
+      setMyMembership(null);
       await refresh();
       load();
     }
   }
 
   return (
-    <div id="stake" className="scroll-mt-24 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 space-y-4">
+    <div id="membership" className="scroll-mt-24 rounded-xl border border-[#53fc18]/25 bg-gradient-to-br from-[#53fc18]/10 to-cyan-500/5 p-5 space-y-4">
       <div>
-        <h3 className="font-semibold flex items-center gap-2 text-cyan-300">
-          <TrendingUp className="h-4 w-4" />
-          {STAKING_COPY.stationTitle}
+        <p className="text-[10px] font-bold uppercase tracking-widest text-[#53fc18] flex items-center gap-1.5">
+          <Radio className="h-3.5 w-3.5" />
+          Station membership
+        </p>
+        <h3 className="font-bold text-lg text-white mt-1 flex items-center gap-2">
+          <Users className="h-5 w-5 text-[#53fc18]" />
+          {MEMBERSHIP_COPY.stationTitle}
         </h3>
         <p className="text-xs text-zinc-500 mt-1">
-          {stakerCount} members · {totalStaked} {DROP_TOKEN_SYMBOL} pooled
+          {memberCount} members · {totalMrr} {DROP_TOKEN_SYMBOL}/mo funds this station
         </p>
-        <p className="text-xs text-zinc-400 mt-2">{STAKING_COPY.stationHint}</p>
+        <p className="text-xs text-zinc-400 mt-2">{MEMBERSHIP_COPY.stationHint}</p>
         {flagshipDj && (
           <p className="text-xs text-zinc-400 mt-1">
-            Flagship show:{" "}
-            <Link href={`/dj/${flagshipDj.username}`} className="text-cyan-300 hover:underline">
+            Flagship:{" "}
+            <Link href={`/dj/${flagshipDj.username}`} className="text-[#53fc18] hover:underline">
               {flagshipDj.displayName}
             </Link>
           </p>
         )}
       </div>
 
-      <ul className="grid sm:grid-cols-2 gap-1.5">
-        {STAKER_PERKS.map((perk) => (
-          <li key={perk} className="flex items-start gap-1.5 text-[11px] text-zinc-400">
-            <Check className="h-3 w-3 shrink-0 text-[#53fc18] mt-0.5" />
-            {perk}
-          </li>
-        ))}
-      </ul>
-
-      {myStake != null ? (
-        <div className="flex items-center justify-between">
-          <p className="text-sm">
-            Your stake:{" "}
-            <span className="text-cyan-300 font-bold">
-              {myStake} {DROP_TOKEN_SYMBOL}
-            </span>
+      {communityGoal && (
+        <div className="rounded-lg border border-[#53fc18]/30 bg-black/20 p-3">
+          <p className="text-[10px] font-bold uppercase text-[#53fc18] flex items-center gap-1">
+            <Target className="h-3 w-3" />
+            Unlock: {communityGoal.label}
           </p>
-          <button
-            type="button"
-            onClick={unstake}
-            disabled={loading}
-            className="text-xs text-zinc-400 hover:text-white underline"
-          >
-            Unstake
-          </button>
+          <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full bg-[#53fc18] rounded-full"
+              style={{ width: `${communityGoal.progress}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-zinc-500 mt-1">
+            {communityGoal.currentMrr} / {communityGoal.targetMrr} {DROP_TOKEN_SYMBOL} monthly — all members unlock together
+          </p>
+        </div>
+      )}
+
+      {myMembership ? (
+        <div className="rounded-lg border border-[#53fc18]/30 bg-[#53fc18]/10 p-3 space-y-2">
+          <p className="text-sm text-white">
+            Active <span className="font-bold capitalize">{myMembership.tier}</span> —{" "}
+            {myMembership.monthlyAmount} {DROP_TOKEN_SYMBOL}/mo
+          </p>
+          {myMembership.nextBillingAt && (
+            <p className="text-xs text-zinc-500">
+              Renews {new Date(myMembership.nextBillingAt).toLocaleDateString()}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {myMembership.tier === "member" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTier("supporter");
+                  void join();
+                }}
+                disabled={loading}
+                className="text-xs font-semibold text-[#53fc18] hover:underline"
+              >
+                Upgrade to Supporter
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={cancel}
+              disabled={loading}
+              className="text-xs text-zinc-400 hover:text-white underline"
+            >
+              Cancel membership
+            </button>
+          </div>
         </div>
       ) : user ? (
-        <div className="flex gap-2">
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            min={MIN_STAKE_AMOUNT}
-            className="flex-1 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
-          />
+        <>
+          <MembershipTierPicker selected={tier} onSelect={setTier} variant="station" />
           <button
             type="button"
-            onClick={stake}
+            onClick={join}
             disabled={loading}
-            className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-200 disabled:opacity-50"
+            className="w-full rounded-lg bg-[#53fc18] py-3 text-sm font-bold text-black disabled:opacity-50"
           >
-            Become a member
+            {loading ? "Joining…" : `Become a ${tier} — supports the station`}
           </button>
-        </div>
+        </>
       ) : (
-        <p className="text-xs text-zinc-500">Sign in to become a station member</p>
+        <p className="text-xs text-zinc-500">
+          <Link href="/login" className="text-[#53fc18] hover:underline">
+            Sign in
+          </Link>{" "}
+          to join
+        </p>
       )}
 
       {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {milestones.length > 0 && (
-        <div className="pt-2 border-t border-cyan-500/10 space-y-2">
-          <p className="text-[10px] font-bold uppercase text-zinc-500 flex items-center gap-1">
-            <Target className="h-3 w-3" />
-            Community milestones
-          </p>
-          {milestones.map((m) => {
-            const yourShare =
-              myStake != null
-                ? estimateProportionalShare(myStake, totalStaked || myStake, m.rewardPool)
-                : null;
-            return (
-              <div key={m.key}>
-                <div className="flex justify-between text-[11px] mb-0.5 gap-2">
-                  <span className={m.claimed ? "text-[#53fc18]" : "text-zinc-400"}>
-                    {m.label} {m.claimed && "✓"}
-                  </span>
-                  <span className="text-zinc-600 shrink-0 text-right">
-                    {m.rewardPool} {DROP_TOKEN_SYMBOL} pool
-                    {yourShare != null && !m.claimed && (
-                      <span className="block text-cyan-400/80">~{yourShare} for you</span>
-                    )}
-                  </span>
-                </div>
-                <div className="h-1 rounded-full bg-white/5 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${m.claimed ? "bg-[#53fc18]" : "bg-cyan-500/60"}`}
-                    style={{ width: `${m.progress}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <StakerLeaderboard stakers={topStakers} title="Top members" emptyLabel="No members yet — be the first!" />
+      <StakerLeaderboard stakers={topStakers} title="Top station members" emptyLabel="Be the first member!" />
     </div>
   );
 }

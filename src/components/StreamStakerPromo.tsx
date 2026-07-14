@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Check, TrendingUp } from "lucide-react";
+import { Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { STAKER_PERKS, DJ_STAKER_PERKS, DJ_STAKER_VOD_EARLY_HOURS } from "@/lib/constants";
+import { MEMBER_TIER_PRICES, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 
-type StreamStakerPromoProps = {
+type StreamMemberPromoProps = {
   djUsername: string;
   djDisplayName: string;
   stationSlug?: string | null;
@@ -19,46 +19,39 @@ export function StreamStakerPromo({
   stationSlug,
   stationName,
   isHost,
-}: StreamStakerPromoProps) {
+}: StreamMemberPromoProps) {
   const { user } = useAuth();
 
   if (isHost) return null;
 
   const isStation = Boolean(stationSlug);
-  const perks = isStation ? STAKER_PERKS : DJ_STAKER_PERKS;
-  const href = isStation ? `/station/${stationSlug}#stake` : `/dj/${djUsername}#stake`;
+  const href = isStation
+    ? `/station/${stationSlug}#membership`
+    : `/dj/${djUsername}#membership`;
   const title = isStation
-    ? `Become a ${stationName ?? "station"} member`
+    ? `Support ${stationName ?? "this station"}`
     : `Back ${djDisplayName}`;
-  const cta = isStation ? "Become a member" : "Back this DJ";
+  const cta = isStation ? "Become a station member" : "Join membership";
 
   return (
-    <div className="mt-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+    <div className="mt-3 rounded-xl border border-[#53fc18]/25 bg-gradient-to-r from-[#53fc18]/10 to-cyan-500/5 p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-cyan-200 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 shrink-0" />
+          <p className="font-semibold text-sm text-[#53fc18] flex items-center gap-2">
+            <Users className="h-4 w-4 shrink-0" />
             {title}
           </p>
           <p className="text-xs text-zinc-400 mt-1">
             {isStation
-              ? "Lock 50+ DROP for badge, cheaper unlocks, early replays, and milestone rewards."
-              : `Lock 50+ DROP for early replay (${DJ_STAKER_VOD_EARLY_HOURS}h), discounts, and milestone rewards.`}
+              ? `From ${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo — 75% supports the station, perks on every resident show.`
+              : `From ${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo — 85% goes to the DJ, early replays & chat badge.`}
           </p>
-          <ul className="mt-2 grid sm:grid-cols-2 gap-1">
-            {perks.slice(0, 4).map((perk) => (
-              <li key={perk} className="flex items-start gap-1 text-[10px] text-zinc-500">
-                <Check className="h-3 w-3 shrink-0 text-[#53fc18] mt-0.5" />
-                {perk.replace("12h", `${DJ_STAKER_VOD_EARLY_HOURS}h`)}
-              </li>
-            ))}
-          </ul>
         </div>
         <Link
           href={user ? href : "/login"}
-          className="shrink-0 inline-flex items-center justify-center rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-200 hover:bg-cyan-500/30 transition-colors"
+          className="shrink-0 inline-flex items-center justify-center rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black hover:opacity-90 transition-opacity"
         >
-          {user ? cta : "Sign in to stake"}
+          {user ? cta : "Sign in to join"}
         </Link>
       </div>
     </div>

@@ -1,9 +1,19 @@
 import { prisma } from "./db";
 import { creditUser, debitUser } from "./ledger";
-import { MIN_STAKE_AMOUNT, STATION_MILESTONES } from "./constants";
+import { STATION_MILESTONES, type MemberTier } from "./constants";
 import { getStationStats } from "./stations";
 import { notifyUser } from "./notifications";
 import { distributeProportionalRewards } from "./staking-rewards";
+import {
+  chargeMembershipPayment,
+  creditStationMembershipRevenue,
+  getLiveDjForStation,
+  isMembershipActive,
+  memberTierPrice,
+  nextBillingDate,
+  normalizeMemberTier,
+  notifyMembershipWelcome,
+} from "./membership";
 
 export async function getStationFollowCount(stationId: string) {
   return prisma.stationFollow.count({ where: { stationId } });
@@ -42,55 +52,133 @@ export async function getStationStake(fanId: string, stationId: string) {
 }
 
 export async function getStationStakeTotal(stationId: string) {
-  const agg = await prisma.stationStake.aggregate({
-    where: { stationId },
-    _sum: { amount: true },
-    _count: true,
+  const members = await prisma.stationStake.findMany({
+    where: { stationId, status: "active" },
+    select: { monthlyAmount: true, nextBillingAt: true, status: true },
   });
-  return { total: agg._sum.amount ?? 0, stakers: agg._count };
+  const active = members.filter((m) => isMembershipActive(m));
+  return {
+    total: active.reduce((sum, m) => sum + m.monthlyAmount, 0),
+    stakers: active.length,
+  };
 }
 
-export async function stakeOnStation(fanId: string, stationId: string, amount: number) {
-  if (amount < MIN_STAKE_AMOUNT) {
-    return { ok: false as const, error: `Minimum stake is ${MIN_STAKE_AMOUNT} DROP` };
-  }
+export async function joinStationMembership(
+  fanId: string,
+  stationId: string,
+  tierInput: MemberTier,
+) {
+  const tier = normalizeMemberTier(tierInput);
+  const monthlyAmount = memberTierPrice(tier);
 
-  const station = await prisma.radioStation.findUnique({ where: { id: stationId } });
+  const station = await prisma.radioStation.findUnique({
+    where: { id: stationId },
+    select: { id: true, slug: true, name: true, ownerId: true },
+  });
   if (!station) return { ok: false as const, error: "Station not found" };
   if (fanId === station.ownerId) {
-    return { ok: false as const, error: "Cannot stake on your own station" };
+    return { ok: false as const, error: "Cannot join your own station membership" };
   }
 
   const existing = await getStationStake(fanId, stationId);
-  const delta = existing ? amount - existing.amount : amount;
-  if (delta <= 0) return { ok: false as const, error: "Stake amount must increase" };
+  if (existing && isMembershipActive(existing)) {
+    if (existing.tier === tier) {
+      return { ok: true as const, amount: existing.monthlyAmount, tier: existing.tier as MemberTier };
+    }
+    const upgradeCost = Math.max(0, monthlyAmount - existing.monthlyAmount);
+    if (upgradeCost > 0) {
+      const ok = await chargeMembershipPayment(fanId, upgradeCost, "station_membership_upgrade", stationId);
+      if (!ok) return { ok: false as const, error: "Insufficient DROP to upgrade" };
+      const liveDjId = await getLiveDjForStation(stationId);
+      await creditStationMembershipRevenue(
+        stationId,
+        station.ownerId,
+        fanId,
+        upgradeCost,
+        liveDjId,
+      );
+    }
+    await prisma.stationStake.update({
+      where: { id: existing.id },
+      data: { tier, monthlyAmount, amount: monthlyAmount, lifetimePaid: { increment: upgradeCost } },
+    });
+    return { ok: true as const, amount: monthlyAmount, tier };
+  }
 
-  const ok = await debitUser(fanId, delta, "station_stake", stationId);
+  const ok = await chargeMembershipPayment(fanId, monthlyAmount, "station_membership_join", stationId);
   if (!ok) return { ok: false as const, error: "Insufficient DROP" };
+
+  const liveDjId = await getLiveDjForStation(stationId);
+  await creditStationMembershipRevenue(
+    stationId,
+    station.ownerId,
+    fanId,
+    monthlyAmount,
+    liveDjId,
+  );
 
   await prisma.stationStake.upsert({
     where: { fanId_stationId: { fanId, stationId } },
-    create: { fanId, stationId, amount },
-    update: { amount },
+    create: {
+      fanId,
+      stationId,
+      tier,
+      amount: monthlyAmount,
+      monthlyAmount,
+      status: "active",
+      nextBillingAt: nextBillingDate(),
+      lifetimePaid: monthlyAmount,
+    },
+    update: {
+      tier,
+      amount: monthlyAmount,
+      monthlyAmount,
+      status: "active",
+      nextBillingAt: nextBillingDate(),
+      lifetimePaid: { increment: monthlyAmount },
+    },
   });
 
   await evaluateStationMilestones(stationId);
-  return { ok: true as const, amount };
+
+  await notifyMembershipWelcome(
+    fanId,
+    station.name,
+    tier,
+    monthlyAmount,
+    `/station/${station.slug}#membership`,
+  );
+
+  return { ok: true as const, amount: monthlyAmount, tier };
 }
 
-export async function unstakeFromStation(fanId: string, stationId: string) {
-  const stake = await getStationStake(fanId, stationId);
-  if (!stake) return { ok: false as const, error: "No stake found" };
+/** @deprecated */
+export async function stakeOnStation(fanId: string, stationId: string, amount: number) {
+  const tier: MemberTier = amount >= memberTierPrice("supporter") ? "supporter" : "member";
+  return joinStationMembership(fanId, stationId, tier);
+}
 
-  await prisma.stationStake.delete({ where: { id: stake.id } });
-  await creditUser(fanId, stake.amount, "station_unstake", stationId);
-  return { ok: true as const, amount: stake.amount };
+export async function cancelStationMembership(fanId: string, stationId: string) {
+  const stake = await getStationStake(fanId, stationId);
+  if (!stake || !isMembershipActive(stake)) {
+    return { ok: false as const, error: "No active membership" };
+  }
+  await prisma.stationStake.update({
+    where: { id: stake.id },
+    data: { status: "cancelled" },
+  });
+  return { ok: true as const };
+}
+
+/** @deprecated */
+export async function unstakeFromStation(fanId: string, stationId: string) {
+  return cancelStationMembership(fanId, stationId);
 }
 
 export async function listTopStationStakers(stationId: string, limit = 5) {
   return prisma.stationStake.findMany({
-    where: { stationId },
-    orderBy: { amount: "desc" },
+    where: { stationId, status: "active" },
+    orderBy: [{ tier: "desc" }, { monthlyAmount: "desc" }, { lifetimePaid: "desc" }],
     take: limit,
     include: { fan: { select: { username: true, displayName: true, avatar: true } } },
   });
@@ -122,17 +210,20 @@ export async function evaluateStationMilestones(stationId: string) {
     const value = metrics[milestone.metric];
     if (value < milestone.threshold) continue;
 
-    const stakers = await prisma.stationStake.findMany({ where: { stationId } });
-    const rewards = distributeProportionalRewards(stakers, milestone.rewardPool);
+    const stakers = await prisma.stationStake.findMany({
+      where: { stationId, status: "active" },
+      select: { fanId: true, monthlyAmount: true },
+    });
+    const rewards = distributeProportionalRewards(
+      stakers.map((s) => ({ fanId: s.fanId, amount: s.monthlyAmount })),
+      milestone.rewardPool,
+    );
 
     for (const [fanId, reward] of rewards) {
-      await creditUser(
-        fanId,
-        reward,
-        "station_milestone",
-        stationId,
-        { milestone: milestone.key, label: milestone.label },
-      );
+      await creditUser(fanId, reward, "station_milestone", stationId, {
+        milestone: milestone.key,
+        label: milestone.label,
+      });
       await notifyUser(
         fanId,
         "station_milestone",

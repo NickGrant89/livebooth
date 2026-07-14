@@ -111,7 +111,7 @@ export default function StationGuidePage() {
 
       <GuideSection id="staking" title="Members & milestones">
         <GuideStep n={1} title="Station membership">
-          Fans stake {DROP_TOKEN_SYMBOL} on your station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#stake</code>).
+          Fans stake {DROP_TOKEN_SYMBOL} on your station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#membership</code>).
           Members get:
         </GuideStep>
         <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">

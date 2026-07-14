@@ -41,7 +41,7 @@ export default function DjGuidePage() {
         </GuideStep>
         <GuideStep n={2} title="Your public profile">
           Fans find you at <code className="text-xs bg-white/10 px-1 rounded">/dj/yourusername</code>.
-          Share this link on socials. The <strong className="text-zinc-300">#stake</strong> section shows your supporters,
+          Share this link on socials. The <strong className="text-zinc-300">#membership</strong> section shows your supporters,
           milestone progress, and top stakers. Followers get notified when you go live.
         </GuideStep>
         <GuideStep n={3} title="Weekly schedule">

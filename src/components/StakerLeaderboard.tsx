@@ -49,7 +49,7 @@ export function StakerLeaderboard({
               {s.displayName}
             </Link>
             <span className="text-xs font-mono text-[#53fc18] shrink-0">
-              {s.amount} {DROP_TOKEN_SYMBOL}
+              {s.amount} {DROP_TOKEN_SYMBOL}/mo
             </span>
           </li>
         ))}

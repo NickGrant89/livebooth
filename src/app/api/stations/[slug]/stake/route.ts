@@ -2,13 +2,15 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import {
-  stakeOnStation,
-  unstakeFromStation,
+  joinStationMembership,
+  cancelStationMembership,
   getStationStake,
   getStationStakeTotal,
   listTopStationStakers,
   getStationMilestoneProgress,
 } from "@/lib/station-staking";
+import { getStationMemberMrr, isMembershipActive } from "@/lib/membership";
+import { STATION_MEMBER_COMMUNITY_GOAL } from "@/lib/constants";
 import { z } from "zod";
 
 export async function GET(
@@ -23,36 +25,56 @@ export async function GET(
   if (!station) return error("Station not found", 404);
 
   const session = await getSessionUser();
-  let myStake = null;
+  let myMembership = null;
   if (session) {
     const stake = await getStationStake(session.id, station.id);
-    if (stake) myStake = { amount: stake.amount };
+    if (stake && isMembershipActive(stake)) {
+      myMembership = {
+        tier: stake.tier,
+        monthlyAmount: stake.monthlyAmount,
+        nextBillingAt: stake.nextBillingAt?.toISOString() ?? null,
+        lifetimePaid: stake.lifetimePaid,
+      };
+    }
   }
 
-  const [totals, topStakers, milestones] = await Promise.all([
+  const [totals, topStakers, milestones, mrr] = await Promise.all([
     getStationStakeTotal(station.id),
     listTopStationStakers(station.id),
     getStationMilestoneProgress(station.id),
+    getStationMemberMrr(station.id),
   ]);
 
   return json({
     stationSlug: slug,
-    totalStaked: totals.total,
-    stakerCount: totals.stakers,
-    myStake,
+    totalMrr: totals.total,
+    memberCount: totals.stakers,
+    myMembership,
+    myStake: myMembership ? { amount: myMembership.monthlyAmount } : null,
     flagshipDj: station.flagshipDj,
     topStakers: topStakers.map((s) => ({
       displayName: s.fan.displayName,
       username: s.fan.username,
       avatar: s.fan.avatar,
-      amount: s.amount,
+      amount: s.monthlyAmount,
+      tier: s.tier,
     })),
     milestones,
+    communityGoal: {
+      ...STATION_MEMBER_COMMUNITY_GOAL,
+      currentMrr: mrr.mrr,
+      memberCount: mrr.count,
+      progress: Math.min(
+        100,
+        Math.round((mrr.mrr / STATION_MEMBER_COMMUNITY_GOAL.targetMrr) * 100),
+      ),
+    },
   });
 }
 
-const stakeSchema = z.object({
-  amount: z.number().positive(),
+const joinSchema = z.object({
+  tier: z.enum(["member", "supporter"]).optional(),
+  amount: z.number().positive().optional(),
 });
 
 export async function POST(
@@ -67,13 +89,16 @@ export async function POST(
   if (!station) return error("Station not found", 404);
 
   try {
-    const body = stakeSchema.parse(await request.json());
-    const result = await stakeOnStation(auth.id, station.id, body.amount);
+    const body = joinSchema.parse(await request.json());
+    const tier =
+      body.tier ??
+      (body.amount && body.amount >= 75 ? "supporter" : "member");
+    const result = await joinStationMembership(auth.id, station.id, tier);
     if (!result.ok) return error(result.error, 402);
-    return json({ ok: true, amount: result.amount });
+    return json({ ok: true, tier: result.tier, monthlyAmount: result.amount });
   } catch (e) {
-    if (e instanceof z.ZodError) return error("Invalid stake");
-    return error("Stake failed", 500);
+    if (e instanceof z.ZodError) return error("Invalid membership");
+    return error("Membership failed", 500);
   }
 }
 
@@ -88,7 +113,7 @@ export async function DELETE(
   const station = await prisma.radioStation.findUnique({ where: { slug } });
   if (!station) return error("Station not found", 404);
 
-  const result = await unstakeFromStation(auth.id, station.id);
+  const result = await cancelStationMembership(auth.id, station.id);
   if (!result.ok) return error(result.error, 400);
-  return json({ ok: true, amount: result.amount });
+  return json({ ok: true });
 }

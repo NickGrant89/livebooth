@@ -105,7 +105,7 @@ export function VodReplay({
           <div className="flex flex-wrap justify-center gap-2 mt-4">
             {earlyAccessBlocked.stationSlug && (
               <Link
-                href={`/station/${earlyAccessBlocked.stationSlug}#stake`}
+                href={`/station/${earlyAccessBlocked.stationSlug}#membership`}
                 className="inline-flex rounded-lg bg-[#53fc18] px-5 py-2.5 text-sm font-bold text-black"
               >
                 Become a member
@@ -113,7 +113,7 @@ export function VodReplay({
             )}
             {earlyAccessBlocked.djUsername && (
               <Link
-                href={`/dj/${earlyAccessBlocked.djUsername}#stake`}
+                href={`/dj/${earlyAccessBlocked.djUsername}#membership`}
                 className="inline-flex rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-5 py-2.5 text-sm font-bold text-cyan-200"
               >
                 Back this DJ
@@ -201,14 +201,14 @@ export function VodReplay({
           <div className="flex flex-wrap gap-2 shrink-0">
             {stationSlug && (
               <Link
-                href={`/station/${stationSlug}#stake`}
+                href={`/station/${stationSlug}#membership`}
                 className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black"
               >
                 Station member
               </Link>
             )}
             <Link
-              href={`/dj/${djUsername}#stake`}
+              href={`/dj/${djUsername}#membership`}
               className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-200"
             >
               Back this DJ
