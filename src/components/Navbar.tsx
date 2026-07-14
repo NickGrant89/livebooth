@@ -19,6 +19,7 @@ import {
   Shield,
   UserCircle,
   Archive,
+  BookOpen,
 } from "lucide-react";
 import { useAuth, formatTokens } from "@/context/AuthContext";
 import { logoutAction } from "@/app/actions/auth";
@@ -27,6 +28,7 @@ import { NavbarSearch } from "@/components/NavbarSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserMenu } from "@/components/UserMenu";
 import { APP_TAGLINE } from "@/lib/constants";
+import { HELP_LINKS } from "@/lib/help-links";
 
 const nav = [
   { href: "/", label: "Discover", icon: Home },
@@ -94,6 +96,14 @@ export function Navbar() {
               <span className="hidden xl:inline">{label}</span>
             </Link>
           ))}
+          <Link
+            href={HELP_LINKS.hub}
+            title="Help"
+            className={navLinkClass(pathname.startsWith("/help") || pathname === HELP_LINKS.support)}
+          >
+            <BookOpen className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden xl:inline">Help</span>
+          </Link>
         </nav>
 
         <div className="flex items-center gap-1 sm:gap-1.5 ml-auto lg:ml-0 shrink-0">
@@ -174,6 +184,18 @@ export function Navbar() {
                   {label}
                 </Link>
               ))}
+            <Link
+              href={HELP_LINKS.hub}
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium col-span-2 ${
+                pathname.startsWith("/help") || pathname === HELP_LINKS.support
+                  ? "bg-white/10 text-white"
+                  : "bg-white/5 text-zinc-400"
+              }`}
+            >
+              <BookOpen className="h-4 w-4" />
+              Help center
+            </Link>
             {(user?.role === "dj" || user?.role === "admin") && (
               <>
                 <Link

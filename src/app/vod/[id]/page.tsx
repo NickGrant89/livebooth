@@ -8,6 +8,7 @@ import { getVodAccess } from "@/lib/staker-perks";
 import { isDemoPlayback, isFilePlaybackUrl, isVodPlaybackUrl } from "@/lib/streaming";
 import {
   resolveEndedStreamPlaybackUrl,
+  isVodLikelyProcessing,
 } from "@/lib/vod-recording";
 import { computeSetScore } from "@/lib/set-score";
 import { vodMetadata } from "@/lib/metadata-share";
@@ -42,7 +43,7 @@ export default async function VODPage({
     where: { id },
     include: {
       dj: true,
-      station: { select: { slug: true, ownerId: true } },
+      station: { select: { slug: true, ownerId: true, name: true } },
       highlights: { orderBy: { timestampMs: "asc" } },
     },
   });
@@ -94,22 +95,36 @@ export default async function VODPage({
 
   const demoPlayback = Boolean(playbackUrl && isDemoPlayback(playbackUrl) && !isFilePlaybackUrl(playbackUrl));
   const recordingUnavailable = !playbackUrl && !demoPlayback;
+  const recordingProcessing =
+    recordingUnavailable &&
+    isVodLikelyProcessing(stream.endedAt, stream.ingestKey, stream.vodUrl, stream.playbackUrl);
+
+  const displayName = stream.stationChannel && stream.station?.name
+    ? stream.station.name
+    : stream.dj.displayName;
+  const backHref = stream.stationChannel && stream.station?.slug
+    ? `/station/${stream.station.slug}`
+    : `/dj/${stream.dj.username}`;
+  const backLabel = stream.stationChannel && stream.station?.name
+    ? stream.station.name
+    : stream.dj.displayName;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <Link href={`/dj/${stream.dj.username}`} className="text-sm text-zinc-400 hover:text-white mb-4 inline-block">
-        ← {stream.dj.displayName}
+      <Link href={backHref} className="text-sm text-zinc-400 hover:text-white mb-4 inline-block">
+        ← {backLabel}
       </Link>
       <VodReplay
         streamId={id}
         title={stream.title}
-        djName={stream.dj.displayName}
+        djName={displayName}
         djUsername={stream.dj.username}
         peakViewers={stream.peakViewers}
         totalTips={stream.totalTips}
         playbackUrl={playbackUrl ?? ""}
         demoPlayback={demoPlayback}
         recordingUnavailable={recordingUnavailable}
+        recordingProcessing={recordingProcessing}
         highlights={stream.highlights.map((h) => ({
           id: h.id,
           timestampMs: h.timestampMs,

@@ -144,6 +144,16 @@ export default function VerifyEmailPage() {
           <VerifyEmailContent />
         </Suspense>
         <p className="text-center text-sm text-zinc-500 mt-4">
+          Didn&apos;t get the email? Check spam, then resend above.{" "}
+          <Link href="/help/fans#account" className="text-[#53fc18] hover:underline">
+            Email help
+          </Link>
+          {" · "}
+          <Link href="/support" className="text-[#53fc18] hover:underline">
+            Support
+          </Link>
+        </p>
+        <p className="text-center text-sm text-zinc-500 mt-2">
           Already verified?{" "}
           <Link href="/login" className="text-[#53fc18] hover:underline">
             Sign in

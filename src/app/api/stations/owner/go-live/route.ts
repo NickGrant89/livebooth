@@ -10,6 +10,9 @@ import {
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { getActiveStationChannelForOwner } from "@/lib/stations";
+import { evaluateAchievements } from "@/lib/achievements";
+import { updateDjStreak, buildStreamRecap } from "@/lib/retention";
+import { computeSetScore } from "@/lib/set-score";
 import { z } from "zod";
 
 const schema = z.object({
@@ -84,7 +87,18 @@ export async function DELETE() {
   }
 
   await endStreamSession(stream.id, auth.id);
-  return json({ ok: true, streamId: stream.id });
+  await updateDjStreak(auth.id);
+  await computeSetScore(stream.id);
+  const recap = await buildStreamRecap(stream.id);
+  await evaluateAchievements(auth.id);
+
+  return json({
+    ok: true,
+    streamId: stream.id,
+    recap,
+    replayHint:
+      "Replay will appear on your station page in a few minutes after the server finishes processing the recording.",
+  });
 }
 
 export async function GET() {

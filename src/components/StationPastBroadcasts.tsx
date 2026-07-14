@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Play, Tv } from "lucide-react";
+import { Play, Tv, Loader2 } from "lucide-react";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { hasStreamReplay } from "@/lib/playback-url";
+import { isVodLikelyProcessing } from "@/lib/vod-recording";
 
 export type StationPastBroadcast = {
   id: string;
@@ -37,11 +38,21 @@ function formatDuration(startedAt: Date | null, endedAt: Date | null) {
   return `${min} min`;
 }
 
-function broadcastHasReplay(broadcast: StationPastBroadcast) {
-  return (
-    hasStreamReplay(broadcast.vodUrl, broadcast.playbackUrl) ||
-    Boolean(broadcast.ingestKey?.startsWith("st_") || broadcast.ingestKey?.startsWith("lb_"))
-  );
+function broadcastReplayState(broadcast: StationPastBroadcast) {
+  if (hasStreamReplay(broadcast.vodUrl, broadcast.playbackUrl)) {
+    return "ready" as const;
+  }
+  if (
+    isVodLikelyProcessing(
+      broadcast.endedAt,
+      broadcast.ingestKey,
+      broadcast.vodUrl,
+      broadcast.playbackUrl,
+    )
+  ) {
+    return "processing" as const;
+  }
+  return "unavailable" as const;
 }
 
 export function StationPastBroadcasts({
@@ -57,6 +68,7 @@ export function StationPastBroadcasts({
         <h2 className="text-lg font-bold text-white mb-2">Past broadcasts</h2>
         <p className="text-sm text-zinc-500">
           No replays yet. When {stationName} finishes a live video show, it appears here.
+          Station owners start a video channel from Settings → Station dashboard.
         </p>
       </section>
     );
@@ -67,13 +79,16 @@ export function StationPastBroadcasts({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-white">Past broadcasts</h2>
         <span className="text-xs text-zinc-500">
-          {broadcasts.length} replay{broadcasts.length === 1 ? "" : "s"}
+          {broadcasts.length} show{broadcasts.length === 1 ? "" : "s"}
         </span>
       </div>
+      <p className="text-xs text-zinc-600 mb-3">
+        Replays appear a few minutes after you end a stream — the server remuxes the recording first.
+      </p>
       <div className="space-y-2">
         {broadcasts.map((b) => {
           const duration = formatDuration(b.startedAt, b.endedAt);
-          const hasReplay = broadcastHasReplay(b);
+          const replayState = broadcastReplayState(b);
           const hostLabel = b.stationChannel
             ? `${stationName} studio`
             : b.dj.displayName;
@@ -83,9 +98,11 @@ export function StationPastBroadcasts({
               key={b.id}
               href={`/vod/${b.id}`}
               className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors ${
-                hasReplay
+                replayState === "ready"
                   ? "border-white/10 bg-[#141416] hover:border-[#53fc18]/30"
-                  : "border-white/10 bg-[#141416]/60 hover:border-white/20"
+                  : replayState === "processing"
+                    ? "border-cyan-500/20 bg-cyan-500/5 hover:border-cyan-500/40"
+                    : "border-white/10 bg-[#141416]/60 hover:border-white/20"
               }`}
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/5">
@@ -117,11 +134,22 @@ export function StationPastBroadcasts({
                 </span>
               )}
               <span
-                className={`shrink-0 text-xs font-semibold ${
-                  hasReplay ? "text-[#53fc18]" : "text-zinc-600"
+                className={`shrink-0 text-xs font-semibold flex items-center gap-1 ${
+                  replayState === "ready"
+                    ? "text-[#53fc18]"
+                    : replayState === "processing"
+                      ? "text-cyan-300"
+                      : "text-zinc-600"
                 }`}
               >
-                {hasReplay ? "Watch" : "Details"}
+                {replayState === "processing" && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
+                {replayState === "ready"
+                  ? "Watch"
+                  : replayState === "processing"
+                    ? "Processing"
+                    : "Details"}
               </span>
             </Link>
           );

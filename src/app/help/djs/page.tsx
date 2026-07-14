@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { HelpGuideLayout, GuideSection, GuideStep } from "@/components/HelpGuideLayout";
 import { HelpQuickStart } from "@/components/HelpQuickStart";
-import { DROP_TOKEN_SYMBOL, STATION_TIP_DJ_SHARE, STATION_TIP_STATION_SHARE } from "@/lib/constants";
+import { HELP_LINKS } from "@/lib/help-links";
+import {
+  DROP_TOKEN_SYMBOL,
+  STATION_TIP_DJ_SHARE,
+  STATION_TIP_STATION_SHARE,
+  DJ_MILESTONES,
+} from "@/lib/constants";
 
 const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
 
@@ -10,6 +16,7 @@ const SECTIONS = [
   { id: "going-live", title: "Going live" },
   { id: "obs", title: "OBS setup" },
   { id: "earning", title: "Earning DROP" },
+  { id: "supporters", title: "Supporters & milestones" },
   { id: "collab", title: "Collab & B2B" },
   { id: "growth", title: "Growth tips" },
   { id: "support", title: "Support" },
@@ -20,7 +27,7 @@ export default function DjGuidePage() {
     <HelpGuideLayout
       title="DJ guide"
       subtitle="Stream from the booth, preview your feed, earn DROP, and grow your audience."
-      backHref="/help"
+      backHref={HELP_LINKS.hub}
       role="dj"
       sections={SECTIONS}
     >
@@ -34,7 +41,8 @@ export default function DjGuidePage() {
         </GuideStep>
         <GuideStep n={2} title="Your public profile">
           Fans find you at <code className="text-xs bg-white/10 px-1 rounded">/dj/yourusername</code>.
-          Share this link on socials. Followers get notified when you go live.
+          Share this link on socials. The <strong className="text-zinc-300">#stake</strong> section shows your supporters,
+          milestone progress, and top stakers. Followers get notified when you go live.
         </GuideStep>
         <GuideStep n={3} title="Weekly schedule">
           In Settings, set your <strong className="text-zinc-300">weekly stream slot</strong> (day + hour UTC).
@@ -55,9 +63,11 @@ export default function DjGuidePage() {
         <GuideStep n={3} title="During your set">
           Use the <Link href="/dashboard" className="text-[#53fc18] hover:underline">dashboard</Link> to update now
           playing, accept or decline crowd requests, see session goals, top tippers, and live stats.
+          Fans see a staking promo under the player — encourage them to back you for early replays and perks.
         </GuideStep>
         <GuideStep n={4} title="End stream">
           End from the dashboard or Go Live page. Replays appear in your profile archive after the stream ends.
+          Supporters get early VOD access — see the <Link href={`${HELP_LINKS.fans}#replays`} className="text-[#53fc18] hover:underline">fan guide → Replays</Link>.
         </GuideStep>
       </GuideSection>
 
@@ -83,7 +93,7 @@ export default function DjGuidePage() {
           <strong className="text-zinc-300">Start Streaming</strong> again.
         </GuideStep>
         <GuideStep n={4} title="Preview not showing video?">
-          See <Link href="/support" className="text-[#53fc18] hover:underline">Support → Stream troubleshooting</Link>{" "}
+          See <Link href={HELP_LINKS.support} className="text-[#53fc18] hover:underline">Support → Stream troubleshooting</Link>{" "}
           for step-by-step checks. The preview page shows diagnostics when OBS looks connected but the server
           can&apos;t see your feed.
         </GuideStep>
@@ -92,7 +102,7 @@ export default function DjGuidePage() {
       <GuideSection id="earning" title="Earning DROP">
         <GuideStep n={1} title="Tips">
           Fans tip from the stream page. Default split: <strong className="text-zinc-300">90% you / 10% platform</strong>.
-          Tips show in chat and count toward achievements.
+          Tips show in chat and count toward achievements and set grades.
         </GuideStep>
         <GuideStep n={2} title="Track unlocks & requests">
           You earn when fans unlock track IDs or when you accept paid crowd requests (after platform fee).
@@ -100,18 +110,43 @@ export default function DjGuidePage() {
         <GuideStep n={3} title="VIP subscribers">
           Fans can subscribe monthly for perks. Subscription DROP is credited to your balance each billing cycle.
         </GuideStep>
-        <GuideStep n={4} title="Achievements">
+        <GuideStep n={4} title="Set grades">
+          Each ended set gets a grade (A–F) from tips, engagement, unlocks, and quests. Supporter tips count{" "}
+          <strong className="text-zinc-300">1.1×</strong> toward the score. Grades show on your profile and VOD replays.
+        </GuideStep>
+        <GuideStep n={5} title="Achievements">
           Unlock DJ achievements for streaming milestones, tips, and followers at{" "}
-          <Link href="/achievements" className="text-[#53fc18] hover:underline">/achievements</Link>.
+          <Link href={HELP_LINKS.achievements} className="text-[#53fc18] hover:underline">/achievements</Link>.
           Claim {DROP_TOKEN_SYMBOL} rewards in-app; on-chain claims are available when your wallet is connected.
         </GuideStep>
-        <GuideStep n={5} title="Wallet & on-chain tips">
-          View earnings at <Link href="/wallet" className="text-[#53fc18] hover:underline">/wallet</Link>.
+        <GuideStep n={6} title="Wallet & on-chain tips">
+          View earnings at <Link href={HELP_LINKS.wallet} className="text-[#53fc18] hover:underline">/wallet</Link>.
           Connect VeWorld or create an embedded wallet (email login) to receive on-chain tips during live sets.
           Link your wallet address on your DJ profile so fans can tip on-chain.
         </GuideStep>
-        <GuideStep n={6} title="Cash-out">
+        <GuideStep n={7} title="Cash-out">
           Request fiat cash-out from the wallet page when available. Admin-approved payouts are processed manually.
+        </GuideStep>
+      </GuideSection>
+
+      <GuideSection id="supporters" title="Supporters & milestones">
+        <GuideStep n={1} title="Who are your supporters?">
+          Fans who stake {DROP_TOKEN_SYMBOL} on your profile appear in your <strong className="text-zinc-300">Top supporters</strong> list.
+          They get chat badges, cheaper unlocks/requests on your streams, early replay access, and a tip boost toward set grades.
+        </GuideStep>
+        <GuideStep n={2} title="DJ milestones">
+          When you hit growth goals, your current supporters share a reward pool (split by stake size). Examples:
+        </GuideStep>
+        <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
+          {DJ_MILESTONES.map((m) => (
+            <li key={m.key}>
+              {m.label} — {m.rewardPool} {DROP_TOKEN_SYMBOL} pool
+            </li>
+          ))}
+        </ul>
+        <GuideStep n={3} title="Promote staking">
+          Share your profile link and remind fans after a great set — the VOD page includes a &quot;Back this DJ&quot; CTA.
+          During live sets, the staking promo appears under the player for non-host viewers.
         </GuideStep>
       </GuideSection>
 
@@ -130,7 +165,7 @@ export default function DjGuidePage() {
           Radio stations can add you as a resident. Your shows appear on their channel and tips may split{" "}
           {Math.round(STATION_TIP_DJ_SHARE * 100)}% DJ / {Math.round(STATION_TIP_STATION_SHARE * 100)}% station / 10% platform.
           When you go live as a resident, the stream shows &quot;Presented by [Station]&quot;.
-          See the <Link href="/help/stations" className="text-[#53fc18] hover:underline">station guide</Link> for owners.
+          See the <Link href={HELP_LINKS.stations} className="text-[#53fc18] hover:underline">station guide</Link> for owners.
         </GuideStep>
       </GuideSection>
 
@@ -139,18 +174,19 @@ export default function DjGuidePage() {
           <li>Go live on a consistent weekly slot so fans know when to tune in</li>
           <li>Update now playing often — track ID unlocks drive engagement</li>
           <li>Thank tippers in chat; first-tip bonuses encourage early support</li>
-          <li>Check the <Link href="/leaderboard" className="text-[#53fc18] hover:underline">rankings</Link> for competition context</li>
+          <li>Check the <Link href={HELP_LINKS.leaderboard} className="text-[#53fc18] hover:underline">rankings</Link> for competition context</li>
           <li>Enable push so followers get notified every time you&apos;re live</li>
           <li>Use the share button on Go Live and your stream page to spread your booth link</li>
+          <li>Encourage fans to back you — supporters get early replays and milestone rewards</li>
         </ul>
       </GuideSection>
 
       <GuideSection id="support" title="Support">
         <GuideStep n={1} title="Get help">
           Stream issues, payouts, or account problems — open{" "}
-          <Link href="/support" className="text-[#53fc18] hover:underline">live support chat</Link> (logged as a
+          <Link href={HELP_LINKS.support} className="text-[#53fc18] hover:underline">live support chat</Link> (logged as a
           ticket), read{" "}
-          <Link href="/policies" className="text-[#53fc18] hover:underline">Policies &amp; procedures</Link>, or email{" "}
+          <Link href={HELP_LINKS.policies} className="text-[#53fc18] hover:underline">Policies &amp; procedures</Link>, or email{" "}
           <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">support@livebooth.uk</a>.
         </GuideStep>
       </GuideSection>

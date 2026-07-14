@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, Headphones, Radio, Building2 } from "lucide-react";
+import { HELP_LINKS } from "@/lib/help-links";
 
 export type GuideSectionLink = { id: string; title: string };
 
@@ -70,18 +71,27 @@ export function HelpGuideLayout({
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-3">
           More guides
         </p>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <Link href="/help/fans" className="text-zinc-500 hover:text-[#53fc18]">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          <Link href={HELP_LINKS.hub} className="text-zinc-500 hover:text-[#53fc18]">
+            Help center →
+          </Link>
+          <Link href={HELP_LINKS.fans} className="text-zinc-500 hover:text-[#53fc18]">
             Fan guide →
           </Link>
-          <Link href="/help/djs" className="text-zinc-500 hover:text-[#53fc18]">
+          <Link href={HELP_LINKS.djs} className="text-zinc-500 hover:text-[#53fc18]">
             DJ guide →
           </Link>
-          <Link href="/help/stations" className="text-zinc-500 hover:text-[#53fc18]">
+          <Link href={HELP_LINKS.stations} className="text-zinc-500 hover:text-[#53fc18]">
             Station guide →
           </Link>
-          <Link href="/support" className="text-zinc-500 hover:text-[#53fc18]">
+          <Link href={HELP_LINKS.support} className="text-zinc-500 hover:text-[#53fc18]">
             Live support chat →
+          </Link>
+          <Link href={HELP_LINKS.transparency} className="text-zinc-500 hover:text-[#53fc18]">
+            Transparency →
+          </Link>
+          <Link href={HELP_LINKS.roadmap} className="text-zinc-500 hover:text-[#53fc18]">
+            Roadmap →
           </Link>
         </div>
       </div>

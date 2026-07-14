@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, Circle, Clock } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
+import { HELP_LINKS } from "@/lib/help-links";
 
 type RoadmapItem = {
   title: string;
@@ -34,7 +35,9 @@ const PHASES: Phase[] = [
       { title: "On-chain tips during live sets", detail: "TipRouter with fee delegation", status: "active" },
       { title: "On-chain achievement claims", detail: "Signed claims via AchievementVault", status: "active" },
       { title: "Live support chat", detail: "Chat on /support — logged as tickets, admin replies in dashboard", status: "done" },
-      { title: "Station Pro & residencies", detail: "Branded channels, resident lineups", status: "planned" },
+      { title: "Station Pro & residencies", detail: "Branded channels, resident lineups, embed player", status: "done" },
+      { title: "Staking v2 — perks & milestones", detail: "DJ/station members, proportional rewards, early VOD, leaderboards", status: "done" },
+      { title: "Email verification", detail: "Verify before login in production; password reset via Resend", status: "done" },
     ],
   },
   {
@@ -71,7 +74,9 @@ export default function RoadmapPage() {
       <h1 className="text-3xl font-bold text-white mb-2">{APP_NAME} roadmap</h1>
       <p className="text-zinc-400 text-sm mb-8">
         What we&apos;ve shipped, what we&apos;re building, and what&apos;s next. Updated regularly —{" "}
-        <Link href="/support" className="text-[#53fc18] hover:underline">tell us what you want</Link>.
+        <Link href={HELP_LINKS.support} className="text-[#53fc18] hover:underline">tell us what you want</Link>.
+        New here? Start at the{" "}
+        <Link href={HELP_LINKS.hub} className="text-[#53fc18] hover:underline">help center</Link>.
       </p>
 
       <div className="space-y-10">
@@ -102,8 +107,10 @@ export default function RoadmapPage() {
         ))}
       </div>
 
-      <p className="mt-10 text-xs text-zinc-600">
-        Priorities may shift based on creator feedback and infrastructure needs.
+      <p className="mt-10 text-xs text-zinc-600 flex flex-wrap gap-x-3 gap-y-1">
+        <span>Priorities may shift based on creator feedback and infrastructure needs.</span>
+        <Link href={HELP_LINKS.hub} className="text-[#53fc18] hover:underline">Help center</Link>
+        <Link href={HELP_LINKS.support} className="text-[#53fc18] hover:underline">Support</Link>
       </p>
     </div>
   );

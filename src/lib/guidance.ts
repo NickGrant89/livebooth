@@ -3,7 +3,9 @@ import {
   TRACK_UNLOCK_COST,
   REQUEST_COST,
   DAILY_LOGIN_DROP,
+  MIN_STAKE_AMOUNT,
 } from "./constants";
+import { HELP_LINKS } from "./help-links";
 
 export type GuidanceRole = "fan" | "dj" | "station";
 
@@ -38,6 +40,12 @@ export const FAN_QUICK_START: GuidanceStep[] = [
     body: `Pay ${TRACK_UNLOCK_COST} ${DROP_TOKEN_SYMBOL} to reveal what's playing. Saved tracks go to your crate.`,
     href: "/crate",
     hrefLabel: "Your crate",
+  },
+  {
+    title: "Stake for perks",
+    body: `Back a DJ or become a station member (min ${MIN_STAKE_AMOUNT} ${DROP_TOKEN_SYMBOL}) for badges, cheaper unlocks, early replays, and milestone rewards.`,
+    href: `${HELP_LINKS.fans}#staking`,
+    hrefLabel: "Staking guide",
   },
 ];
 
@@ -104,6 +112,12 @@ export const DJ_LIVE_CHECKLIST: GuidanceStep[] = [
     title: "Share your booth link",
     body: "Send fans to /stream/yourusername — followers get notified when you go live next time.",
   },
+  {
+    title: "Grow supporters",
+    body: "Fans who back you get early replays and milestone rewards — point them to your profile #stake section.",
+    href: `${HELP_LINKS.djs}#supporters`,
+    hrefLabel: "Supporter guide",
+  },
 ];
 
 export const DJ_OBS_STEPS = [
@@ -156,13 +170,15 @@ export const STATION_QUICK_START: GuidanceStep[] = [
   {
     title: "Embed on your site",
     body: "Pro+ tiers get a white-label iframe player — copy from your station dashboard.",
+    href: `${HELP_LINKS.stations}#embed`,
+    hrefLabel: "Embed guide",
   },
 ];
 
 export function getGuidePath(role: string) {
-  if (role === "station") return "/help/stations";
-  if (role === "dj" || role === "admin") return "/help/djs";
-  return "/help/fans";
+  if (role === "station") return HELP_LINKS.stations;
+  if (role === "dj" || role === "admin") return HELP_LINKS.djs;
+  return HELP_LINKS.fans;
 }
 
 export function getQuickStart(role: string): GuidanceStep[] {

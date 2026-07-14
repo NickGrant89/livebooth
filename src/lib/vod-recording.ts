@@ -2,6 +2,7 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
+import { hasStreamReplay } from "./playback-url";
 
 const RECORDINGS_DIR =
   process.env.RECORDINGS_DIR ?? path.join(process.cwd(), "rtmp-server/recordings");
@@ -213,6 +214,20 @@ function isLiveHlsArchiveUrl(url: string): boolean {
   );
 }
 
+/** Remux watcher waits ~3 min idle before processing; allow time for HLS VOD build. */
+export const VOD_PROCESSING_WINDOW_MS = 12 * 60 * 1000;
+
+export function isVodLikelyProcessing(
+  endedAt: Date | null | undefined,
+  ingestKey: string | null | undefined,
+  vodUrl: string | null | undefined,
+  playbackUrl: string | null | undefined,
+): boolean {
+  if (!endedAt || !ingestKey || !isLocalRecordingEnabled()) return false;
+  if (hasStreamReplay(vodUrl, playbackUrl)) return false;
+  return Date.now() - endedAt.getTime() < VOD_PROCESSING_WINDOW_MS;
+}
+
 async function resolveBestRecordingPlaybackUrl(ingestKey: string): Promise<string | null> {
   const localHls = findLocalHlsPlaybackUrl(ingestKey);
   if (localHls) return localHls;
@@ -273,8 +288,8 @@ export function resolveRecordingVodUrl(ingestKey: string | null | undefined): st
 
 export async function resolveRecordingVodUrlWithRetry(
   ingestKey: string | null | undefined,
-  attempts = 20,
-  delayMs = 3000,
+  attempts = 12,
+  delayMs = 5000,
 ): Promise<string | null> {
   if (!ingestKey || !isLocalRecordingEnabled()) return null;
 

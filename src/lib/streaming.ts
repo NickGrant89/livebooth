@@ -288,11 +288,11 @@ export async function endStreamSession(streamId: string, djId: string) {
     });
   }
 
-  let vodUrl = stream.playbackUrl;
+  let vodUrl: string | null = stream.vodUrl ?? stream.playbackUrl;
   const vodIngestKey = resolveCollabVodIngestKey(stream.ingestKey, hostVodCollab ?? undefined);
   if (vodIngestKey && isLocalRtmpMode()) {
-    const recorded = await resolveRecordingVodUrlWithRetry(vodIngestKey);
-    if (recorded) vodUrl = recorded;
+    const recorded = await resolveRecordingVodUrlWithRetry(vodIngestKey, 10, 4000);
+    vodUrl = recorded;
   }
 
   return prisma.stream.update({

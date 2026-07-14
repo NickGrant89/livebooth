@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { APP_TAGLINE, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { HELP_LINKS } from "@/lib/help-links";
 
 export function Footer() {
   return (
@@ -40,18 +41,19 @@ export function Footer() {
             <div>
               <p className="text-zinc-400 font-semibold mb-2">Company</p>
               <ul className="space-y-1.5 text-zinc-500">
-                <li><Link href="/transparency" className="hover:text-white transition-colors">Transparency</Link></li>
-                <li><Link href="/roadmap" className="hover:text-white transition-colors">Roadmap</Link></li>
-                <li><Link href="/policies" className="hover:text-white transition-colors">Policies &amp; procedures</Link></li>
+                <li><Link href={HELP_LINKS.transparency} className="hover:text-white transition-colors">Transparency</Link></li>
+                <li><Link href={HELP_LINKS.roadmap} className="hover:text-white transition-colors">Roadmap</Link></li>
+                <li><Link href={HELP_LINKS.policies} className="hover:text-white transition-colors">Policies &amp; procedures</Link></li>
               </ul>
             </div>
             <div>
               <p className="text-zinc-400 font-semibold mb-2">Help</p>
               <ul className="space-y-1.5 text-zinc-500">
-                <li><Link href="/help/fans" className="hover:text-white transition-colors">Fan guide</Link></li>
-                <li><Link href="/help/djs" className="hover:text-white transition-colors">DJ guide</Link></li>
-                <li><Link href="/help/stations" className="hover:text-white transition-colors">Station guide</Link></li>
-                <li><Link href="/support" className="hover:text-white transition-colors">Support & live chat</Link></li>
+                <li><Link href={HELP_LINKS.hub} className="hover:text-white transition-colors">Help center</Link></li>
+                <li><Link href={HELP_LINKS.fans} className="hover:text-white transition-colors">Fan guide</Link></li>
+                <li><Link href={HELP_LINKS.djs} className="hover:text-white transition-colors">DJ guide</Link></li>
+                <li><Link href={HELP_LINKS.stations} className="hover:text-white transition-colors">Station guide</Link></li>
+                <li><Link href={HELP_LINKS.support} className="hover:text-white transition-colors">Support & live chat</Link></li>
               </ul>
             </div>
           </div>
@@ -59,12 +61,12 @@ export function Footer() {
         <div className="mt-8 pt-6 border-t border-white/[0.04] flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-600">
           <span>© {new Date().getFullYear()} LiveBooth · livebooth.fm</span>
           <div className="flex gap-4">
-            <Link href="/transparency" className="hover:text-zinc-400">Transparency</Link>
-            <Link href="/roadmap" className="hover:text-zinc-400">Roadmap</Link>
-            <Link href="/policies" className="hover:text-zinc-400">Policies</Link>
+            <Link href={HELP_LINKS.transparency} className="hover:text-zinc-400">Transparency</Link>
+            <Link href={HELP_LINKS.roadmap} className="hover:text-zinc-400">Roadmap</Link>
+            <Link href={HELP_LINKS.policies} className="hover:text-zinc-400">Policies</Link>
             <Link href="/terms" className="hover:text-zinc-400">Terms</Link>
             <Link href="/privacy" className="hover:text-zinc-400">Privacy</Link>
-            <Link href="/help" className="hover:text-zinc-400">Help</Link>
+            <Link href={HELP_LINKS.hub} className="hover:text-zinc-400">Help</Link>
           </div>
         </div>
       </div>

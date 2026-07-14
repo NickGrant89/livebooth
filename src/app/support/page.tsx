@@ -18,6 +18,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { SUPPORT_CATEGORIES } from "@/lib/constants";
 import { SupportLiveChat } from "@/components/SupportLiveChat";
+import { HELP_LINKS } from "@/lib/help-links";
 
 const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
 
@@ -40,7 +41,15 @@ const FAQ = [
     items: [
       {
         q: "I forgot my password",
-        a: "Use /forgot-password — enter your email and follow the reset link in your inbox. Signed-in users can also change password in Settings.",
+        a: "Use /forgot-password — enter your email and follow the reset link in your inbox (check spam). Signed-in users can also change password in Settings. See the fan guide → Account for email tips.",
+      },
+      {
+        q: "I didn't receive my verification email",
+        a: "After signup, check spam/junk and wait a few minutes. Use /verify-email to resend. Links expire in 24 hours. Make sure you signed up with the correct address. If Resend logs show delivered but you still don't see it, add livebooth.uk to your safe senders and check spam filters.",
+      },
+      {
+        q: "Why can't I sign in after signup?",
+        a: "Production accounts must verify email first. Click the link in your inbox, then sign in at /login. Grandfathered accounts from before email verification may already be verified.",
       },
       {
         q: "Can I change my username?",
@@ -73,7 +82,27 @@ const FAQ = [
       },
       {
         q: "What is staking?",
-        a: "Lock DROP on a DJ or radio station to show support. Station stakers share milestone rewards when the station hits follower and tip goals. Unstake anytime from the stake panel on a profile.",
+        a: "Lock DROP on a DJ (Back this DJ) or radio station (Become a member) to show support. Minimum 50 DROP. You get chat badges, cheaper unlocks/requests, early replay access, and a share of milestone reward pools — split proportionally by stake size. Unstake anytime from the stake panel. Full details: /help/fans#staking",
+      },
+      {
+        q: "What perks do station members get?",
+        a: "Member badge in chat, 15% off track unlocks on station shows, 10% off requests, 24h early replay after shows end, 1.1× tip weight for set grades, and milestone DROP pools. Tiers: Member (50+), Core (150+), Legend (500+). See /help/fans#staking",
+      },
+      {
+        q: "What perks do DJ supporters get?",
+        a: "Supporter badge, 12h early replay on that DJ's sets, 10% off unlocks and requests, 1.1× tip weight for set grades, and DJ milestone reward pools. See the stake panel on any DJ profile (#stake).",
+      },
+      {
+        q: "How do milestone rewards work?",
+        a: "When a DJ or station hits follower, tip, or staked DROP goals, current stakers share a reward pool. Bigger stakes earn a bigger share. Progress bars show on stake panels and station owner dashboards.",
+      },
+      {
+        q: "How do replays and early access work?",
+        a: "Ended sets appear on DJ profiles and /vod/stream-id. Station members get replay access for the first 24h after a station show; DJ supporters get 12h early access on that DJ's sets. After the window, everyone can watch. Stake from the blocked replay screen to unlock early.",
+      },
+      {
+        q: "What are daily quests?",
+        a: "On the home page, complete small challenges (watch time, tips, follows) for bonus DROP. Progress updates automatically as you use the app.",
       },
       {
         q: "How do I buy more DROP?",
@@ -266,12 +295,14 @@ export default function SupportPage() {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      <div id="faq" className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
         {[
-          { icon: Headphones, label: "Fan guide", href: "/help/fans" },
-          { icon: Radio, label: "DJ guide", href: "/help/djs" },
-          { icon: Wifi, label: "Station guide", href: "/help/stations" },
-          { icon: Wallet, label: "Wallet & DROP", href: "/wallet" },
+          { icon: Headphones, label: "Fan guide", href: HELP_LINKS.fans },
+          { icon: Radio, label: "DJ guide", href: HELP_LINKS.djs },
+          { icon: Wifi, label: "Station guide", href: HELP_LINKS.stations },
+          { icon: Wallet, label: "Wallet & DROP", href: HELP_LINKS.wallet },
+          { icon: HelpCircle, label: "Help center", href: HELP_LINKS.hub },
+          { icon: MessageCircle, label: "Staking perks", href: `${HELP_LINKS.fans}#staking` },
         ].map(({ icon: Icon, label, href }) => (
           <Link
             key={href}
@@ -364,14 +395,17 @@ export default function SupportPage() {
       </section>
 
       <p className="text-center text-xs text-zinc-600 mt-8 space-x-3">
-        <Link href="/help" className="text-[#53fc18] hover:underline">
+        <Link href={HELP_LINKS.hub} className="text-[#53fc18] hover:underline">
           ← Help center
         </Link>
-        <Link href="/policies" className="text-[#53fc18] hover:underline">
+        <Link href={HELP_LINKS.policies} className="text-[#53fc18] hover:underline">
           Policies
         </Link>
-        <Link href="/roadmap" className="text-[#53fc18] hover:underline">
+        <Link href={HELP_LINKS.roadmap} className="text-[#53fc18] hover:underline">
           Roadmap
+        </Link>
+        <Link href={HELP_LINKS.transparency} className="text-[#53fc18] hover:underline">
+          Transparency
         </Link>
       </p>
     </div>

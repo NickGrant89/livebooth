@@ -1,4 +1,9 @@
 import { prisma } from "./db";
+import { hasStreamReplay } from "./playback-url";
+import {
+  isLocalRecordingEnabled,
+  resolveEndedStreamPlaybackUrl,
+} from "./vod-recording";
 import { RADIO_TIERS, type RadioTierId } from "./constants";
 
 export async function getStationBySlug(slug: string) {
@@ -110,7 +115,7 @@ export async function getLiveStreamForStation(stationId: string) {
 }
 
 export async function getPastBroadcastsForStation(stationId: string, limit = 20) {
-  return prisma.stream.findMany({
+  const broadcasts = await prisma.stream.findMany({
     where: { stationId, status: "ended", startedAt: { not: null } },
     orderBy: { endedAt: "desc" },
     take: limit,
@@ -131,6 +136,37 @@ export async function getPastBroadcastsForStation(stationId: string, limit = 20)
       dj: { select: { username: true, displayName: true } },
     },
   });
+
+  if (!isLocalRecordingEnabled()) return broadcasts;
+
+  const enriched = [...broadcasts];
+  const backfillTargets = enriched
+    .filter(
+      (b) =>
+        b.ingestKey &&
+        !hasStreamReplay(b.vodUrl, b.playbackUrl) &&
+        b.endedAt &&
+        Date.now() - b.endedAt.getTime() < 24 * 3600_000,
+    )
+    .slice(0, 6);
+
+  await Promise.all(
+    backfillTargets.map(async (b) => {
+      const resolved = await resolveEndedStreamPlaybackUrl(b.ingestKey, b.vodUrl);
+      if (!resolved) return;
+      const idx = enriched.findIndex((row) => row.id === b.id);
+      if (idx < 0) return;
+      enriched[idx] = { ...enriched[idx]!, vodUrl: resolved };
+      if (b.vodUrl !== resolved) {
+        await prisma.stream.update({
+          where: { id: b.id },
+          data: { vodUrl: resolved },
+        });
+      }
+    }),
+  );
+
+  return enriched;
 }
 
 export async function getActiveStationChannelForOwner(ownerId: string) {

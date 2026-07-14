@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { HelpGuideLayout, GuideSection, GuideStep } from "@/components/HelpGuideLayout";
 import { HelpQuickStart } from "@/components/HelpQuickStart";
-import { STATION_TIP_DJ_SHARE, STATION_TIP_STATION_SHARE } from "@/lib/constants";
+import { HELP_LINKS } from "@/lib/help-links";
+import {
+  STATION_TIP_DJ_SHARE,
+  STATION_TIP_STATION_SHARE,
+  STATION_MILESTONES,
+  RADIO_TIERS,
+  STAKER_PERKS,
+  DROP_TOKEN_SYMBOL,
+} from "@/lib/constants";
 
 const SECTIONS = [
   { id: "getting-started", title: "Getting started" },
+  { id: "tiers", title: "Station tiers" },
   { id: "residents", title: "Residents & lineup" },
   { id: "embed", title: "Embed & relay" },
-  { id: "staking", title: "Staking milestones" },
+  { id: "staking", title: "Members & milestones" },
   { id: "support", title: "Support" },
 ];
 
@@ -16,7 +25,7 @@ export default function StationGuidePage() {
     <HelpGuideLayout
       title="Station guide"
       subtitle="Run a branded radio channel on LiveBooth."
-      backHref="/help"
+      backHref={HELP_LINKS.hub}
       role="station"
       sections={SECTIONS}
     >
@@ -36,12 +45,38 @@ export default function StationGuidePage() {
         </GuideStep>
         <GuideStep n={3} title="Owner dashboard">
           In <Link href="/settings" className="text-[#53fc18] hover:underline">Settings</Link>: manage residents,
-          import lineup CSV, set relay URL, configure embed player, and track staking milestones.
+          import lineup CSV, set relay URL, configure embed player, and track member milestones.
         </GuideStep>
         <GuideStep n={4} title="Tip splits">
           When a resident DJ streams under your station, tips split{" "}
           {Math.round(STATION_TIP_DJ_SHARE * 100)}% DJ / {Math.round(STATION_TIP_STATION_SHARE * 100)}% station / 10% platform.
         </GuideStep>
+      </GuideSection>
+
+      <GuideSection id="tiers" title="Station tiers">
+        <p className="text-sm text-zinc-400 mb-4">
+          LiveBooth offers three program tiers. Your tier controls resident limits, relay, embed, and dashboard features.
+        </p>
+        <div className="space-y-3">
+          {(Object.keys(RADIO_TIERS) as Array<keyof typeof RADIO_TIERS>).map((key) => {
+            const tier = RADIO_TIERS[key];
+            return (
+              <div key={key} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm">
+                <p className="font-semibold text-zinc-200">{tier.label}</p>
+                <p className="text-zinc-500 text-xs mt-1">{tier.description}</p>
+                <ul className="text-zinc-400 text-xs mt-2 space-y-0.5">
+                  <li>Up to {tier.maxResidents} resident DJs</li>
+                  <li>{tier.relayMode ? "Relay / simulcast supported" : "No relay mode"}</li>
+                  <li>{tier.whiteLabel ? "White-label embed" : tier.stationDashboard ? "Station dashboard" : "Basic hub"}</li>
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-zinc-500 mt-3">
+          Need a tier change? Contact <Link href={HELP_LINKS.support} className="text-[#53fc18] hover:underline">support</Link> or
+          use the upgrade flow in your station dashboard when available.
+        </p>
       </GuideSection>
 
       <GuideSection id="residents" title="Residents & lineup">
@@ -53,6 +88,7 @@ export default function StationGuidePage() {
         </GuideStep>
         <GuideStep n={3} title="When residents go live">
           Streams show &quot;Presented by [Your Station]&quot; and appear on your channel&apos;s live feed.
+          Fans can become <strong className="text-zinc-300">station members</strong> for perks on all station shows.
         </GuideStep>
       </GuideSection>
 
@@ -65,26 +101,49 @@ export default function StationGuidePage() {
         </GuideStep>
         <GuideStep n={2} title="Embed on your website">
           Pro+ tiers get an iframe player at <code className="text-xs bg-white/10 px-1 rounded">/embed/station/slug</code>.
-          Copy the snippet from your station dashboard in Settings.
+          Copy the snippet from your station dashboard in Settings. See{" "}
+          <Link href={`${HELP_LINKS.support}#faq`} className="text-[#53fc18] hover:underline">Support FAQ</Link> if the embed doesn&apos;t load.
         </GuideStep>
         <GuideStep n={3} title="FM / relay simulcast">
           Set a relay URL in Settings to simulcast your LiveBooth feed to external radio infrastructure.
         </GuideStep>
       </GuideSection>
 
-      <GuideSection id="staking" title="Staking milestones">
-        <GuideStep n={1} title="Station staking">
-          Fans can stake DROP on your station to show support. Milestone rewards unlock when you hit follower and tip goals.
+      <GuideSection id="staking" title="Members & milestones">
+        <GuideStep n={1} title="Station membership">
+          Fans stake {DROP_TOKEN_SYMBOL} on your station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#stake</code>).
+          Members get:
         </GuideStep>
-        <GuideStep n={2} title="Promote your channel">
+        <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
+          {STAKER_PERKS.map((perk) => (
+            <li key={perk}>{perk}</li>
+          ))}
+        </ul>
+        <GuideStep n={2} title="Milestone rewards">
+          When your station hits goals, all current members share a reward pool proportional to stake. Track progress in
+          your owner dashboard and on the public stake panel:
+        </GuideStep>
+        <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
+          {STATION_MILESTONES.map((m) => (
+            <li key={m.key}>
+              {m.label} — {m.rewardPool} DROP pool
+            </li>
+          ))}
+        </ul>
+        <GuideStep n={3} title="Promote your channel">
           Share <code className="text-xs bg-white/10 px-1 rounded">/station/your-slug</code> on socials and your website embed.
+          During resident live shows, fans see a &quot;Become a member&quot; promo on the stream page.
+        </GuideStep>
+        <GuideStep n={4} title="Fan-facing docs">
+          Point listeners to the <Link href={`${HELP_LINKS.fans}#staking`} className="text-[#53fc18] hover:underline">fan guide → Staking</Link> for
+          perk details and tier thresholds.
         </GuideStep>
       </GuideSection>
 
       <GuideSection id="support" title="Support">
         <GuideStep n={1} title="Get help">
           Station setup, embed issues, or billing — use{" "}
-          <Link href="/support" className="text-[#53fc18] hover:underline">live support chat</Link> on Support
+          <Link href={HELP_LINKS.support} className="text-[#53fc18] hover:underline">live support chat</Link> on Support
           (every chat creates a ticket), or email{" "}
           <a href="mailto:support@livebooth.uk" className="text-[#53fc18] hover:underline">support@livebooth.uk</a>.
         </GuideStep>

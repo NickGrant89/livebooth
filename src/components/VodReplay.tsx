@@ -28,6 +28,7 @@ type VodReplayProps = {
   playbackUrl: string;
   demoPlayback: boolean;
   recordingUnavailable?: boolean;
+  recordingProcessing?: boolean;
   highlights: Highlight[];
   setGrade?: string | null;
   setScore?: number | null;
@@ -57,6 +58,7 @@ export function VodReplay({
   playbackUrl,
   demoPlayback,
   recordingUnavailable = false,
+  recordingProcessing = false,
   highlights,
   setGrade,
   setScore,
@@ -133,9 +135,18 @@ export function VodReplay({
       )}
       {recordingUnavailable && (
         <p className="mt-3 text-xs text-zinc-400 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-          Recording is not available yet. If you just ended the stream, wait 2–3 minutes for the
-          server to finish writing and remuxing the file, then refresh. Short or interrupted OBS
-          streams may not produce a replay.
+          {recordingProcessing ? (
+            <>
+              Replay is still processing on the server (usually ready within 3–5 minutes after you end the stream).
+              Refresh this page shortly — station and DJ shows are saved to the VPS recording archive.
+            </>
+          ) : (
+            <>
+              Recording is not available yet. If you just ended the stream, wait 2–3 minutes for the
+              server to finish writing and remuxing the file, then refresh. Short or interrupted OBS
+              streams may not produce a replay.
+            </>
+          )}
         </p>
       )}
       <div className="mt-4 rounded-xl border border-white/5 bg-[#141416] p-4 flex flex-wrap items-start justify-between gap-4">

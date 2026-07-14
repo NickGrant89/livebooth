@@ -13,6 +13,7 @@ import { StationOwnerSection } from "@/components/StationOwnerSection";
 import { SettingsGuide } from "@/components/SettingsGuide";
 import { ResetGuidesButton } from "@/components/ResetGuidesButton";
 import { ProfileImageField } from "@/components/ProfileImageField";
+import { roleGuidePath } from "@/lib/help-links";
 
 interface ProfileData {
   displayName: string;
@@ -285,7 +286,7 @@ export default function SettingsPage() {
               <Link href="/guide" className="text-[#53fc18] hover:underline">
                 Your guide
               </Link>
-              <Link href={isStation ? "/help/djs" : isDj ? "/help/djs" : "/help/fans"} className="text-zinc-400 hover:text-white">
+              <Link href={roleGuidePath(profile.role)} className="text-zinc-400 hover:text-white">
                 Full docs
               </Link>
               <Link href="/support" className="text-zinc-400 hover:text-white">

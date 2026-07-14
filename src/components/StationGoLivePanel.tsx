@@ -104,14 +104,17 @@ export function StationGoLivePanel({ stationName, stationSlug, onStatusChange }:
     setSubmitting(true);
     setError("");
     const res = await apiFetch("/api/stations/owner/go-live", { method: "DELETE" });
+    const data = await res.json();
     setSubmitting(false);
     if (!res.ok) {
-      const data = await res.json();
       setError(data.error ?? "Could not end channel");
       return;
     }
     setStream(null);
     onStatusChange?.();
+    if (stream?.status === "live" && data.replayHint) {
+      window.alert(data.replayHint);
+    }
   }
 
   if (loading) {

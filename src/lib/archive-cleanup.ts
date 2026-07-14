@@ -10,7 +10,7 @@ import {
 } from "./vod-recording";
 
 /** Don't prune sets that ended recently — remux/HLS may still be building. */
-const PRUNE_MIN_AGE_MS = 15 * 60 * 1000;
+const PRUNE_MIN_AGE_MS = 45 * 60 * 1000;
 
 type StreamRow = {
   id: string;
