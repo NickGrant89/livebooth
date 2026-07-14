@@ -10,6 +10,7 @@ import { DjArchiveList, DjProfileTabs } from "@/components/DjArchiveList";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { getStationAffiliationForUser } from "@/lib/stations";
+import { getDjStakeTotal } from "@/lib/staking";
 import { pruneDjArchive } from "@/lib/archive-cleanup";
 import { genreLabels, DROP_TOKEN_SYMBOL, DAY_LABELS, getCreatorTypeLabel } from "@/lib/constants";
 import { ShareProfileButton } from "@/components/ShareLiveButton";
@@ -82,11 +83,7 @@ export default async function DJProfilePage({
     }),
     getStationAffiliationForUser(dj.id),
     getDjTotalLikes(dj.id),
-    isCreator
-      ? prisma.subscription.count({
-          where: { djId: dj.id, status: "active", nextBillingAt: { gt: new Date() } },
-        })
-      : Promise.resolve(0),
+    isCreator ? getDjStakeTotal(dj.id).then((t) => t.stakers) : Promise.resolve(0),
   ]);
 
   const lastSet = archiveStreams.find((s) => s.setGrade);

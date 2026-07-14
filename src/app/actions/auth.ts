@@ -65,7 +65,7 @@ export async function loginAction(
 
     if (user.suspendedAt) {
       return {
-        error: user.suspendedReason ?? "This account has been suspended. Contact support@livebooth.local",
+        error: user.suspendedReason ?? "This account has been suspended. Contact support@livebooth.uk",
       };
     }
 

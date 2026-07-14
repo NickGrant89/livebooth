@@ -29,6 +29,7 @@
     "launch:check": "npx tsx scripts/launch-check.ts",
     "phase2:verify": "bash scripts/phase2-verify.sh",
     "droplet:checklist": "bash scripts/droplet-backup-checklist.sh",
+    "audit:deep": "npx tsx scripts/deep-audit.ts",
     "admin:promote": "npx tsx scripts/promote-admin.ts",
     "build": "prisma generate && next build",
     "vercel-build": "prisma generate && npx tsx scripts/migrate-deploy.ts && next build",

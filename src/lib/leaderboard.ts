@@ -156,7 +156,7 @@ export async function getLeaderboardData() {
       avatar: s.avatar,
       value: Math.round(s.streams.reduce((sum, st) => sum + st.totalTips, 0)),
       href: `/station/${s.slug}`,
-      meta: `${s._count.follows} followers · ${s._count.stakes} stakers`,
+      meta: `${s._count.follows} followers · ${s._count.stakes} members`,
     })),
     "DROP on shows",
   );
@@ -168,7 +168,7 @@ export async function getLeaderboardData() {
       avatar: s.avatar,
       value: s._count.follows,
       href: `/station/${s.slug}`,
-      meta: `${s._count.stakes} stakers`,
+      meta: `${s._count.stakes} members`,
     })),
     "followers",
   );

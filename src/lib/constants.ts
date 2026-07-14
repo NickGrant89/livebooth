@@ -171,8 +171,8 @@ export type RadioTierId = keyof typeof RADIO_TIERS;
 export const STATION_MILESTONES = [
   { key: "followers_25", metric: "followers" as const, threshold: 25, rewardPool: 40, label: "25 station followers" },
   { key: "followers_100", metric: "followers" as const, threshold: 100, rewardPool: 125, label: "100 station followers" },
-  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPool: 150, label: "500 DROP staked on station" },
-  { key: "staked_2000", metric: "staked" as const, threshold: 2000, rewardPool: 375, label: "2,000 DROP staked on station" },
+  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPool: 150, label: "500 DROP/mo member support on station" },
+  { key: "staked_2000", metric: "staked" as const, threshold: 2000, rewardPool: 375, label: "2,000 DROP/mo member support on station" },
   { key: "tips_1000", metric: "tips" as const, threshold: 1000, rewardPool: 200, label: "1,000 DROP tipped on shows" },
 ] as const;
 
@@ -182,8 +182,8 @@ export type StationMilestoneKey = (typeof STATION_MILESTONES)[number]["key"];
 export const DJ_MILESTONES = [
   { key: "followers_50", metric: "followers" as const, threshold: 50, rewardPool: 100, label: "50 followers" },
   { key: "followers_250", metric: "followers" as const, threshold: 250, rewardPool: 300, label: "250 followers" },
-  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPool: 150, label: "500 DROP staked on DJ" },
-  { key: "staked_1500", metric: "staked" as const, threshold: 1500, rewardPool: 400, label: "1,500 DROP staked on DJ" },
+  { key: "staked_500", metric: "staked" as const, threshold: 500, rewardPool: 150, label: "500 DROP/mo member support on DJ" },
+  { key: "staked_1500", metric: "staked" as const, threshold: 1500, rewardPool: 400, label: "1,500 DROP/mo member support on DJ" },
   { key: "tips_500", metric: "tips" as const, threshold: 500, rewardPool: 200, label: "500 DROP tipped on streams" },
 ] as const;
 

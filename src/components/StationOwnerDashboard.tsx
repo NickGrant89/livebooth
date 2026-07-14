@@ -235,7 +235,7 @@ export function StationOwnerDashboard() {
   const isProPlus = station.tier === "pro" || station.tier === "network";
 
   return (
-    <section className="rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-6 space-y-6">
+    <section id="station-dashboard" className="rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-6 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-bold text-lg flex items-center gap-2 text-[#53fc18]">
@@ -531,13 +531,12 @@ export function StationOwnerDashboard() {
         >
           <summary className="text-xs font-bold uppercase text-zinc-500 cursor-pointer list-none flex items-center gap-2">
             <span className="group-open:rotate-90 transition-transform inline-block">›</span>
-            {STAKING_DEEMPHASIZED ? STAKING_COPY.ownerMilestones : "Staking milestones"}
+            {STAKING_DEEMPHASIZED ? STAKING_COPY.ownerMilestones : "Member milestones"}
           </summary>
           <div className="space-y-2 pt-1">
             {STAKING_DEEMPHASIZED && (
               <p className="text-[11px] text-zinc-600">
-                Optional beta feature — fans who stake can earn small DROP bonuses when your station hits
-                follower and tip goals. Tips remain the main way creators earn.
+                When your station hits follower and member MRR goals, current members share DROP reward pools.
               </p>
             )}
             {milestones.map((m) => (
@@ -546,7 +545,7 @@ export function StationOwnerDashboard() {
                   <span className={m.claimed ? "text-[#53fc18]" : ""}>
                     {m.label} ({m.current}/{m.threshold}) {m.claimed && "✓"}
                   </span>
-                  <span>{m.rewardPool} DROP pool (split by stake)</span>
+                  <span>{m.rewardPool} DROP pool (split by tier)</span>
                 </div>
                 <div className="h-1 rounded-full bg-white/5">
                   <div

@@ -13,7 +13,7 @@ const TIER_FEATURES: Record<string, string[]> = {
     "5 resident DJs",
     "Station dashboard & stats",
     "Public channel page",
-    "Staking milestones",
+    "Member milestone rewards",
   ],
   pro: [
     "15 resident DJs",

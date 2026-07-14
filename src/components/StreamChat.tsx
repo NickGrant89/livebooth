@@ -299,7 +299,7 @@ export function StreamChat({
                   ? "Connecting…"
                   : "Offline"}
             {isVip && (
-              <span className="ml-1 text-purple-400 normal-case">· VIP perks active</span>
+              <span className="ml-1 text-purple-400 normal-case">· Member perks active</span>
             )}
             {isStaker && (
               <span className="ml-1 text-cyan-400 normal-case">
@@ -312,7 +312,7 @@ export function StreamChat({
 
       {queuePosition != null && (
         <div className="mx-3 mt-2 rounded-lg bg-purple-500/10 border border-purple-500/20 px-3 py-2 text-xs text-purple-200">
-          Your request is #{queuePosition} in queue{isVip ? " (VIP priority)" : ""}
+          Your request is #{queuePosition} in queue{isVip ? " (member priority)" : ""}
         </div>
       )}
       {requestSent && (
@@ -358,7 +358,7 @@ export function StreamChat({
                   <StakerBadge label={msg.stakerBadge} tier={tierFromBadgeLabel(msg.stakerBadge)} />
                 )}
                 {isVip && user?.username === msg.username && (
-                  <span className="ml-1 text-purple-300" title="VIP">⭐</span>
+                  <span className="ml-1 text-purple-300" title="Legacy member">⭐</span>
                 )}
               </span>
               <div

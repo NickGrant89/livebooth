@@ -81,7 +81,7 @@ export function RequestQueue({
                   {r.trackArtist ? `${r.trackArtist} — ${r.trackTitle}` : r.trackTitle}
                 </p>
                 <p className="text-xs text-zinc-500">
-                  {r.fan}{r.vip ? " ⭐ VIP" : ""} · {r.amount} DROP
+                  {r.fan}{r.vip ? " ⭐ Member" : ""} · {r.amount} DROP
                 </p>
               </div>
               <div className="flex gap-2">

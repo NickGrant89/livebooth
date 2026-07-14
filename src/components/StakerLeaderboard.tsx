@@ -14,7 +14,7 @@ export type StakerLeaderboardEntry = {
 export function StakerLeaderboard({
   stakers,
   title = "Top supporters",
-  emptyLabel = "No stakers yet — be the first!",
+  emptyLabel = "No members yet — be the first!",
 }: {
   stakers: StakerLeaderboardEntry[];
   title?: string;
