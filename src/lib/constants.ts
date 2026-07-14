@@ -43,6 +43,8 @@ export const MEMBER_TIER_PRICES: Record<MemberTier, number> = {
 export const MIN_MEMBERSHIP_AMOUNT = MEMBER_TIER_PRICES.member;
 
 export const MEMBER_BILLING_DAYS = 30;
+/** Days after a failed renewal before membership is cancelled; perks stay on during this window. */
+export const MEMBER_PAST_DUE_GRACE_DAYS = 7;
 
 export const MEMBER_DJ_CREATOR_SHARE = 0.85;
 export const MEMBER_STATION_OWNER_SHARE = 0.75;

@@ -5,6 +5,7 @@ import {
   MEMBER_BILLING_DAYS,
   MEMBER_DJ_CREATOR_SHARE,
   MEMBER_PLATFORM_SHARE,
+  MEMBER_PAST_DUE_GRACE_DAYS,
   MEMBER_STATION_LIVE_DJ_SHARE,
   MEMBER_STATION_OWNER_SHARE,
   MEMBER_TIER_PRICES,
@@ -12,6 +13,7 @@ import {
 } from "./constants";
 
 const MS_PER_BILLING_PERIOD = MEMBER_BILLING_DAYS * 86400000;
+const MS_PER_GRACE_PERIOD = MEMBER_PAST_DUE_GRACE_DAYS * 86400000;
 
 export function memberTierPrice(tier: MemberTier): number {
   return MEMBER_TIER_PRICES[tier];
@@ -25,9 +27,15 @@ export function isMembershipActive(record: {
   status: string;
   nextBillingAt: Date | null;
 }): boolean {
-  if (record.status !== "active") return false;
-  if (!record.nextBillingAt) return true;
-  return record.nextBillingAt.getTime() > Date.now();
+  if (record.status === "cancelled") return false;
+  // Active members keep perks through billing date until cron renews or marks past_due
+  // (covers deploy/cron gaps — perks are not cut at midnight on nextBillingAt).
+  if (record.status === "active") return true;
+  if (record.status === "past_due") {
+    if (!record.nextBillingAt) return false;
+    return Date.now() < record.nextBillingAt.getTime() + MS_PER_GRACE_PERIOD;
+  }
+  return false;
 }
 
 function nextBillingDate(from = Date.now()): Date {
@@ -130,10 +138,14 @@ export async function processDueMembershipBillings(limit = 200): Promise<{
   let cancelled = 0;
   let failed = 0;
 
+  const graceCutoff = new Date(now.getTime() - MS_PER_GRACE_PERIOD);
+
   const dueDj = await prisma.djStake.findMany({
     where: {
-      status: "active",
-      nextBillingAt: { lte: now },
+      OR: [
+        { status: "active", nextBillingAt: { lte: now } },
+        { status: "past_due", nextBillingAt: { gte: graceCutoff } },
+      ],
     },
     take: limit,
     include: { dj: { select: { id: true, username: true, displayName: true } } },
@@ -149,7 +161,7 @@ export async function processDueMembershipBillings(limit = 200): Promise<{
       failed++;
       continue;
     }
-    await creditDjMembershipRevenue(row.djId, row.fanId, row.monthlyAmount);
+    // Advance billing date immediately after charge so a retried cron cannot double-bill.
     await prisma.djStake.update({
       where: { id: row.id },
       data: {
@@ -159,13 +171,20 @@ export async function processDueMembershipBillings(limit = 200): Promise<{
         amount: row.monthlyAmount,
       },
     });
+    try {
+      await creditDjMembershipRevenue(row.djId, row.fanId, row.monthlyAmount);
+    } catch (err) {
+      console.error("DJ membership revenue credit failed after charge", row.id, err);
+    }
     charged++;
   }
 
   const dueStation = await prisma.stationStake.findMany({
     where: {
-      status: "active",
-      nextBillingAt: { lte: now },
+      OR: [
+        { status: "active", nextBillingAt: { lte: now } },
+        { status: "past_due", nextBillingAt: { gte: graceCutoff } },
+      ],
     },
     take: Math.max(0, limit - dueDj.length),
     include: {
@@ -188,14 +207,6 @@ export async function processDueMembershipBillings(limit = 200): Promise<{
       failed++;
       continue;
     }
-    const liveDjId = await getLiveDjForStation(row.stationId);
-    await creditStationMembershipRevenue(
-      row.stationId,
-      row.station.ownerId,
-      row.fanId,
-      row.monthlyAmount,
-      liveDjId,
-    );
     await prisma.stationStake.update({
       where: { id: row.id },
       data: {
@@ -205,15 +216,27 @@ export async function processDueMembershipBillings(limit = 200): Promise<{
         amount: row.monthlyAmount,
       },
     });
+    try {
+      const liveDjId = await getLiveDjForStation(row.stationId);
+      await creditStationMembershipRevenue(
+        row.stationId,
+        row.station.ownerId,
+        row.fanId,
+        row.monthlyAmount,
+        liveDjId,
+      );
+    } catch (err) {
+      console.error("Station membership revenue credit failed after charge", row.id, err);
+    }
     charged++;
   }
 
   const cancelledDj = await prisma.djStake.updateMany({
-    where: { status: "past_due", nextBillingAt: { lt: new Date(now.getTime() - 7 * 86400000) } },
+    where: { status: "past_due", nextBillingAt: { lt: graceCutoff } },
     data: { status: "cancelled" },
   });
   const cancelledStation = await prisma.stationStake.updateMany({
-    where: { status: "past_due", nextBillingAt: { lt: new Date(now.getTime() - 7 * 86400000) } },
+    where: { status: "past_due", nextBillingAt: { lt: graceCutoff } },
     data: { status: "cancelled" },
   });
   cancelled += cancelledDj.count + cancelledStation.count;

@@ -271,7 +271,68 @@ Set `NEXT_PUBLIC_CHAIN_ID=100010` and redeploy.
 
 ---
 
-## 7. One-time production admin (optional)
+## 8. Safe upgrades during beta testing
+
+While testers are on the site, user data lives in **Postgres (Neon)** — deploys do not wipe wallets, memberships, chat, or achievements. Migrations in this repo are **additive only** (new columns/tables, no drops).
+
+### What is already safe
+
+| Data | Stored in | Survives deploy? |
+|------|-----------|------------------|
+| DROP balance & ledger | Postgres | Yes |
+| Memberships | `DjStake` / `StationStake` | Yes |
+| Tips, unlocks, chat | Postgres | Yes |
+| Achievements & milestones | Postgres | Yes |
+| Sessions / login | Postgres | Yes |
+| Stripe purchases | Postgres (idempotent on session id) | Yes |
+
+If a Vercel build fails during `prisma migrate deploy`, the **previous deployment keeps running** — users are not cut over to broken code.
+
+### What can briefly glitch (not lost)
+
+- **Live chat SSE** — reconnects; last ~100 messages reload from DB
+- **Viewer count** — may dip for a minute during cold start
+- **In-flight tip/unlock** — user should retry if the request timed out mid-deploy
+
+### Before risky deploys
+
+1. **Neon snapshot** — create a branch/backup in the Neon console before large schema changes
+2. **One deploy at a time** — avoid parallel Vercel builds (migration lock P1002)
+3. **Set `CRON_SECRET`** on Vercel — membership renewals run every 6h via `/api/cron/membership-billing`
+4. **Optional:** Admin → Settings → **Maintenance mode** for big migrations (blocks UI; APIs still accept writes today)
+
+### Membership during deploys
+
+- Perks stay on while status is `active`, even if the billing cron is briefly delayed
+- Failed renewals → `past_due` with a **7-day grace** (perks remain; cron retries billing)
+- Cancelled only after grace expires with no payment
+
+### Videos & replays (VOD)
+
+Replay **files are not on Vercel** — they live on your **RTMP VPS** (`rtmp-server/recordings/live/{ingestKey}/`) or on **Livepeer** if you use cloud ingest. A Vercel deploy only updates the app; it does **not** delete recording files.
+
+| Piece | Where | Survives app deploy? |
+|-------|--------|----------------------|
+| MP4 / HLS files | VPS disk (or Livepeer CDN) | Yes |
+| Replay link (`vodUrl`) | Postgres `Stream` row | Yes |
+| Live ingest | VPS MediaMTX / Livepeer | Yes (keeps running) |
+
+**Protect recordings during beta:**
+
+1. **DigitalOcean droplet snapshot** (or backup `/opt/livebooth/rtmp-server/recordings`) before VPS changes
+2. Keep **`RECORDINGS_PUBLIC_URL`** stable on Vercel (e.g. `https://hls.livebooth.uk/recordings`) — changing it breaks old links unless you migrate files
+3. Enable **`NEXT_PUBLIC_BETA_MODE=true`** — disables auto-pruning of archive rows when a replay check fails (files stay on disk; beta mode keeps the listing)
+4. Replays may show **“Processing…”** for ~5–12 minutes after a set ends while remux/HLS builds — refresh the VOD page; the file is usually still being written
+
+**What can make a replay vanish from the site (rare):**
+
+- Auto-prune removes the **database row** (not the file) if the app thinks the recording is missing — skipped when beta mode is on
+- VPS disk wiped or droplet deleted — **back up the VPS**, not just Neon
+- Admin deletes a stream or station from the dashboard
+
+---
+
+## 9. One-time production admin (optional)
 
 After first deploy:
 

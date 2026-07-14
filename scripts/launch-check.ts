@@ -14,6 +14,7 @@ const REQUIRED_PROD = [
 ] as const;
 
 const RECOMMENDED_PROD = [
+  "CRON_SECRET",
   "RESEND_API_KEY",
   "EMAIL_FROM",
   "LIVEPEER_API_KEY",

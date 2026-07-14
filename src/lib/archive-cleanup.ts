@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "./db";
+import { isBetaMode } from "./constants";
 import {
   findLatestRemoteRecordingFilename,
   getRecordingsPublicBaseUrls,
@@ -102,6 +103,9 @@ export async function streamRecordingExists(stream: StreamRow): Promise<boolean 
 export async function pruneEndedStreamsWithoutRecording(
   streams: StreamRow[],
 ): Promise<string[]> {
+  // During beta, never auto-remove archive entries — VPS hiccups should not hide replays.
+  if (isBetaMode()) return [];
+
   const deleted: string[] = [];
   const now = Date.now();
 
