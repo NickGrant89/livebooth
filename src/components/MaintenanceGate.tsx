@@ -21,7 +21,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isAdminRoute = pathname?.startsWith("/admin");
-  const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "admin" || user?.role === "moderator";
   const isAuthRoute =
     pathname?.startsWith("/login") ||
     pathname?.startsWith("/signup") ||
@@ -29,7 +29,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
 
   if (
     status?.maintenanceMode &&
-    !isAdmin &&
+    !isStaff &&
     !isAdminRoute &&
     !isAuthRoute
   ) {

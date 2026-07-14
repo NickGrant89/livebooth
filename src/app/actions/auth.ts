@@ -95,7 +95,7 @@ export async function loginAction(
     redirect(next);
   }
 
-  if (role === "admin") redirect("/admin");
+  if (role === "admin" || role === "moderator") redirect("/admin");
   redirect("/");
 }
 
@@ -172,7 +172,7 @@ export async function signupAction(
     return { error: "Signup failed — try again" };
   }
 
-  if (role === "admin") redirect("/admin");
+  if (role === "admin" || role === "moderator") redirect("/admin");
   if (role === "station") redirect("/settings");
   redirect(role === "dj" ? "/dashboard" : "/");
 }

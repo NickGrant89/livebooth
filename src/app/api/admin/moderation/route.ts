@@ -1,5 +1,5 @@
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireAdminApi, logAdminAction } from "@/lib/admin";
+import { requireStaffApi, logAdminAction } from "@/lib/admin";
 import { getModerationQueue } from "@/lib/moderation";
 import {
   getRecentAiScans,
@@ -16,8 +16,8 @@ import {
 } from "@/lib/constants";
 
 export async function GET(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   const [queue, recentReports, chatMessageReports, aiScans] = await Promise.all([
     getModerationQueue(),
@@ -108,8 +108,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   const body = await request.json().catch(() => ({}));
   if (body.action === "clear_flag" && body.streamId) {
@@ -117,19 +117,19 @@ export async function POST(request: Request) {
       where: { id: body.streamId },
       data: { moderationStatus: "ok", moderationReason: null },
     });
-    await logAdminAction(admin.id, "clear_flag", body.streamId, undefined, request);
+    await logAdminAction(staff.id, "clear_flag", body.streamId, undefined, request);
     return json({ ok: true });
   }
 
   if (body.action === "scan_all") {
     const results = await scanLiveStreamsDue();
-    await logAdminAction(admin.id, "ai_scan_all", "live_streams", { count: results.length }, request);
+    await logAdminAction(staff.id, "ai_scan_all", "live_streams", { count: results.length }, request);
     return json({ ok: true, scanned: results.length, results });
   }
 
   if (body.action === "scan_stream" && body.streamId) {
     const result = await runAiModerationScan(body.streamId);
-    await logAdminAction(admin.id, "ai_scan", body.streamId, undefined, request);
+    await logAdminAction(staff.id, "ai_scan", body.streamId, undefined, request);
     return json({ ok: true, result });
   }
 
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       where: { id: body.reportId },
       data: { status: "dismissed" },
     });
-    await logAdminAction(admin.id, "dismiss_chat_report", body.reportId, undefined, request);
+    await logAdminAction(staff.id, "dismiss_chat_report", body.reportId, undefined, request);
     return json({ ok: true });
   }
 

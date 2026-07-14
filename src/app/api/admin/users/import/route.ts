@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       errors.push(`Line ${i + 1}: invalid username ${username}`);
       continue;
     }
-    if (!["fan", "dj", "station", "admin"].includes(role)) {
+    if (!["fan", "dj", "station", "moderator", "admin"].includes(role)) {
       errors.push(`Line ${i + 1}: invalid role ${role}`);
       continue;
     }

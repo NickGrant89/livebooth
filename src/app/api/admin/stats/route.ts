@@ -1,12 +1,16 @@
 import { json, isApiError } from "@/lib/api-utils";
-import { requireAdminApi, getAdminStats } from "@/lib/admin";
+import { requireStaffApi, getAdminStats, getModeratorStats } from "@/lib/admin";
+import { isFullAdminRole } from "@/lib/staff-roles";
 import { evaluateAllLiveStreams } from "@/lib/moderation";
 
 export async function GET(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   await evaluateAllLiveStreams();
   const stats = await getAdminStats();
-  return json(stats);
+  if (!isFullAdminRole(staff.role)) {
+    return json({ ...getModeratorStats(stats), staffRole: staff.role });
+  }
+  return json({ ...stats, staffRole: staff.role });
 }

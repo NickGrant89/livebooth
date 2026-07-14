@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireAdminApi, logAdminAction } from "@/lib/admin";
+import { requireStaffApi, logAdminAction } from "@/lib/admin";
 import { notifyUser } from "@/lib/notifications";
 import { isSupportTicketUnread } from "@/lib/support-ticket-unread";
 import { z } from "zod";
 
 export async function GET(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   const statusParam = new URL(request.url).searchParams.get("status") ?? "open";
   const assignee = new URL(request.url).searchParams.get("assignee");
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   if (assignee === "unassigned") {
     where.assignedAdminId = null;
   } else if (assignee === "me") {
-    where.assignedAdminId = admin.id;
+    where.assignedAdminId = staff.id;
   } else if (assignee) {
     where.assignedAdminId = assignee;
   }
@@ -47,8 +47,8 @@ export async function GET(request: Request) {
       take: 100,
     }),
     prisma.user.findMany({
-      where: { role: "admin", suspendedAt: null },
-      select: { id: true, username: true, displayName: true },
+      where: { role: { in: ["admin", "moderator"] }, suspendedAt: null },
+      select: { id: true, username: true, displayName: true, role: true },
       orderBy: { displayName: "asc" },
     }),
   ]);
@@ -90,8 +90,8 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   try {
     const body = patchSchema.parse(await request.json());
@@ -104,10 +104,14 @@ export async function PATCH(request: Request) {
 
     if (body.assignedAdminId) {
       const assignee = await prisma.user.findFirst({
-        where: { id: body.assignedAdminId, role: "admin", suspendedAt: null },
+        where: {
+          id: body.assignedAdminId,
+          role: { in: ["admin", "moderator"] },
+          suspendedAt: null,
+        },
         select: { id: true },
       });
-      if (!assignee) return error("Assignee must be an active admin", 400);
+      if (!assignee) return error("Assignee must be active staff", 400);
     }
 
     const data: {
@@ -133,7 +137,7 @@ export async function PATCH(request: Request) {
     if (
       body.assignedAdminId &&
       body.assignedAdminId !== existing.assignedAdminId &&
-      body.assignedAdminId !== admin.id
+      body.assignedAdminId !== staff.id
     ) {
       await notifyUser(
         body.assignedAdminId,
@@ -144,7 +148,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    await logAdminAction(admin.id, "ticket_update", body.ticketId, body, request);
+    await logAdminAction(staff.id, "ticket_update", body.ticketId, body, request);
     return json({
       ticket: {
         id: ticket.id,

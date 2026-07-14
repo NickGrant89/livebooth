@@ -27,6 +27,7 @@ import { AdminStationResidents } from "@/components/admin/AdminStationResidents"
 import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
 import { generateInvitePassword } from "@/lib/invite-password";
 import { formatBetaInviteText, inviteRoleLabel } from "@/lib/invite-copy";
+import { MODERATOR_TAB_IDS, isProtectedStaffTarget } from "@/lib/staff-roles";
 
 type PendingInvite = {
   userId: string;
@@ -116,7 +117,7 @@ type AdminWithdrawRow = {
   user: { username: string; displayName: string; email: string; role: string; stripeConnectOnboarded?: boolean };
 };
 
-export function AdminDashboard() {
+export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [users, setUsers] = useState<Array<Record<string, unknown>>>([]);
@@ -180,7 +181,9 @@ export function AdminDashboard() {
   const [signupEnabled, setSignupEnabled] = useState<boolean | null>(null);
   const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
 
-  const tabs: { id: Tab; label: string; icon: typeof Shield; badge?: number }[] = [
+  const moderatorTabSet = new Set<string>(MODERATOR_TAB_IDS);
+
+  const allTabs: { id: Tab; label: string; icon: typeof Shield; badge?: number }[] = [
     { id: "overview", label: "Overview", icon: Shield },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "users", label: "Users", icon: Users },
@@ -194,6 +197,8 @@ export function AdminDashboard() {
     { id: "settings", label: "Settings", icon: Settings },
     { id: "audit", label: "Audit log", icon: ScrollText },
   ];
+
+  const tabs = isFullAdmin ? allTabs : allTabs.filter((t) => moderatorTabSet.has(t.id));
 
   async function runAiScanAll() {
     setMsg("");
@@ -346,6 +351,13 @@ export function AdminDashboard() {
   }
 
   useEffect(() => {
+    if (!isFullAdmin && !moderatorTabSet.has(tab)) {
+      setTab("moderation");
+    }
+  }, [isFullAdmin, tab]);
+
+  useEffect(() => {
+    if (!isFullAdmin) return;
     apiFetch("/api/admin/settings")
       .then((r) => r.json())
       .then((d) => {
@@ -637,8 +649,10 @@ export function AdminDashboard() {
       <div className="flex items-center gap-3 mb-6">
         <Shield className="h-8 w-8 text-red-400" />
         <div>
-          <h1 className="text-2xl font-bold text-white">Admin</h1>
-          <p className="text-sm text-zinc-500">Users, streams, moderation &amp; support</p>
+          <h1 className="text-2xl font-bold text-white">{isFullAdmin ? "Admin" : "Mod panel"}</h1>
+          <p className="text-sm text-zinc-500">
+            {isFullAdmin ? "Users, streams, moderation & support" : "Streams, moderation, support & user suspensions"}
+          </p>
         </div>
       </div>
 
@@ -646,7 +660,7 @@ export function AdminDashboard() {
         <p className="mb-4 text-sm text-red-400 border border-red-500/30 rounded-lg px-3 py-2">
           {accessError}{" "}
           <a href="/login?next=/admin" className="underline text-red-300">
-            Sign in as admin
+            Sign in as staff
           </a>
         </p>
       )}
@@ -693,14 +707,18 @@ export function AdminDashboard() {
       ) : tab === "overview" && stats ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
-            { label: "Total users", value: stats.users },
+            ...(isFullAdmin ? [{ label: "Total users", value: stats.users }] : []),
             { label: "Live now", value: stats.liveStreams },
             { label: "Open tickets", value: stats.openTickets },
             { label: "Unread support", value: stats.unreadSupport ?? 0 },
             { label: "Flagged streams", value: stats.flaggedStreams },
             { label: "Reports (24h)", value: stats.reportsToday },
-            { label: "Stations", value: stats.stations },
-            { label: "Active promos", value: stats.activePromotions ?? 0 },
+            ...(isFullAdmin
+              ? [
+                  { label: "Stations", value: stats.stations },
+                  { label: "Active promos", value: stats.activePromotions ?? 0 },
+                ]
+              : []),
           ].map(({ label, value }) => (
             <div key={label} className="rounded-xl border border-white/10 bg-[#141416] p-4">
               <p className="text-2xl font-bold font-mono text-white">{value}</p>
@@ -714,7 +732,12 @@ export function AdminDashboard() {
         <AdminSettingsPanel onMsg={setMsg} />
       ) : tab === "users" ? (
         <div className="space-y-4">
-          {signupEnabled === false && (
+          {!isFullAdmin && (
+            <p className="text-xs text-zinc-500 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              Moderator view — search users and suspend or unsuspend. Staff accounts and account edits are admin-only.
+            </p>
+          )}
+          {isFullAdmin && signupEnabled === false && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
               <strong>Closed beta</strong> — public signup is off. Add users here and send invites below.
               {emailConfigured === false && (
@@ -724,7 +747,7 @@ export function AdminDashboard() {
               )}
             </div>
           )}
-          {emailConfigured === true && signupEnabled !== false && (
+          {isFullAdmin && emailConfigured === true && signupEnabled !== false && (
             <p className="text-xs text-zinc-500">
               Invite emails ready (Resend configured). Turn off signup in Settings for a closed beta.
             </p>
@@ -737,6 +760,7 @@ export function AdminDashboard() {
               placeholder="Search username, email…"
               className="flex-1 min-w-[200px] rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
             />
+            {isFullAdmin && (
             <button
               type="button"
               onClick={openCreateUserForm}
@@ -744,8 +768,9 @@ export function AdminDashboard() {
             >
               {showCreateUser ? "Cancel" : "Add user"}
             </button>
+            )}
           </div>
-          {showCreateUser && (
+          {isFullAdmin && showCreateUser && (
             <form onSubmit={createUser} className="rounded-xl border border-[#53fc18]/30 bg-[#141416] p-4 grid gap-3 sm:grid-cols-2">
               <input required value={createUserForm.username} onChange={(e) => setCreateUserForm((f) => ({ ...f, username: e.target.value.toLowerCase() }))} placeholder="username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
               <input required type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm((f) => ({ ...f, email: e.target.value }))} placeholder="email" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
@@ -772,6 +797,7 @@ export function AdminDashboard() {
                 <option value="fan">Fan</option>
                 <option value="dj">DJ</option>
                 <option value="station">Radio</option>
+                <option value="moderator">Moderator</option>
                 <option value="admin">Admin</option>
               </select>
               <p className="text-xs text-zinc-500 sm:col-span-2">
@@ -780,7 +806,7 @@ export function AdminDashboard() {
               <button type="submit" className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black sm:col-span-2">Create user</button>
             </form>
           )}
-          {pendingInvite && (
+          {isFullAdmin && pendingInvite && (
             <div className="rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/5 p-4 space-y-3">
               <div>
                 <p className="font-semibold text-white">
@@ -829,7 +855,10 @@ export function AdminDashboard() {
             </div>
           )}
           <div className="space-y-2">
-            {users.map((u) => (
+            {users.map((u) => {
+              const userRole = String(u.role);
+              const protectedStaff = isProtectedStaffTarget(userRole);
+              return (
               <div key={String(u.id)} className="rounded-xl border border-white/10 bg-[#141416] p-4 flex flex-wrap gap-3 items-center justify-between">
                 <div>
                   <p className="font-semibold text-white">{String(u.displayName)} <span className="text-zinc-500 font-normal">@{String(u.username)}</span></p>
@@ -841,6 +870,7 @@ export function AdminDashboard() {
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
+                  {isFullAdmin && (
                   <button
                     type="button"
                     onClick={() => {
@@ -856,6 +886,8 @@ export function AdminDashboard() {
                   >
                     Edit
                   </button>
+                  )}
+                  {isFullAdmin && (
                   <button
                     type="button"
                     disabled={!emailConfigured || sendingInviteId === String(u.id)}
@@ -869,24 +901,32 @@ export function AdminDashboard() {
                     )}
                     Send invite
                   </button>
+                  )}
+                  {isFullAdmin && (
                   <select
-                    defaultValue={String(u.role)}
+                    defaultValue={userRole}
                     onChange={(e) => updateUser(String(u.id), { role: e.target.value })}
                     className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs"
                   >
                     <option value="fan">Fan</option>
                     <option value="dj">DJ</option>
                     <option value="station">Radio</option>
+                    <option value="moderator">Moderator</option>
                     <option value="admin">Admin</option>
                   </select>
-                  {u.suspendedAt ? (
-                    <button type="button" onClick={() => updateUser(String(u.id), { suspend: false })} className="text-xs text-[#53fc18] underline">Unsuspend</button>
-                  ) : (
-                    <button type="button" onClick={() => updateUser(String(u.id), { suspend: true, suspendReason: "Admin suspension" })} className="text-xs text-red-400 underline">Suspend</button>
                   )}
+                  {(!protectedStaff || isFullAdmin) && (
+                    u.suspendedAt ? (
+                      <button type="button" onClick={() => updateUser(String(u.id), { suspend: false })} className="text-xs text-[#53fc18] underline">Unsuspend</button>
+                    ) : (
+                      <button type="button" onClick={() => updateUser(String(u.id), { suspend: true, suspendReason: isFullAdmin ? "Admin suspension" : "Moderator suspension" })} className="text-xs text-red-400 underline">Suspend</button>
+                    )
+                  )}
+                  {isFullAdmin && (
                   <button type="button" onClick={() => deleteUser(String(u.id), String(u.username))} className="text-xs text-red-400 underline">Delete</button>
+                  )}
                 </div>
-                {editingUser === String(u.id) && (
+                {isFullAdmin && editingUser === String(u.id) && (
                   <div className="w-full mt-3 pt-3 border-t border-white/10 grid gap-2 sm:grid-cols-2">
                     <input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs" placeholder="Email" />
                     <input value={editForm.displayName} onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs" placeholder="Display name" />
@@ -899,7 +939,8 @@ export function AdminDashboard() {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       ) : tab === "streams" ? (

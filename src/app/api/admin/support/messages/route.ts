@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireAdminApi, logAdminAction } from "@/lib/admin";
+import { requireStaffApi, logAdminAction } from "@/lib/admin";
 import { appendSupportMessage, serializeSupportMessage } from "@/lib/support-chat";
 import { notifyAdminsSupportMessage, notifySupportReply } from "@/lib/support-notifications";
 import { z } from "zod";
@@ -11,16 +11,16 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   try {
     const body = schema.parse(await request.json());
     const ticket = await prisma.supportTicket.findUnique({ where: { id: body.ticketId } });
     if (!ticket) return error("Ticket not found", 404);
 
-    const message = await appendSupportMessage(body.ticketId, "admin", body.body, admin.id);
-    await logAdminAction(admin.id, "support_reply", body.ticketId, { preview: body.body.slice(0, 80) }, request);
+    const message = await appendSupportMessage(body.ticketId, "admin", body.body, staff.id);
+    await logAdminAction(staff.id, "support_reply", body.ticketId, { preview: body.body.slice(0, 80) }, request);
 
     notifySupportReply(ticket, body.body).catch((err) =>
       console.error("support reply notification:", err),

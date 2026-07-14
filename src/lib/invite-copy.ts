@@ -6,6 +6,7 @@ export function inviteRoleLabel(role: string): string {
   if (role === "station") return "Radio";
   if (role === "dj") return "DJ";
   if (role === "admin") return "Admin";
+  if (role === "moderator") return "Moderator";
   return "Fan";
 }
 

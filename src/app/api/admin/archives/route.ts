@@ -1,11 +1,11 @@
-import { requireAdminApi } from "@/lib/admin";
+import { requireStaffApi } from "@/lib/admin";
 import { json } from "@/lib/api-utils";
 import { hasStreamReplay } from "@/lib/streaming";
 import { pruneAdminArchives } from "@/lib/archive-cleanup";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: Request) {
-  const auth = await requireAdminApi(request);
+  const auth = await requireStaffApi(request);
   if (auth instanceof Response) return auth;
 
   await pruneAdminArchives();

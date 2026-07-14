@@ -7,10 +7,10 @@ export function AdminAccessDenied({ role }: { role: string }) {
   return (
     <div className="mx-auto max-w-md px-4 py-20 text-center">
       <Shield className="h-14 w-14 text-red-400/60 mx-auto mb-4" />
-      <h1 className="text-2xl font-bold text-white mb-2">Admin access required</h1>
+      <h1 className="text-2xl font-bold text-white mb-2">Staff access required</h1>
       <p className="text-zinc-400 text-sm mb-6">
         You&apos;re signed in as <strong className="text-zinc-300">{role}</strong>. This area is for platform
-        admins only.
+        admins and moderators only.
       </p>
       <div className="space-y-3">
         <Link

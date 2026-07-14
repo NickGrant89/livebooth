@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin";
+import { isStaffRole } from "@/lib/staff-roles";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 
 const schema = z.object({
@@ -13,7 +14,7 @@ export async function DELETE(request: Request) {
 
   try {
     const body = schema.parse(await request.json());
-    const isAdmin = auth.role === "admin";
+    const isStaff = isStaffRole(auth.role);
 
     const streams = await prisma.stream.findMany({
       where: { id: { in: body.streamIds }, status: "ended" },
@@ -24,12 +25,12 @@ export async function DELETE(request: Request) {
       return error("No ended sets found to delete", 404);
     }
 
-    const allowed = streams.filter((s) => isAdmin || s.djId === auth.id);
+    const allowed = streams.filter((s) => isStaff || s.djId === auth.id);
     if (allowed.length === 0) {
       return error("You can only delete your own archive sets", 403);
     }
 
-    if (!isAdmin && allowed.length !== streams.length) {
+    if (!isStaff && allowed.length !== streams.length) {
       return error("Some selected sets are not yours", 403);
     }
 
@@ -37,7 +38,7 @@ export async function DELETE(request: Request) {
       where: { id: { in: allowed.map((s) => s.id) } },
     });
 
-    if (isAdmin) {
+    if (isStaff) {
       for (const stream of allowed) {
         if (stream.djId !== auth.id) {
           await logAdminAction(

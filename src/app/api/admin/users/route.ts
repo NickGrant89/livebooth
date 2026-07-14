@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireAdminApi, logAdminAction } from "@/lib/admin";
+import {
+  requireStaffApi,
+  requireAdminApi,
+  logAdminAction,
+} from "@/lib/admin";
+import { isProtectedStaffTarget, isFullAdminRole } from "@/lib/staff-roles";
 import { getWelcomeBonus } from "@/lib/platform-settings";
 import { generateInvitePassword } from "@/lib/invite-password";
 import bcrypt from "bcryptjs";
@@ -9,8 +14,8 @@ import { createPasswordResetToken, getResetUrl } from "@/lib/password-reset";
 import { sendAdminPasswordResetEmail, isEmailConfigured } from "@/lib/email";
 
 export async function GET(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   const q = new URL(request.url).searchParams.get("q")?.trim();
   const users = await prisma.user.findMany({
@@ -51,7 +56,7 @@ export async function GET(request: Request) {
 
 const patchSchema = z.object({
   userId: z.string(),
-  role: z.enum(["fan", "dj", "station", "admin"]).optional(),
+  role: z.enum(["fan", "dj", "station", "moderator", "admin"]).optional(),
   suspend: z.boolean().optional(),
   suspendReason: z.string().optional(),
   email: z.string().email().optional(),
@@ -62,13 +67,60 @@ const patchSchema = z.object({
   setPassword: z.string().min(6).optional(),
 });
 
+const moderatorPatchSchema = z.object({
+  userId: z.string(),
+  suspend: z.boolean(),
+  suspendReason: z.string().optional(),
+});
+
 export async function PATCH(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
 
   try {
-    const body = patchSchema.parse(await request.json());
-    if (body.userId === admin.id && body.role && body.role !== "admin") {
+    const raw = await request.json();
+    const isFullAdmin = isFullAdminRole(staff.role);
+
+    if (!isFullAdmin) {
+      const body = moderatorPatchSchema.parse(raw);
+      if (body.userId === staff.id) return error("Cannot suspend your own account", 400);
+
+      const target = await prisma.user.findUnique({ where: { id: body.userId } });
+      if (!target) return error("User not found", 404);
+      if (isProtectedStaffTarget(target.role)) {
+        return error("Cannot moderate staff accounts", 403);
+      }
+
+      const user = await prisma.user.update({
+        where: { id: body.userId },
+        data: body.suspend
+          ? {
+              suspendedAt: new Date(),
+              suspendedReason: body.suspendReason ?? "Suspended by moderator",
+            }
+          : { suspendedAt: null, suspendedReason: null },
+      });
+
+      await logAdminAction(
+        staff.id,
+        body.suspend ? "user_suspend" : "user_unsuspend",
+        body.userId,
+        { suspendReason: body.suspendReason },
+        request,
+      );
+      return json({
+        user: {
+          id: user.id,
+          role: user.role,
+          suspendedAt: user.suspendedAt,
+          email: user.email,
+          displayName: user.displayName,
+        },
+      });
+    }
+
+    const body = patchSchema.parse(raw);
+    if (body.userId === staff.id && body.role && body.role !== "admin") {
       return error("Cannot demote your own admin account", 400);
     }
 
@@ -89,6 +141,15 @@ export async function PATCH(request: Request) {
       include: { balance: true },
     });
     if (!target) return error("User not found", 404);
+    if (body.role && isProtectedStaffTarget(target.role) && body.role !== target.role) {
+      return error("Cannot change role of staff accounts this way", 403);
+    }
+    if (body.role === "admin" || body.role === "moderator") {
+      const adminCount = await prisma.user.count({ where: { role: "admin" } });
+      if (body.role === "admin" && target.role !== "admin" && adminCount < 1) {
+        return error("Platform needs at least one admin", 400);
+      }
+    }
 
     if (body.setPassword) {
       data.passwordHash = await bcrypt.hash(body.setPassword, 10);
@@ -121,7 +182,7 @@ export async function PATCH(request: Request) {
       }
     }
 
-    await logAdminAction(admin.id, "user_update", body.userId, { ...data, balanceAdjust: body.balanceAdjust, sendPasswordReset: body.sendPasswordReset }, request);
+    await logAdminAction(staff.id, "user_update", body.userId, { ...data, balanceAdjust: body.balanceAdjust, sendPasswordReset: body.sendPasswordReset }, request);
     return json({ user: { id: user.id, role: user.role, suspendedAt: user.suspendedAt, email: user.email, displayName: user.displayName } });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid request");
@@ -134,7 +195,7 @@ const createSchema = z.object({
   password: z.string().min(6).optional(),
   username: z.string().min(3).max(20).regex(/^[a-z0-9_]+$/),
   displayName: z.string().min(1).max(50),
-  role: z.enum(["fan", "dj", "station", "admin"]).default("fan"),
+  role: z.enum(["fan", "dj", "station", "moderator", "admin"]).default("fan"),
 });
 
 export async function POST(request: Request) {
@@ -197,6 +258,9 @@ export async function DELETE(request: Request) {
     if (user.role === "admin") {
       const adminCount = await prisma.user.count({ where: { role: "admin" } });
       if (adminCount <= 1) return error("Cannot delete the last admin account", 400);
+    }
+    if (user.role === "moderator" && body.userId === admin.id) {
+      return error("Cannot delete your own moderator account", 400);
     }
 
     await prisma.user.delete({ where: { id: body.userId } });

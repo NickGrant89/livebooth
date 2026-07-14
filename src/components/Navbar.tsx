@@ -72,7 +72,7 @@ export function Navbar() {
         </div>
 
         <nav className="hidden lg:flex items-center gap-0.5 ml-auto shrink-0">
-          {user?.role === "admin" && (
+          {(user?.role === "admin" || user?.role === "moderator") && (
             <Link
               href="/admin"
               className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs xl:text-[13px] font-medium transition-all ${
@@ -82,7 +82,7 @@ export function Navbar() {
               }`}
             >
               <Shield className="h-3.5 w-3.5" />
-              <span className="hidden xl:inline">Admin</span>
+              <span className="hidden xl:inline">{user.role === "admin" ? "Admin" : "Mod"}</span>
             </Link>
           )}
           {visibleNav.map(({ href, label, icon: Icon }) => (
@@ -153,7 +153,7 @@ export function Navbar() {
         <div className="lg:hidden border-t border-white/[0.06] px-4 py-3 space-y-3 bg-[#0a0a0c]/95 backdrop-blur-xl">
           <NavbarSearch />
           <div className="grid grid-cols-2 gap-2">
-            {user?.role === "admin" && (
+            {(user?.role === "admin" || user?.role === "moderator") && (
               <Link
                 href="/admin"
                 onClick={() => setMobileOpen(false)}
@@ -162,7 +162,7 @@ export function Navbar() {
                 }`}
               >
                 <Shield className="h-4 w-4" />
-                Admin panel
+                {user.role === "admin" ? "Admin panel" : "Mod panel"}
               </Link>
             )}
             {nav
