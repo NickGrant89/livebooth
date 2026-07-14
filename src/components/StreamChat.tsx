@@ -401,7 +401,7 @@ export function StreamChat({
         ))}
       </div>
 
-      <div className="border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 max-h-[min(52vh,420px)] overflow-y-auto overscroll-y-contain bg-[#0a0a0c]">
+      <div className="border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 max-h-[min(34vh,260px)] overflow-y-auto overscroll-y-contain bg-[#0a0a0c]">
         <div className="flex gap-1.5 sm:gap-2 min-w-0">
           <button
             onClick={handleUnlockTrack}

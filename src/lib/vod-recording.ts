@@ -314,6 +314,39 @@ export function resolveRecordingFilePath(relativeParts: string[]): string | null
   return target;
 }
 
+/** Relative path (live/{ingestKey}/{file}) for downloadable mp4/fmp4 — not HLS. */
+export async function resolveRecordingDownloadRelativePath(
+  ingestKey: string | null | undefined,
+): Promise<string | null> {
+  if (!ingestKey || !isLocalRecordingEnabled()) return null;
+
+  const localFile = findLatestRecordingFile(ingestKey);
+  if (localFile) return `live/${ingestKey}/${localFile}`;
+
+  if (isRemoteRecordingEnabled()) {
+    const filename = await findLatestRemoteRecordingFilename(ingestKey);
+    if (filename) return `live/${ingestKey}/${filename}`;
+  }
+
+  return null;
+}
+
+export function suggestedRecordingDownloadFilename(
+  streamTitle: string,
+  recordingFilename: string,
+): string {
+  const ext = recordingFilename.includes(".")
+    ? recordingFilename.split(".").pop()!
+    : "mp4";
+  const safe =
+    streamTitle
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 60) || "livebooth-set";
+  return `${safe}.${ext}`;
+}
+
 export function recordingsContentType(filename: string): string {
   if (filename.endsWith(".fmp4")) return "video/mp4";
   if (filename.endsWith(".mp4")) return "video/mp4";

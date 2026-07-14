@@ -4,6 +4,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { ShareRecapMenu } from "@/components/ShareRecapMenu";
+import { SetRecordingDownloadButton } from "@/components/SetRecordingDownloadButton";
 
 export interface RecapData {
   streamId: string;
@@ -70,6 +71,7 @@ export function SessionRecapModal({
           >
             Replay
           </Link>
+          <SetRecordingDownloadButton streamId={recap.streamId} className="flex-1" />
           <ShareRecapMenu recap={recap} />
         </div>
       </div>

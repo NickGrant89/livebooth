@@ -77,7 +77,7 @@ export default async function StationLivePage({
   return (
     <StreamPageLayout
       watch={
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto overscroll-y-contain lg:overflow-hidden lg:border-r lg:border-white/[0.06]">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto overscroll-y-contain lg:border-r lg:border-white/[0.06]">
           <div className="bg-black relative shrink-0">
             <StreamTheater
               streamId={stream.id}
@@ -195,7 +195,7 @@ export default async function StationLivePage({
         </div>
       }
       chat={
-        <div className="w-full lg:w-[380px] xl:w-[420px] flex flex-col flex-1 lg:flex-none border-white/[0.06] bg-[#0a0a0c] shrink-0 min-w-0 min-h-0 overflow-hidden">
+        <div className="w-full lg:w-[380px] xl:w-[420px] flex flex-col flex-1 lg:flex-none lg:h-full lg:self-stretch border-white/[0.06] bg-[#0a0a0c] shrink-0 min-w-0 min-h-0 overflow-hidden">
           <StreamPageGuide isHost={isHost} />
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             <StreamChat
@@ -208,11 +208,13 @@ export default async function StationLivePage({
               isHost={isHost}
             />
           </div>
-          <StreamSidebar
-            className="hidden lg:block"
-            achievements={achievements.map((a) => a.achievement)}
-            streamId={stream.id}
-          />
+          {!isHost && (
+            <StreamSidebar
+              className="hidden lg:block shrink-0 max-h-[38vh] overflow-y-auto overscroll-y-contain"
+              achievements={achievements.map((a) => a.achievement)}
+              streamId={stream.id}
+            />
+          )}
         </div>
       }
     />

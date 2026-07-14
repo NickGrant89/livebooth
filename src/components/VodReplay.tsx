@@ -9,6 +9,7 @@ import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { FanGradeShare } from "@/components/FanGradeShare";
 import { ClipExportPanel } from "@/components/ClipExportPanel";
 import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
+import { SetRecordingDownloadButton } from "@/components/SetRecordingDownloadButton";
 import { formatClipTimestamp } from "@/lib/clip-export";
 import { STAKER_VOD_EARLY_HOURS, DJ_STAKER_VOD_EARLY_HOURS } from "@/lib/constants";
 
@@ -168,6 +169,9 @@ export function VodReplay({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canEditDetails && !recordingUnavailable && (
+            <SetRecordingDownloadButton streamId={streamId} />
+          )}
           <StreamLikeButton streamId={streamId} />
           <ShareMenu
           kind="vod"

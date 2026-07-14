@@ -433,6 +433,14 @@ export default function GoLivePage() {
             >
               Open Dashboard <ChevronRight className="h-4 w-4" />
             </button>
+            <Link
+              href={`/stream/${user.username}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-white/10 border border-white/10 py-3 text-sm font-semibold text-white hover:bg-white/15"
+            >
+              View your stream page
+            </Link>
             <button
               type="button"
               onClick={endAndRestart}

@@ -53,10 +53,10 @@ export function StreamMobileTabs({
         )}
       </div>
 
-      {/* Desktop: side by side */}
+      {/* Desktop: side by side — both columns stretch to viewport height */}
       <div className="hidden lg:flex flex-1 flex-row min-h-0 min-w-0 h-full overflow-hidden max-w-[1600px] mx-auto w-full">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">{watch}</div>
-        <div className="shrink-0 flex flex-col min-h-0 h-full overflow-hidden border-l border-white/[0.06]">
+        <div className="flex-1 min-w-0 min-h-0 h-full flex flex-col overflow-hidden">{watch}</div>
+        <div className="shrink-0 flex flex-col min-h-0 h-full self-stretch overflow-hidden border-l border-white/[0.06]">
           {chat}
         </div>
       </div>

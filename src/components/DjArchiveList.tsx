@@ -7,6 +7,7 @@ import { Play, Radio, Trash2, Loader2 } from "lucide-react";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { hasStreamReplay } from "@/lib/playback-url";
 import { apiFetch } from "@/lib/fetch-client";
+import { SetRecordingDownloadButton } from "@/components/SetRecordingDownloadButton";
 
 export type ArchiveStream = {
   id: string;
@@ -241,6 +242,9 @@ export function DjArchiveList({
                 </Link>
               ) : (
                 <div className="flex flex-1 items-center gap-4 min-w-0 opacity-60">{inner}</div>
+              )}
+              {hasReplay && variant === "dj" && (
+                <SetRecordingDownloadButton streamId={s.id} variant="icon" />
               )}
               {variant === "admin" && hasReplay && (
                 <Link href={`/vod/${s.id}`} className="text-xs text-[#53fc18] underline self-center shrink-0">
