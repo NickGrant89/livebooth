@@ -33,6 +33,7 @@ import { HELP_LINKS } from "@/lib/help-links";
 const nav = [
   { href: "/", label: "Discover", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, djOnly: true },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, stationOnly: true },
   { href: "/go-live", label: "Go Live", icon: Radio, djOnly: true },
   { href: "/achievements", label: "Rewards", icon: Trophy },
   { href: "/leaderboard", label: "Rankings", icon: BarChart3 },
@@ -51,10 +52,11 @@ export function Navbar() {
   const { user, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const visibleNav = nav.filter(({ djOnly, mobileOnly, wideOnly }) => {
+  const visibleNav = nav.filter(({ djOnly, stationOnly, mobileOnly, wideOnly }) => {
     if (mobileOnly) return false;
     if (wideOnly) return false; // desktop: Collab in mobile menu only
     if (djOnly && user?.role !== "dj" && user?.role !== "admin") return false;
+    if (stationOnly && user?.role !== "station") return false;
     return true;
   });
 
@@ -166,9 +168,10 @@ export function Navbar() {
               </Link>
             )}
             {nav
-              .filter(({ mobileOnly, djOnly }) => {
+              .filter(({ mobileOnly, djOnly, stationOnly }) => {
                 if (mobileOnly) return false;
                 if (djOnly && user?.role !== "dj" && user?.role !== "admin") return false;
+                if (stationOnly && user?.role !== "station") return false;
                 return true;
               })
               .map(({ href, label, icon: Icon }) => (

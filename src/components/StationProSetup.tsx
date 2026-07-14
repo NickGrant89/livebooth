@@ -247,6 +247,18 @@ export function StationProSetup({
           </div>
           {embedSnippet && (
             <>
+              {embedPreviewUrl && (
+                <div className="rounded-lg border border-white/10 bg-black/40 overflow-hidden">
+                  <iframe
+                    src={embedPreviewUrl}
+                    width="100%"
+                    height="240"
+                    title="Embed preview"
+                    className="w-full bg-black"
+                    allow="autoplay; fullscreen"
+                  />
+                </div>
+              )}
               <pre className="text-[10px] font-mono bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
                 {embedSnippet}
               </pre>

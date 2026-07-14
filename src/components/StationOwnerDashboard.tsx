@@ -6,8 +6,6 @@ import {
   Radio,
   Users,
   Coins,
-  Copy,
-  Check,
   Upload,
   Trash2,
   ExternalLink,
@@ -20,6 +18,7 @@ import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, STATION_SCHEDULE_CSV_HEADER
 import { StationTierUpgrade } from "@/components/StationTierUpgrade";
 import { StationProSetup } from "@/components/StationProSetup";
 import { StationGoLivePanel } from "@/components/StationGoLivePanel";
+import { StationEmbedSection } from "@/components/StationEmbedSection";
 import { DjUserPicker, type DjSearchResult } from "@/components/DjUserPicker";
 import { ProfileImageField } from "@/components/ProfileImageField";
 import { STAKING_COPY, STAKING_DEEMPHASIZED } from "@/lib/staking-ui";
@@ -83,7 +82,6 @@ export function StationOwnerDashboard() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
 
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -210,13 +208,6 @@ export function StationOwnerDashboard() {
     if (body.parseErrors?.length) parts.push(`Warnings: ${body.parseErrors.join("; ")}`);
     setImportResult(parts.join(" · "));
     load();
-  }
-
-  function copyEmbed() {
-    if (!data?.embed) return;
-    navigator.clipboard.writeText(data.embed.snippet);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   }
 
   if (loading) {
@@ -577,26 +568,11 @@ export function StationOwnerDashboard() {
       )}
 
       {embed && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase text-zinc-500">White-label embed</h3>
-          <p className="text-xs text-zinc-500">
-            Paste this iframe on your station website. Preview:{" "}
-            <Link href={embed.url} target="_blank" className="text-[#53fc18] hover:underline">
-              open embed preview
-            </Link>
-          </p>
-          <pre className="text-[10px] font-mono bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
-            {embed.snippet}
-          </pre>
-          <button
-            type="button"
-            onClick={copyEmbed}
-            className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/15"
-          >
-            {copied ? <Check className="h-4 w-4 text-[#53fc18]" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Copied" : "Copy embed code"}
-          </button>
-        </div>
+        <StationEmbedSection
+          slug={station.slug}
+          stationName={station.name}
+          appUrl={embed.url.replace(/\/embed\/station\/[^/]+$/, "")}
+        />
       )}
     </section>
   );

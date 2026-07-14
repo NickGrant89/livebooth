@@ -28,6 +28,7 @@ import { CollabDashboardPanel } from "@/components/CollabDashboardPanel";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
 import { DjWalletBanner } from "@/components/DjWalletBanner";
 import { DjDashboardOverview, type DashboardSummary } from "@/components/DjDashboardOverview";
+import { StationOwnerSection } from "@/components/StationOwnerSection";
 import { useIngestWatch } from "@/hooks/useIngestWatch";
 import { endStreamWithObsSync } from "@/lib/end-stream-client";
 
@@ -198,20 +199,25 @@ export default function DashboardPage() {
 
   if (user.role === "station") {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <Radio className="h-16 w-16 text-[#53fc18] mx-auto mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Radio station</h1>
-        <p className="text-zinc-400 mb-6 max-w-md mx-auto">
-          Your channel dashboard has go-live, residents, branding, and stats — all in Settings.
-        </p>
-        <div className="flex flex-wrap gap-3 justify-center">
-          <Link href="/settings#station-dashboard" className="rounded-lg bg-[#53fc18] px-6 py-3 text-sm font-bold text-black">
-            Open station dashboard
-          </Link>
-          <Link href="/residencies" className="rounded-lg border border-white/10 px-6 py-3 text-sm text-zinc-300 hover:bg-white/5">
-            Browse radio stations
+      <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Radio className="h-7 w-7 text-[#53fc18]" />
+              Station dashboard
+            </h1>
+            <p className="text-sm text-zinc-500 mt-1">
+              Go live, manage residents, embed, and stats — account login details are in Settings.
+            </p>
+          </div>
+          <Link
+            href="/settings"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10"
+          >
+            Account settings
           </Link>
         </div>
+        <StationOwnerSection />
       </div>
     );
   }

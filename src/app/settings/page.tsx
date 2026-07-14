@@ -162,9 +162,9 @@ export default function SettingsPage() {
 
   return (
     <div className={`mx-auto px-4 py-8 ${isStation ? "max-w-4xl" : "max-w-2xl"}`}>
-      <SettingsGuide />
-
       {isStation && <div className="mb-8"><StationOwnerSection /></div>}
+
+      <SettingsGuide />
 
       <div className="flex items-center justify-between mb-6">
         <div>
