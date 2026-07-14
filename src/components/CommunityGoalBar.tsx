@@ -15,7 +15,13 @@ type GoalData = {
   kind?: string;
 };
 
-export function CommunityGoalBar({ streamId }: { streamId: string }) {
+export function CommunityGoalBar({
+  streamId,
+  isHost = false,
+}: {
+  streamId: string;
+  isHost?: boolean;
+}) {
   const [goal, setGoal] = useState<GoalData | null>(null);
 
   useEffect(() => {
@@ -38,6 +44,11 @@ export function CommunityGoalBar({ streamId }: { streamId: string }) {
           </p>
           <p className="text-sm font-semibold text-white mt-1">{goal.label}</p>
           <p className="text-xs text-zinc-500 mt-0.5">{goal.description}</p>
+          {isHost && (
+            <p className="text-[10px] text-zinc-600 mt-1">
+              Fans see this bar too — grows as station members join.
+            </p>
+          )}
         </div>
         <div className="text-right shrink-0">
           <p className="text-sm font-bold text-[#53fc18]">

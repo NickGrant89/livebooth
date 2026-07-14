@@ -216,7 +216,7 @@ export default async function StreamPage({
               </div>
             )}
             {!isHost && <QuestStreamChip streamId={stream.id} />}
-            {!isHost && <CommunityGoalBar streamId={stream.id} />}
+            <CommunityGoalBar streamId={stream.id} isHost={isHost} />
             {!isHost && (
               <StreamStakerPromo
                 djUsername={dj.username}
