@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -21,6 +21,14 @@ function LoginForm() {
   const [totpCode, setTotpCode] = useState("");
   const [totpLoading, setTotpLoading] = useState(false);
   const [totpError, setTotpError] = useState("");
+  const [signupEnabled, setSignupEnabled] = useState(true);
+
+  useEffect(() => {
+    apiFetch("/api/platform/status")
+      .then((r) => r.json())
+      .then((d) => setSignupEnabled(d.signupEnabled ?? true))
+      .catch(() => {});
+  }, []);
 
   const [state, formAction, pending] = useActionState<AuthFormState, FormData>(
     loginAction,
@@ -205,11 +213,17 @@ function LoginForm() {
         </button>
 
         <p className="text-center text-sm text-zinc-500">
-          New here?{" "}
-          <Link href="/signup" className="text-[#53fc18] font-medium hover:underline">
-            Create account
-          </Link>
-          {" · "}
+          {signupEnabled ? (
+            <>
+              New here?{" "}
+              <Link href="/signup" className="text-[#53fc18] font-medium hover:underline">
+                Create account
+              </Link>
+              {" · "}
+            </>
+          ) : (
+            <>Invited to the beta? Sign in with your invite details.{" · "}</>
+          )}
           <Link href="/help" className="text-zinc-400 hover:text-white hover:underline">
             How it works
           </Link>
