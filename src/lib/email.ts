@@ -116,3 +116,45 @@ export async function sendEmailVerificationEmail(to: string, verifyUrl: string, 
 
   return sendEmail({ to, subject, html, text });
 }
+
+export async function sendBetaInviteEmail(opts: {
+  to: string;
+  displayName: string;
+  role: string;
+  tempPassword: string;
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://livebooth.uk";
+  const roleLabel =
+    opts.role === "station" ? "Radio" : opts.role === "dj" ? "DJ" : opts.role === "admin" ? "Admin" : "Fan";
+  const guidePath =
+    opts.role === "station" ? "/help/stations" : opts.role === "dj" ? "/help/djs" : "/help/fans";
+  const guideUrl = `${appUrl}${guidePath}`;
+  const loginUrl = `${appUrl}/login`;
+
+  const subject = `You're invited to LiveBooth beta (${roleLabel})`;
+  const html = `
+    <div style="font-family:system-ui,sans-serif;max-width:480px;color:#111;line-height:1.5">
+      <p>Hi ${opts.displayName},</p>
+      <p>You've been invited to the <strong>LiveBooth beta</strong> as a <strong>${roleLabel}</strong> account.</p>
+      <table style="margin:20px 0;font-size:15px;border-collapse:collapse">
+        <tr><td style="padding:4px 12px 4px 0;color:#666">Login</td><td><a href="${loginUrl}">${loginUrl}</a></td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#666">Email</td><td><strong>${opts.to}</strong></td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#666">Temp password</td><td><code style="background:#f4f4f5;padding:2px 8px;border-radius:4px">${opts.tempPassword}</code></td></tr>
+      </table>
+      <p style="margin:24px 0">
+        <a href="${loginUrl}" style="background:#53fc18;color:#000;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">Sign in to LiveBooth</a>
+      </p>
+      <p style="color:#666;font-size:14px">Change your password in Settings after your first sign-in.${opts.role === "station" ? " You'll see the station setup wizard when you open Settings." : ""}</p>
+      <p style="color:#666;font-size:14px"><a href="${guideUrl}">Read the ${roleLabel} guide</a> · <a href="${appUrl}/support">Get support</a></p>
+    </div>
+  `.trim();
+  const text = `You're invited to LiveBooth beta (${roleLabel}).
+
+Login: ${loginUrl}
+Email: ${opts.to}
+Temp password: ${opts.tempPassword}
+
+Guide: ${guideUrl}`;
+
+  return sendEmail({ to: opts.to, subject, html, text });
+}

@@ -6,13 +6,14 @@ import {
   type PlatformSettings,
 } from "@/lib/platform-settings";
 import { z } from "zod";
+import { isEmailConfigured } from "@/lib/email";
 
 export async function GET(request: Request) {
   const admin = await requireAdminApi(request);
   if (isApiError(admin)) return admin;
 
   const settings = await getPlatformSettings();
-  return json({ settings });
+  return json({ settings, emailConfigured: isEmailConfigured() });
 }
 
 const patchSchema = z.object({

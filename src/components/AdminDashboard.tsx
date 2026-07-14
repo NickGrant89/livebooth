@@ -17,6 +17,8 @@ import {
   Building2,
   BarChart3,
   Settings,
+  Mail,
+  Copy,
 } from "lucide-react";
 import { SupportTicketAdminCard } from "@/components/AdminSupportTicketCard";
 import { AdminAnalyticsPanel } from "@/components/admin/AdminAnalyticsPanel";
@@ -24,6 +26,16 @@ import { AdminSettingsPanel } from "@/components/admin/AdminSettingsPanel";
 import { AdminStationResidents } from "@/components/admin/AdminStationResidents";
 import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
 import { generateInvitePassword } from "@/lib/invite-password";
+import { formatBetaInviteText, inviteRoleLabel } from "@/lib/invite-copy";
+
+type PendingInvite = {
+  userId: string;
+  username: string;
+  email: string;
+  displayName: string;
+  role: string;
+  tempPassword: string;
+};
 
 type Tab = "overview" | "analytics" | "users" | "streams" | "archives" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "settings" | "audit";
 
@@ -163,6 +175,10 @@ export function AdminDashboard() {
   const [editForm, setEditForm] = useState({ email: "", displayName: "", balanceAdjust: "", setPassword: "" });
   const [transferStation, setTransferStation] = useState<{ id: string; slug: string } | null>(null);
   const [transferUsername, setTransferUsername] = useState("");
+  const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
+  const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
+  const [signupEnabled, setSignupEnabled] = useState<boolean | null>(null);
+  const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
 
   const tabs: { id: Tab; label: string; icon: typeof Shield; badge?: number }[] = [
     { id: "overview", label: "Overview", icon: Shield },
@@ -330,6 +346,16 @@ export function AdminDashboard() {
   }
 
   useEffect(() => {
+    apiFetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        setSignupEnabled(d.settings?.signupEnabled ?? true);
+        setEmailConfigured(d.emailConfigured ?? false);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const onArchivesUpdated = () => {
       if (tab === "archives") void loadArchives();
     };
@@ -390,8 +416,15 @@ export function AdminDashboard() {
     const data = await res.json();
     if (res.ok) {
       const pw = data.user.tempPassword ?? password;
-      const roleLabel = data.user.role === "station" ? "radio" : data.user.role;
-      setMsg(`Created @${data.user.username} (${roleLabel}) — temp password: ${pw}`);
+      setPendingInvite({
+        userId: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        displayName: data.user.displayName,
+        role: data.user.role,
+        tempPassword: pw,
+      });
+      setMsg(`Created @${data.user.username} (${inviteRoleLabel(data.user.role)})`);
       setCreateUserForm({ username: "", email: "", displayName: "", password: "", role: "fan" });
       setShowCreateUser(false);
       loadUsers(search);
@@ -522,6 +555,55 @@ export function AdminDashboard() {
       body: JSON.stringify({ userId, sendPasswordReset: true }),
     });
     if (res.ok) setMsg("Password reset email sent");
+    else {
+      const d = await res.json().catch(() => ({}));
+      setMsg(String(d.error ?? "Password reset failed"));
+    }
+  }
+
+  async function copyInviteText(invite: PendingInvite) {
+    const text = formatBetaInviteText({
+      displayName: invite.displayName,
+      email: invite.email,
+      tempPassword: invite.tempPassword,
+      role: invite.role,
+    });
+    await navigator.clipboard.writeText(text);
+    setMsg("Invite copied to clipboard");
+  }
+
+  async function sendInvite(opts: {
+    userId: string;
+    tempPassword?: string;
+    displayName?: string;
+    email?: string;
+    regenerate?: boolean;
+  }) {
+    setSendingInviteId(opts.userId);
+    const regenerate = opts.regenerate ?? !opts.tempPassword;
+    const res = await apiFetch("/api/admin/users/invite", {
+      method: "POST",
+      body: JSON.stringify({
+        userId: opts.userId,
+        tempPassword: opts.tempPassword,
+        regeneratePassword: regenerate ? undefined : false,
+      }),
+    });
+    const data = await res.json();
+    setSendingInviteId(null);
+    if (res.ok) {
+      setMsg(`Invite email sent to ${data.email}`);
+      if (pendingInvite?.userId === opts.userId && data.tempPassword) {
+        setPendingInvite((p) => (p ? { ...p, tempPassword: data.tempPassword } : p));
+      }
+    } else {
+      setMsg(String(data.error ?? "Invite failed"));
+    }
+  }
+
+  async function sendInviteFromRow(userId: string, email: string) {
+    if (!confirm(`Send invite email to ${email}? This sets a fresh temp password.`)) return;
+    await sendInvite({ userId, regenerate: true });
   }
 
   async function transferStationOwner(stationId: string) {
@@ -632,6 +714,21 @@ export function AdminDashboard() {
         <AdminSettingsPanel onMsg={setMsg} />
       ) : tab === "users" ? (
         <div className="space-y-4">
+          {signupEnabled === false && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
+              <strong>Closed beta</strong> — public signup is off. Add users here and send invites below.
+              {emailConfigured === false && (
+                <span className="block mt-1 text-amber-300/80">
+                  Email not configured — set RESEND_API_KEY and EMAIL_FROM on Vercel to use Send invite.
+                </span>
+              )}
+            </div>
+          )}
+          {emailConfigured === true && signupEnabled !== false && (
+            <p className="text-xs text-zinc-500">
+              Invite emails ready (Resend configured). Turn off signup in Settings for a closed beta.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2 items-center justify-between">
             <input
               value={search}
@@ -678,17 +775,65 @@ export function AdminDashboard() {
                 <option value="admin">Admin</option>
               </select>
               <p className="text-xs text-zinc-500 sm:col-span-2">
-                Copy the temp password from the success message and send it in your invite. Radio accounts use the station setup wizard on first login.
+                After creating, use <strong className="text-zinc-400">Send invite</strong> to email login details, or copy the invite text manually.
               </p>
               <button type="submit" className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black sm:col-span-2">Create user</button>
             </form>
+          )}
+          {pendingInvite && (
+            <div className="rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/5 p-4 space-y-3">
+              <div>
+                <p className="font-semibold text-white">
+                  Invite ready — @{pendingInvite.username}{" "}
+                  <span className="text-zinc-400 font-normal">({inviteRoleLabel(pendingInvite.role)})</span>
+                </p>
+                <p className="text-xs text-zinc-500 mt-1">{pendingInvite.email}</p>
+                <p className="text-sm font-mono text-[#53fc18] mt-2">{pendingInvite.tempPassword}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => copyInviteText(pendingInvite)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/10"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy invite
+                </button>
+                <button
+                  type="button"
+                  disabled={!emailConfigured || sendingInviteId === pendingInvite.userId}
+                  onClick={() =>
+                    sendInvite({
+                      userId: pendingInvite.userId,
+                      tempPassword: pendingInvite.tempPassword,
+                      regenerate: false,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#53fc18] px-3 py-2 text-xs font-bold text-black disabled:opacity-40"
+                >
+                  {sendingInviteId === pendingInvite.userId ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Mail className="h-3.5 w-3.5" />
+                  )}
+                  Send invite email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingInvite(null)}
+                  className="rounded-lg px-3 py-2 text-xs text-zinc-500 hover:text-zinc-300"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
           )}
           <div className="space-y-2">
             {users.map((u) => (
               <div key={String(u.id)} className="rounded-xl border border-white/10 bg-[#141416] p-4 flex flex-wrap gap-3 items-center justify-between">
                 <div>
                   <p className="font-semibold text-white">{String(u.displayName)} <span className="text-zinc-500 font-normal">@{String(u.username)}</span></p>
-                  <p className="text-xs text-zinc-500">{String(u.email)} · {String(u.role)} · {String(u.balance)} DROP{u.suspendedAt ? " · SUSPENDED" : ""}</p>
+                  <p className="text-xs text-zinc-500">{String(u.email)} · {inviteRoleLabel(String(u.role))} · {String(u.balance)} DROP{u.suspendedAt ? " · SUSPENDED" : ""}</p>
                   {u.createdAt ? (
                     <p className="text-[10px] text-zinc-600 mt-0.5">
                       Signed up {new Date(String(u.createdAt)).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
@@ -711,15 +856,28 @@ export function AdminDashboard() {
                   >
                     Edit
                   </button>
+                  <button
+                    type="button"
+                    disabled={!emailConfigured || sendingInviteId === String(u.id)}
+                    onClick={() => sendInviteFromRow(String(u.id), String(u.email))}
+                    className="inline-flex items-center gap-1 text-xs text-[#53fc18] underline disabled:opacity-40 disabled:no-underline"
+                  >
+                    {sendingInviteId === String(u.id) ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Mail className="h-3 w-3" />
+                    )}
+                    Send invite
+                  </button>
                   <select
                     defaultValue={String(u.role)}
                     onChange={(e) => updateUser(String(u.id), { role: e.target.value })}
                     className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs"
                   >
-                    <option value="fan">fan</option>
-                    <option value="dj">dj</option>
+                    <option value="fan">Fan</option>
+                    <option value="dj">DJ</option>
                     <option value="station">Radio</option>
-                    <option value="admin">admin</option>
+                    <option value="admin">Admin</option>
                   </select>
                   {u.suspendedAt ? (
                     <button type="button" onClick={() => updateUser(String(u.id), { suspend: false })} className="text-xs text-[#53fc18] underline">Unsuspend</button>

@@ -26,6 +26,7 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
   const [importResult, setImportResult] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -33,6 +34,7 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
       apiFetch("/api/admin/totp").then((r) => r.json()),
     ]).then(([s, t]) => {
       setSettings(s.settings);
+      setEmailConfigured(s.emailConfigured ?? null);
       setTotp(t);
     }).finally(() => setLoading(false));
   }, []);
@@ -103,6 +105,13 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
     <div className="space-y-8">
       <section className="rounded-xl border border-white/10 bg-[#141416] p-5 space-y-4">
         <h2 className="font-semibold text-white">Platform settings</h2>
+        {emailConfigured != null && (
+          <p className={`text-xs ${emailConfigured ? "text-[#53fc18]" : "text-amber-400"}`}>
+            {emailConfigured
+              ? "Email delivery configured (Resend) — invite and reset emails will send."
+              : "Email not configured — set RESEND_API_KEY and EMAIL_FROM on Vercel for invite emails."}
+          </p>
+        )}
         <label className="flex items-center gap-3 text-sm text-zinc-300">
           <input
             type="checkbox"
@@ -128,6 +137,11 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
           />
           Signup enabled
         </label>
+        {!settings.signupEnabled && (
+          <p className="text-xs text-zinc-500 pl-7">
+            Closed beta — create users in Admin → Users and send invites from there.
+          </p>
+        )}
         <label className="flex items-center gap-3 text-sm text-zinc-300">
           <input
             type="checkbox"
