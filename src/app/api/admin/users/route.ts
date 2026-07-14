@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
 import { requireAdminApi, logAdminAction } from "@/lib/admin";
 import { getWelcomeBonus } from "@/lib/platform-settings";
+import { generateInvitePassword } from "@/lib/invite-password";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { createPasswordResetToken, getResetUrl } from "@/lib/password-reset";
@@ -130,7 +131,7 @@ export async function PATCH(request: Request) {
 
 const createSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(6).optional(),
   username: z.string().min(3).max(20).regex(/^[a-z0-9_]+$/),
   displayName: z.string().min(1).max(50),
   role: z.enum(["fan", "dj", "station", "admin"]).default("fan"),
@@ -147,7 +148,8 @@ export async function POST(request: Request) {
     });
     if (existing) return error("Email or username already taken", 409);
 
-    const passwordHash = await bcrypt.hash(body.password, 10);
+    const password = body.password?.trim() || generateInvitePassword();
+    const passwordHash = await bcrypt.hash(password, 10);
     const welcomeBonus = await getWelcomeBonus();
     const user = await prisma.user.create({
       data: {
@@ -170,6 +172,7 @@ export async function POST(request: Request) {
         email: user.email,
         displayName: user.displayName,
         role: user.role,
+        tempPassword: password,
       },
     });
   } catch (e) {

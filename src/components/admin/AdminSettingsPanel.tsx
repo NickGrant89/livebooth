@@ -239,7 +239,7 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
       <section className="rounded-xl border border-white/10 bg-[#141416] p-5 space-y-3">
         <h2 className="font-semibold text-white">Bulk user import (CSV)</h2>
         <p className="text-xs text-zinc-500">
-          Header row: username,email,displayName,password,role — or columns in that order without header.
+          Header: username,email,displayName,password,role — password optional (auto-generated). Roles: fan, dj, radio, admin.
         </p>
         <textarea
           value={csv}

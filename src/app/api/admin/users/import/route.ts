@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
 import { requireAdminApi, logAdminAction } from "@/lib/admin";
 import { getWelcomeBonus } from "@/lib/platform-settings";
+import { generateInvitePassword } from "@/lib/invite-password";
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -58,16 +59,18 @@ export async function POST(request: Request) {
       username = row.username?.toLowerCase() ?? "";
       email = row.email?.toLowerCase() ?? "";
       displayName = row.displayname || row.display_name || row.name || username;
-      password = row.password || "password123";
-      role = row.role || "fan";
+      password = row.password?.trim() || generateInvitePassword();
+      role = (row.role || "fan").toLowerCase();
+      if (role === "radio") role = "station";
     } else {
       [username, email, displayName, password, role] = [
         cols[0]?.toLowerCase() ?? "",
         cols[1]?.toLowerCase() ?? "",
         cols[2] || cols[0] || "",
-        cols[3] || "password123",
-        cols[4] || "fan",
+        cols[3]?.trim() || generateInvitePassword(),
+        (cols[4] || "fan").toLowerCase(),
       ];
+      if (role === "radio") role = "station";
     }
 
     if (!username || !email || password.length < 6) {

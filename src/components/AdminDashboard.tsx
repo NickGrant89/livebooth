@@ -23,6 +23,7 @@ import { AdminAnalyticsPanel } from "@/components/admin/AdminAnalyticsPanel";
 import { AdminSettingsPanel } from "@/components/admin/AdminSettingsPanel";
 import { AdminStationResidents } from "@/components/admin/AdminStationResidents";
 import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
+import { generateInvitePassword } from "@/lib/invite-password";
 
 type Tab = "overview" | "analytics" | "users" | "streams" | "archives" | "stations" | "moderation" | "support" | "promotions" | "treasury" | "settings" | "audit";
 
@@ -381,13 +382,16 @@ export function AdminDashboard() {
 
   async function createUser(e: React.FormEvent) {
     e.preventDefault();
+    const password = createUserForm.password.trim() || generateInvitePassword();
     const res = await apiFetch("/api/admin/users", {
       method: "POST",
-      body: JSON.stringify(createUserForm),
+      body: JSON.stringify({ ...createUserForm, password }),
     });
     const data = await res.json();
     if (res.ok) {
-      setMsg(`Created @${data.user.username}`);
+      const pw = data.user.tempPassword ?? password;
+      const roleLabel = data.user.role === "station" ? "radio" : data.user.role;
+      setMsg(`Created @${data.user.username} (${roleLabel}) — temp password: ${pw}`);
       setCreateUserForm({ username: "", email: "", displayName: "", password: "", role: "fan" });
       setShowCreateUser(false);
       loadUsers(search);
@@ -395,6 +399,20 @@ export function AdminDashboard() {
     } else {
       setMsg(String(data.error ?? "Create failed"));
     }
+  }
+
+  function openCreateUserForm() {
+    setShowCreateUser((open) => {
+      if (open) return false;
+      setCreateUserForm({
+        username: "",
+        email: "",
+        displayName: "",
+        password: generateInvitePassword(),
+        role: "fan",
+      });
+      return true;
+    });
   }
 
   async function deleteUser(userId: string, username: string) {
@@ -624,7 +642,7 @@ export function AdminDashboard() {
             />
             <button
               type="button"
-              onClick={() => setShowCreateUser((v) => !v)}
+              onClick={openCreateUserForm}
               className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black"
             >
               {showCreateUser ? "Cancel" : "Add user"}
@@ -632,16 +650,36 @@ export function AdminDashboard() {
           </div>
           {showCreateUser && (
             <form onSubmit={createUser} className="rounded-xl border border-[#53fc18]/30 bg-[#141416] p-4 grid gap-3 sm:grid-cols-2">
-              <input required value={createUserForm.username} onChange={(e) => setCreateUserForm((f) => ({ ...f, username: e.target.value }))} placeholder="username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <input required value={createUserForm.username} onChange={(e) => setCreateUserForm((f) => ({ ...f, username: e.target.value.toLowerCase() }))} placeholder="username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
               <input required type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm((f) => ({ ...f, email: e.target.value }))} placeholder="email" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
               <input required value={createUserForm.displayName} onChange={(e) => setCreateUserForm((f) => ({ ...f, displayName: e.target.value }))} placeholder="Display name" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
-              <input required type="password" minLength={6} value={createUserForm.password} onChange={(e) => setCreateUserForm((f) => ({ ...f, password: e.target.value }))} placeholder="Password (min 6)" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <div className="flex gap-2">
+                <input
+                  required
+                  type="text"
+                  minLength={6}
+                  value={createUserForm.password}
+                  onChange={(e) => setCreateUserForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="Auto-generated password"
+                  className="flex-1 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCreateUserForm((f) => ({ ...f, password: generateInvitePassword() }))}
+                  className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 shrink-0"
+                >
+                  New
+                </button>
+              </div>
               <select value={createUserForm.role} onChange={(e) => setCreateUserForm((f) => ({ ...f, role: e.target.value }))} className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm">
-                <option value="fan">fan</option>
-                <option value="dj">dj</option>
-                <option value="station">station</option>
-                <option value="admin">admin</option>
+                <option value="fan">Fan</option>
+                <option value="dj">DJ</option>
+                <option value="station">Radio</option>
+                <option value="admin">Admin</option>
               </select>
+              <p className="text-xs text-zinc-500 sm:col-span-2">
+                Copy the temp password from the success message and send it in your invite. Radio accounts use the station setup wizard on first login.
+              </p>
               <button type="submit" className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black sm:col-span-2">Create user</button>
             </form>
           )}
@@ -680,7 +718,7 @@ export function AdminDashboard() {
                   >
                     <option value="fan">fan</option>
                     <option value="dj">dj</option>
-                    <option value="station">station</option>
+                    <option value="station">Radio</option>
                     <option value="admin">admin</option>
                   </select>
                   {u.suspendedAt ? (
