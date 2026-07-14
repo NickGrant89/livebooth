@@ -92,8 +92,8 @@ export function VodReplay({
           <p className="text-sm text-zinc-400 mt-2 max-w-md mx-auto">
             {earlyAccessBlocked.accessType === "station"
               ? `Station members get replay access for the first ${STAKER_VOD_EARLY_HOURS} hours after a show ends.`
-              : `DJ supporters get replay access for the first ${DJ_STAKER_VOD_EARLY_HOURS} hours after a set ends.`}{" "}
-            Everyone else can watch after that — or stake now to unlock early access.
+              : `DJ members get replay access for the first ${DJ_STAKER_VOD_EARLY_HOURS} hours after a set ends.`}{" "}
+            Everyone else can watch after that — or join membership to unlock early access.
           </p>
           <p className="text-xs text-zinc-500 mt-3">
             Public replay:{" "}
@@ -195,7 +195,7 @@ export function VodReplay({
           <div>
             <p className="font-semibold text-sm text-cyan-200">Love this set?</p>
             <p className="text-xs text-zinc-400 mt-1">
-              Stake on {djName} for early replays, cheaper unlocks, and milestone rewards on future sets.
+              Join {djName}&apos;s membership for early replays, cheaper unlocks, and milestone rewards on future sets.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0">

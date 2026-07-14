@@ -7,6 +7,9 @@ import {
   STATION_TIP_DJ_SHARE,
   STATION_TIP_STATION_SHARE,
   DJ_MILESTONES,
+  MEMBER_TIER_PRICES,
+  MEMBER_DJ_CREATOR_SHARE,
+  MEMBER_PLATFORM_SHARE,
 } from "@/lib/constants";
 
 const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
@@ -41,8 +44,8 @@ export default function DjGuidePage() {
         </GuideStep>
         <GuideStep n={2} title="Your public profile">
           Fans find you at <code className="text-xs bg-white/10 px-1 rounded">/dj/yourusername</code>.
-          Share this link on socials. The <strong className="text-zinc-300">#membership</strong> section shows your supporters,
-          milestone progress, and top stakers. Followers get notified when you go live.
+          Share this link on socials. The <strong className="text-zinc-300">#membership</strong> section shows your members,
+          community goal progress, and top supporters. Followers get notified when you go live.
         </GuideStep>
         <GuideStep n={3} title="Weekly schedule">
           In Settings, set your <strong className="text-zinc-300">weekly stream slot</strong> (day + hour UTC).
@@ -63,7 +66,7 @@ export default function DjGuidePage() {
         <GuideStep n={3} title="During your set">
           Use the <Link href="/dashboard" className="text-[#53fc18] hover:underline">dashboard</Link> to update now
           playing, accept or decline crowd requests, see session goals, top tippers, and live stats.
-          Fans see a staking promo under the player — encourage them to back you for early replays and perks.
+          Fans see a membership promo under the player — encourage them to join for early replays and perks.
         </GuideStep>
         <GuideStep n={4} title="End stream">
           End from the dashboard or Go Live page. Replays appear in your profile archive after the stream ends.
@@ -107,8 +110,12 @@ export default function DjGuidePage() {
         <GuideStep n={2} title="Track unlocks & requests">
           You earn when fans unlock track IDs or when you accept paid crowd requests (after platform fee).
         </GuideStep>
-        <GuideStep n={3} title="VIP subscribers">
-          Fans can subscribe monthly for perks. Subscription DROP is credited to your balance each billing cycle.
+        <GuideStep n={3} title="Monthly membership">
+          Fans join at <strong className="text-zinc-300">Member</strong> ({MEMBER_TIER_PRICES.member} {DROP_TOKEN_SYMBOL}/mo) or{" "}
+          <strong className="text-zinc-300">Supporter</strong> ({MEMBER_TIER_PRICES.supporter} {DROP_TOKEN_SYMBOL}/mo) on your profile.
+          You receive <strong className="text-zinc-300">{Math.round(MEMBER_DJ_CREATOR_SHARE * 100)}%</strong> each billing cycle;
+          the platform keeps <strong className="text-zinc-300">{Math.round(MEMBER_PLATFORM_SHARE * 100)}%</strong>.
+          Revenue is credited automatically when fans join or renew.
         </GuideStep>
         <GuideStep n={4} title="Set grades">
           Each ended set gets a grade (A–F) from tips, engagement, unlocks, and quests. Supporter tips count{" "}
@@ -129,13 +136,13 @@ export default function DjGuidePage() {
         </GuideStep>
       </GuideSection>
 
-      <GuideSection id="supporters" title="Supporters & milestones">
-        <GuideStep n={1} title="Who are your supporters?">
-          Fans who stake {DROP_TOKEN_SYMBOL} on your profile appear in your <strong className="text-zinc-300">Top supporters</strong> list.
+      <GuideSection id="supporters" title="Members & milestones">
+        <GuideStep n={1} title="Who are your members?">
+          Fans with an active membership on your profile appear in your <strong className="text-zinc-300">Top members</strong> list.
           They get chat badges, cheaper unlocks/requests on your streams, early replay access, and a tip boost toward set grades.
         </GuideStep>
         <GuideStep n={2} title="DJ milestones">
-          When you hit growth goals, your current supporters share a reward pool (split by stake size). Examples:
+          When you hit growth goals, your current members share a reward pool (split by tier — Supporter weighs more than Member). Examples:
         </GuideStep>
         <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
           {DJ_MILESTONES.map((m) => (
@@ -144,9 +151,10 @@ export default function DjGuidePage() {
             </li>
           ))}
         </ul>
-        <GuideStep n={3} title="Promote staking">
+        <GuideStep n={3} title="Promote membership">
           Share your profile link and remind fans after a great set — the VOD page includes a &quot;Back this DJ&quot; CTA.
-          During live sets, the staking promo appears under the player for non-host viewers.
+          During live sets, the membership promo appears under the player for non-host viewers.
+          A <strong className="text-zinc-300">community goal bar</strong> on your stream page tracks collective member MRR.
         </GuideStep>
       </GuideSection>
 
@@ -177,7 +185,7 @@ export default function DjGuidePage() {
           <li>Check the <Link href={HELP_LINKS.leaderboard} className="text-[#53fc18] hover:underline">rankings</Link> for competition context</li>
           <li>Enable push so followers get notified every time you&apos;re live</li>
           <li>Use the share button on Go Live and your stream page to spread your booth link</li>
-          <li>Encourage fans to back you — supporters get early replays and milestone rewards</li>
+          <li>Encourage fans to join membership — members get early replays and milestone rewards</li>
         </ul>
       </GuideSection>
 

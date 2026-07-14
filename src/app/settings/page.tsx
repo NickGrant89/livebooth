@@ -301,7 +301,7 @@ export default function SettingsPage() {
           <section className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-6 space-y-3">
             <h2 className="font-semibold text-sm text-purple-300 uppercase tracking-wide flex items-center gap-2">
               <Star className="h-4 w-4" />
-              VIP subscriptions
+              DJ memberships (legacy)
             </h2>
             <ul className="space-y-2">
               {vipSubs.map((s) => (

@@ -250,7 +250,7 @@ export default async function DJProfilePage({
                 <>
                   <Crown className="h-5 w-5 text-purple-400 mx-auto mb-1" />
                   <div className="text-xl font-bold">{vipSubCount}</div>
-                  <div className="text-xs text-zinc-500">VIP subs</div>
+                  <div className="text-xs text-zinc-500">Members</div>
                 </>
               ) : (
                 <>

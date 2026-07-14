@@ -3,7 +3,7 @@ import {
   TRACK_UNLOCK_COST,
   REQUEST_COST,
   DAILY_LOGIN_DROP,
-  MIN_STAKE_AMOUNT,
+  MEMBER_TIER_PRICES,
 } from "./constants";
 import { HELP_LINKS } from "./help-links";
 
@@ -42,10 +42,10 @@ export const FAN_QUICK_START: GuidanceStep[] = [
     hrefLabel: "Your crate",
   },
   {
-    title: "Stake for perks",
-    body: `Back a DJ or become a station member (min ${MIN_STAKE_AMOUNT} ${DROP_TOKEN_SYMBOL}) for badges, cheaper unlocks, early replays, and milestone rewards.`,
-    href: `${HELP_LINKS.fans}#staking`,
-    hrefLabel: "Staking guide",
+    title: "Join membership",
+    body: `Back a DJ or become a station member — Member (${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo) or Supporter (${MEMBER_TIER_PRICES.supporter} ${DROP_TOKEN_SYMBOL}/mo) for badges, cheaper unlocks, early replays, and milestone rewards.`,
+    href: `${HELP_LINKS.fans}#membership`,
+    hrefLabel: "Membership guide",
   },
 ];
 
@@ -60,7 +60,7 @@ export const FAN_STREAM_TIPS: GuidanceStep[] = [
   },
   {
     title: "Request a track",
-    body: `VIP subs get 30% off. Crowd requests cost ${REQUEST_COST} ${DROP_TOKEN_SYMBOL} — the DJ can accept or decline.`,
+    body: `Members get 10–20% off unlocks. Crowd requests cost ${REQUEST_COST} ${DROP_TOKEN_SYMBOL} — the DJ can accept or decline.`,
   },
   {
     title: "Something wrong?",
@@ -114,7 +114,7 @@ export const DJ_LIVE_CHECKLIST: GuidanceStep[] = [
   },
   {
     title: "Grow supporters",
-    body: "Fans who back you get early replays and milestone rewards — point them to your profile #stake section.",
+    body: "Fans who join membership get early replays and milestone rewards — point them to your profile #membership section.",
     href: `${HELP_LINKS.djs}#supporters`,
     hrefLabel: "Supporter guide",
   },

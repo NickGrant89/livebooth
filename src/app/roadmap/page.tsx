@@ -36,7 +36,7 @@ const PHASES: Phase[] = [
       { title: "On-chain achievement claims", detail: "Signed claims via AchievementVault", status: "active" },
       { title: "Live support chat", detail: "Chat on /support — logged as tickets, admin replies in dashboard", status: "done" },
       { title: "Station Pro & residencies", detail: "Branded channels, resident lineups, embed player", status: "done" },
-      { title: "Staking v2 — perks & milestones", detail: "DJ/station members, proportional rewards, early VOD, leaderboards", status: "done" },
+      { title: "Membership v3 — recurring revenue", detail: "25/75 DROP/mo tiers, 85% DJ / 75%+10% station splits, 15% platform, community goals", status: "done" },
       { title: "Email verification", detail: "Verify before login in production; password reset via Resend", status: "done" },
     ],
   },

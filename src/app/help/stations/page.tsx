@@ -7,7 +7,11 @@ import {
   STATION_TIP_STATION_SHARE,
   STATION_MILESTONES,
   RADIO_TIERS,
-  STAKER_PERKS,
+  STATION_MEMBER_PERKS_MEMBER,
+  MEMBER_TIER_PRICES,
+  MEMBER_STATION_OWNER_SHARE,
+  MEMBER_STATION_LIVE_DJ_SHARE,
+  MEMBER_PLATFORM_SHARE,
   DROP_TOKEN_SYMBOL,
 } from "@/lib/constants";
 
@@ -16,7 +20,7 @@ const SECTIONS = [
   { id: "tiers", title: "Station tiers" },
   { id: "residents", title: "Residents & lineup" },
   { id: "embed", title: "Embed & relay" },
-  { id: "staking", title: "Members & milestones" },
+  { id: "membership", title: "Members & milestones" },
   { id: "support", title: "Support" },
 ];
 
@@ -109,19 +113,24 @@ export default function StationGuidePage() {
         </GuideStep>
       </GuideSection>
 
-      <GuideSection id="staking" title="Members & milestones">
+      <GuideSection id="membership" title="Members & milestones">
         <GuideStep n={1} title="Station membership">
-          Fans stake {DROP_TOKEN_SYMBOL} on your station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#membership</code>).
+          Fans join at <strong className="text-zinc-300">Member</strong> ({MEMBER_TIER_PRICES.member} {DROP_TOKEN_SYMBOL}/mo) or{" "}
+          <strong className="text-zinc-300">Supporter</strong> ({MEMBER_TIER_PRICES.supporter} {DROP_TOKEN_SYMBOL}/mo) on your station page (
+          <code className="text-xs bg-white/10 px-1 rounded">/station/slug#membership</code>).
+          You receive <strong className="text-zinc-300">{Math.round(MEMBER_STATION_OWNER_SHARE * 100)}%</strong> each billing cycle.
+          When a resident is live, <strong className="text-zinc-300">{Math.round(MEMBER_STATION_LIVE_DJ_SHARE * 100)}%</strong> goes to that DJ.
+          Platform fee: <strong className="text-zinc-300">{Math.round(MEMBER_PLATFORM_SHARE * 100)}%</strong>.
           Members get:
         </GuideStep>
         <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
-          {STAKER_PERKS.map((perk) => (
+          {STATION_MEMBER_PERKS_MEMBER.map((perk) => (
             <li key={perk}>{perk}</li>
           ))}
         </ul>
         <GuideStep n={2} title="Milestone rewards">
-          When your station hits goals, all current members share a reward pool proportional to stake. Track progress in
-          your owner dashboard and on the public stake panel:
+          When your station hits goals, all current members share a reward pool proportional to tier. Track progress in
+          your owner dashboard and on the public membership panel:
         </GuideStep>
         <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
           {STATION_MILESTONES.map((m) => (
@@ -135,8 +144,8 @@ export default function StationGuidePage() {
           During resident live shows, fans see a &quot;Become a member&quot; promo on the stream page.
         </GuideStep>
         <GuideStep n={4} title="Fan-facing docs">
-          Point listeners to the <Link href={`${HELP_LINKS.fans}#staking`} className="text-[#53fc18] hover:underline">fan guide → Staking</Link> for
-          perk details and tier thresholds.
+          Point listeners to the <Link href={`${HELP_LINKS.fans}#membership`} className="text-[#53fc18] hover:underline">fan guide → Membership</Link> for
+          perk details and revenue splits.
         </GuideStep>
       </GuideSection>
 

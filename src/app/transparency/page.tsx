@@ -135,6 +135,32 @@ export default function TransparencyPage() {
             </dl>
           </section>
 
+          <section className="rounded-xl border border-white/10 bg-[#141416] p-5 mb-6 space-y-3">
+            <h2 className="font-semibold text-white">Platform fee schedule</h2>
+            <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-zinc-500">Tips</dt>
+                <dd className="text-zinc-200">10% platform · 90% creator</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-zinc-500">Track unlocks</dt>
+                <dd className="text-zinc-200">15% platform · 85% creator</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-zinc-500">Crowd requests</dt>
+                <dd className="text-zinc-200">15% platform · 85% creator</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-zinc-500">DJ membership</dt>
+                <dd className="text-zinc-200">15% platform · 85% DJ</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-zinc-500">Station membership</dt>
+                <dd className="text-zinc-200">15% platform · 75% owner + 10% live DJ</dd>
+              </div>
+            </dl>
+          </section>
+
           {stats.onChain ? (
             <section className="rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-5 space-y-3">
               <h2 className="font-semibold text-[#53fc18]">On-chain treasury ({stats.onChain.chainName})</h2>

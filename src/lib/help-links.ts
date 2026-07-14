@@ -20,10 +20,10 @@ export const HELP_LINKS = {
 
 export const HELP_TOPICS = [
   {
-    href: `${HELP_LINKS.fans}#staking`,
-    title: "Staking & members",
-    description: "DJ supporters and station members — perks, tiers, milestones, early replays.",
-    anchor: "staking",
+    href: `${HELP_LINKS.fans}#membership`,
+    title: "Membership",
+    description: "DJ supporters and station members — tiers, perks, revenue splits, milestones, early replays.",
+    anchor: "membership",
   },
   {
     href: `${HELP_LINKS.fans}#replays`,

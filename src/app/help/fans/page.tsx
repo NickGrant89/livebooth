@@ -6,14 +6,18 @@ import {
   DROP_TOKEN_SYMBOL,
   TRACK_UNLOCK_COST,
   REQUEST_COST,
-  VIP_SUB_COST,
-  MIN_STAKE_AMOUNT,
+  MEMBER_TIER_PRICES,
+  MEMBER_BILLING_DAYS,
+  MEMBER_DJ_CREATOR_SHARE,
+  MEMBER_STATION_OWNER_SHARE,
+  MEMBER_STATION_LIVE_DJ_SHARE,
+  MEMBER_PLATFORM_SHARE,
   DAILY_LOGIN_DROP,
   WELCOME_BONUS,
-  STAKER_PERKS,
-  DJ_STAKER_PERKS,
-  STAKER_TIER_CORE_MIN,
-  STAKER_TIER_LEGEND_MIN,
+  MEMBER_PERKS_MEMBER,
+  MEMBER_PERKS_SUPPORTER,
+  STATION_MEMBER_PERKS_MEMBER,
+  STATION_MEMBER_PERKS_SUPPORTER,
   STAKER_VOD_EARLY_HOURS,
   DJ_STAKER_VOD_EARLY_HOURS,
   STATION_MILESTONES,
@@ -24,7 +28,7 @@ const SECTIONS = [
   { id: "getting-started", title: "Getting started" },
   { id: "watching", title: "Watching a stream" },
   { id: "drop", title: "Using DROP" },
-  { id: "staking", title: "Staking & members" },
+  { id: "membership", title: "Membership" },
   { id: "replays", title: "Replays & VOD" },
   { id: "quests", title: "Quests & set grades" },
   { id: "achievements", title: "Achievements & rankings" },
@@ -35,7 +39,7 @@ export default function FanGuidePage() {
   return (
     <HelpGuideLayout
       title="Fan guide"
-      subtitle="Watch, tip, stake for perks, and collect — everything a listener needs on LiveBooth."
+      subtitle="Watch, tip, join memberships for perks, and collect — everything a listener needs on LiveBooth."
       backHref={HELP_LINKS.hub}
       role="fan"
       sections={SECTIONS}
@@ -66,14 +70,14 @@ export default function FanGuidePage() {
           Open a live stream from Discover or a DJ profile (<code className="text-xs bg-white/10 px-1 rounded">/stream/username</code>).
           Click the player to unmute — browsers require a tap before audio plays.
         </GuideStep>
-        <GuideStep n={2} title="Chat & supporter badges">
-          Sign in to chat in the sidebar. Tips appear highlighted in chat. VIP subscribers get a badge and queue perks.
-          If you <strong className="text-zinc-300">back a DJ</strong> or are a <strong className="text-zinc-300">station member</strong>,
-          you get a Member / Core / Legend badge next to your messages.
+        <GuideStep n={2} title="Chat & member badges">
+          Sign in to chat in the sidebar. Tips appear highlighted in chat. Active members get a{" "}
+          <strong className="text-zinc-300">Member</strong> or <strong className="text-zinc-300">Supporter</strong> badge
+          next to their messages on that DJ or station&apos;s streams.
         </GuideStep>
         <GuideStep n={3} title="Member perks on stream">
-          During a live set, look for the <strong className="text-zinc-300">staking promo</strong> under the player —
-          it links to the DJ or station stake panel. Members get cheaper unlocks and requests on that stream.
+          During a live set, look for the <strong className="text-zinc-300">membership promo</strong> under the player —
+          it links to the DJ or station membership panel. Members get cheaper unlocks and requests on that stream.
         </GuideStep>
         <GuideStep n={4} title="Now playing">
           When the DJ updates track info, it shows under the player. Use this to decide if you want to unlock the track ID.
@@ -102,53 +106,71 @@ export default function FanGuidePage() {
           Pay <strong className="text-zinc-300">{TRACK_UNLOCK_COST} {DROP_TOKEN_SYMBOL}</strong> to reveal the track
           the DJ is playing. Unlocks save to your{" "}
           <Link href="/crate" className="text-[#53fc18] hover:underline">crate</Link>.
-          Station members and DJ supporters get <strong className="text-zinc-300">15% off</strong> unlocks on eligible streams.
+          Members get <strong className="text-zinc-300">10% off</strong> unlocks; Supporters get{" "}
+          <strong className="text-zinc-300">20% off</strong> on eligible streams.
         </GuideStep>
         <GuideStep n={5} title="Crowd request">
           Pay <strong className="text-zinc-300">{REQUEST_COST} {DROP_TOKEN_SYMBOL}</strong> to request a track.
-          The DJ accepts or declines from their dashboard. VIP subs get 30% off requests and unlocks.
-          Members get an extra <strong className="text-zinc-300">10% off</strong> requests when staking perks apply.
+          The DJ accepts or declines from their dashboard. Members get <strong className="text-zinc-300">10% off</strong> requests;
+          Supporters get <strong className="text-zinc-300">15% off</strong>.
         </GuideStep>
-        <GuideStep n={6} title="VIP subscription">
-          Subscribe for <strong className="text-zinc-300">{VIP_SUB_COST} {DROP_TOKEN_SYMBOL}/month</strong> on a DJ&apos;s
-          profile for discounted requests, track IDs, and chat perks.
+        <GuideStep n={6} title="Platform fees">
+          Tips keep <strong className="text-zinc-300">90%</strong> for the DJ (10% platform). Unlocks and requests keep{" "}
+          <strong className="text-zinc-300">85%</strong> for the DJ (15% platform). Membership is separate — see below.
         </GuideStep>
       </GuideSection>
 
-      <GuideSection id="staking" title="Staking & members">
+      <GuideSection id="membership" title="Membership">
         <p className="text-sm text-zinc-400 mb-4">
-          Staking locks {DROP_TOKEN_SYMBOL} from your in-app balance to show support. Minimum{" "}
-          <strong className="text-zinc-300">{MIN_STAKE_AMOUNT} {DROP_TOKEN_SYMBOL}</strong>. Unstake anytime — full amount returned instantly.
+          Monthly membership supports a DJ or station with recurring {DROP_TOKEN_SYMBOL} from your wallet.
+          Choose <strong className="text-zinc-300">Member</strong> ({MEMBER_TIER_PRICES.member} {DROP_TOKEN_SYMBOL}/mo) or{" "}
+          <strong className="text-zinc-300">Supporter</strong> ({MEMBER_TIER_PRICES.supporter} {DROP_TOKEN_SYMBOL}/mo).
+          Billed every {MEMBER_BILLING_DAYS} days. Cancel anytime from the membership panel.
         </p>
         <GuideStep n={1} title="Back a DJ">
           On a DJ profile (<code className="text-xs bg-white/10 px-1 rounded">/dj/username#membership</code>) or from a live stream promo,
-          use <strong className="text-zinc-300">Back this DJ</strong>. Perks on that DJ&apos;s streams:
+          use <strong className="text-zinc-300">Back this DJ</strong>.{" "}
+          <strong className="text-zinc-300">{Math.round(MEMBER_DJ_CREATOR_SHARE * 100)}%</strong> of your fee goes to the DJ each month;
+          the platform keeps <strong className="text-zinc-300">{Math.round(MEMBER_PLATFORM_SHARE * 100)}%</strong>.
         </GuideStep>
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide ml-11 mb-1">Member tier</p>
+        <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-3">
+          {MEMBER_PERKS_MEMBER.map((perk) => (
+            <li key={perk}>{perk}</li>
+          ))}
+        </ul>
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide ml-11 mb-1">Supporter tier</p>
         <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
-          {DJ_STAKER_PERKS.map((perk) => (
+          {MEMBER_PERKS_SUPPORTER.map((perk) => (
             <li key={perk}>{perk}</li>
           ))}
         </ul>
         <GuideStep n={2} title="Become a station member">
           On a station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#membership</code>),
-          use <strong className="text-zinc-300">Become a member</strong>. Best value on station shows:
+          use <strong className="text-zinc-300">Become a member</strong>.{" "}
+          <strong className="text-zinc-300">{Math.round(MEMBER_STATION_OWNER_SHARE * 100)}%</strong> goes to the station owner each month.
+          When someone is live on air, <strong className="text-zinc-300">{Math.round(MEMBER_STATION_LIVE_DJ_SHARE * 100)}%</strong> goes to that DJ.
+          Platform fee: <strong className="text-zinc-300">{Math.round(MEMBER_PLATFORM_SHARE * 100)}%</strong>.
         </GuideStep>
-        <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
-          {STAKER_PERKS.map((perk) => (
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide ml-11 mb-1">Member tier</p>
+        <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-3">
+          {STATION_MEMBER_PERKS_MEMBER.map((perk) => (
             <li key={perk}>{perk}</li>
           ))}
         </ul>
-        <GuideStep n={3} title="Supporter tiers">
-          Badge tier is based on your stake size (DJ or station — whichever is higher):
-          <ul className="mt-2 space-y-1 list-disc list-inside">
-            <li><strong className="text-zinc-300">Member</strong> — {MIN_STAKE_AMOUNT}+ {DROP_TOKEN_SYMBOL}</li>
-            <li><strong className="text-zinc-300">Core</strong> — {STAKER_TIER_CORE_MIN}+ {DROP_TOKEN_SYMBOL}</li>
-            <li><strong className="text-zinc-300">Legend</strong> — {STAKER_TIER_LEGEND_MIN}+ {DROP_TOKEN_SYMBOL}</li>
-          </ul>
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide ml-11 mb-1">Supporter tier</p>
+        <ul className="ml-11 text-sm text-zinc-400 space-y-1 list-disc list-inside mb-4">
+          {STATION_MEMBER_PERKS_SUPPORTER.map((perk) => (
+            <li key={perk}>{perk}</li>
+          ))}
+        </ul>
+        <GuideStep n={3} title="Community goals">
+          Live DJ and station pages show a <strong className="text-zinc-300">community goal bar</strong> — collective monthly member
+          revenue (MRR) toward unlockable perks like extended replay vaults for all members.
         </GuideStep>
         <GuideStep n={4} title="Milestone rewards">
-          When a DJ or station hits growth goals, current stakers share a <strong className="text-zinc-300">DROP reward pool</strong> split
-          proportionally by stake size. Progress bars and your estimated share show on each stake panel.
+          When a DJ or station hits growth goals, current members share a <strong className="text-zinc-300">DROP reward pool</strong> split
+          proportionally by monthly tier (Supporter counts higher than Member). Progress bars show on each membership panel.
         </GuideStep>
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-400 space-y-3">
           <p className="font-semibold text-zinc-300">DJ milestone examples</p>
@@ -183,9 +205,9 @@ export default function FanGuidePage() {
           Supporters get replay access before everyone else:
           <ul className="mt-2 space-y-1 list-disc list-inside">
             <li>Station members — first <strong className="text-zinc-300">{STAKER_VOD_EARLY_HOURS}h</strong> after a station show ends</li>
-            <li>DJ supporters — first <strong className="text-zinc-300">{DJ_STAKER_VOD_EARLY_HOURS}h</strong> after that DJ&apos;s set ends</li>
+            <li>DJ members — first <strong className="text-zinc-300">{DJ_STAKER_VOD_EARLY_HOURS}h</strong> after that DJ&apos;s set ends</li>
           </ul>
-          After the window, the replay is public. Stake from the blocked replay screen or the post-set CTA on the VOD page.
+          After the window, the replay is public. Join membership from the blocked replay screen or the post-set CTA on the VOD page.
         </GuideStep>
         <GuideStep n={3} title="Legendary moments">
           Large tips during a live set can create highlight markers — tap them on the VOD page to jump to that moment in the replay.

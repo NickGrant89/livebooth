@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Crown, Megaphone, Tv } from "lucide-react";
-import { DROP_TOKEN_SYMBOL, VIP_SUB_COST } from "@/lib/constants";
+import { DROP_TOKEN_SYMBOL, MEMBER_TIER_PRICES, MEMBER_DJ_CREATOR_SHARE, MEMBER_PLATFORM_SHARE } from "@/lib/constants";
 
 export function CreatorMonetizationPanel({ isLive }: { isLive: boolean }) {
   return (
@@ -13,7 +13,7 @@ export function CreatorMonetizationPanel({ isLive }: { isLive: boolean }) {
         <li className="flex gap-2">
           <Crown className="h-4 w-4 shrink-0 text-purple-300 mt-0.5" />
           <span>
-            <strong className="text-zinc-200">VIP subscriptions</strong> — fans pay {VIP_SUB_COST} {DROP_TOKEN_SYMBOL}/mo on your profile; you keep 90%.
+            <strong className="text-zinc-200">Monthly membership</strong> — fans join at Member ({MEMBER_TIER_PRICES.member} {DROP_TOKEN_SYMBOL}/mo) or Supporter ({MEMBER_TIER_PRICES.supporter} {DROP_TOKEN_SYMBOL}/mo); you keep {Math.round(MEMBER_DJ_CREATOR_SHARE * 100)}% ({Math.round(MEMBER_PLATFORM_SHARE * 100)}% platform).
           </span>
         </li>
         <li className="flex gap-2">

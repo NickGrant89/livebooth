@@ -61,7 +61,7 @@ const FAQ = [
       },
       {
         q: "What's the difference between fan and DJ accounts?",
-        a: "Fans watch, tip, unlock tracks, and stake on DJs. DJs can go live, earn DROP, and use the dashboard, collab, and stream tools. Radio is a third role for station owners.",
+        a: "Fans watch, tip, unlock tracks, and join DJ or station memberships. DJs can go live, earn DROP, and use the dashboard, collab, and stream tools. Radio is a third role for station owners.",
       },
     ],
   },
@@ -81,24 +81,24 @@ const FAQ = [
         a: "Follow a DJ for in-app alerts. For browser push, enable Go-live push alerts in Settings or the notification bell. You must allow notifications in your browser when prompted.",
       },
       {
-        q: "What is staking?",
-        a: "Lock DROP on a DJ (Back this DJ) or radio station (Become a member) to show support. Minimum 50 DROP. You get chat badges, cheaper unlocks/requests, early replay access, and a share of milestone reward pools — split proportionally by stake size. Unstake anytime from the stake panel. Full details: /help/fans#staking",
+        q: "What is membership?",
+        a: "Monthly support for a DJ (Back this DJ) or radio station (Become a member). Member tier: 25 DROP/mo. Supporter tier: 75 DROP/mo. Billed every 30 days from your wallet — cancel anytime from the membership panel. 85% of DJ membership goes to the DJ (15% platform). Station membership: 75% to the station owner, 10% to the live DJ when someone is on air, 15% platform. Full details: /help/fans#membership",
       },
       {
         q: "What perks do station members get?",
-        a: "Member badge in chat, 15% off track unlocks on station shows, 10% off requests, 24h early replay after shows end, 1.1× tip weight for set grades, and milestone DROP pools. Tiers: Member (50+), Core (150+), Legend (500+). See /help/fans#staking",
+        a: "Member badge in chat, 10% off unlocks and requests on station shows, 24h early replay after shows end, 1.1× tip weight for set grades, and milestone DROP pools. Supporter tier adds 20% off unlocks, 15% off requests, and request priority. See /help/fans#membership",
       },
       {
-        q: "What perks do DJ supporters get?",
-        a: "Supporter badge, 12h early replay on that DJ's sets, 10% off unlocks and requests, 1.1× tip weight for set grades, and DJ milestone reward pools. See the stake panel on any DJ profile (#stake).",
+        q: "What perks do DJ members get?",
+        a: "Member badge, 12h early replay on that DJ's sets, 10% off unlocks and requests, 1.1× tip weight for set grades, and DJ milestone reward pools. Supporter tier adds 20% off unlocks, 15% off requests, and request queue priority. See the membership panel on any DJ profile (#membership).",
       },
       {
         q: "How do milestone rewards work?",
-        a: "When a DJ or station hits follower, tip, or staked DROP goals, current stakers share a reward pool. Bigger stakes earn a bigger share. Progress bars show on stake panels and station owner dashboards.",
+        a: "When a DJ or station hits follower, tip, or member MRR goals, current members share a reward pool. Supporter tier earns a larger share than Member. Progress bars show on membership panels and station owner dashboards.",
       },
       {
         q: "How do replays and early access work?",
-        a: "Ended sets appear on DJ profiles and /vod/stream-id. Station members get replay access for the first 24h after a station show; DJ supporters get 12h early access on that DJ's sets. After the window, everyone can watch. Stake from the blocked replay screen to unlock early.",
+        a: "Ended sets appear on DJ profiles and /vod/stream-id. Station members get replay access for the first 24h after a station show; DJ members get 12h early access on that DJ's sets. After the window, everyone can watch. Join membership from the blocked replay screen to unlock early.",
       },
       {
         q: "What are daily quests?",
@@ -302,7 +302,7 @@ export default function SupportPage() {
           { icon: Wifi, label: "Station guide", href: HELP_LINKS.stations },
           { icon: Wallet, label: "Wallet & DROP", href: HELP_LINKS.wallet },
           { icon: HelpCircle, label: "Help center", href: HELP_LINKS.hub },
-          { icon: MessageCircle, label: "Staking perks", href: `${HELP_LINKS.fans}#staking` },
+          { icon: MessageCircle, label: "Membership perks", href: `${HELP_LINKS.fans}#membership` },
         ].map(({ icon: Icon, label, href }) => (
           <Link
             key={href}

@@ -22,7 +22,7 @@ const guides = [
     href: HELP_LINKS.fans,
     title: "Fan guide",
     description:
-      "Watch live sets, tip DJs, unlock track IDs, stake for perks, earn achievements, and use your wallet.",
+      "Watch live sets, tip DJs, unlock track IDs, join memberships for perks, earn achievements, and use your wallet.",
     icon: Headphones,
     color: "from-purple-500/20 to-pink-500/20 border-purple-500/30",
     cta: "I'm a fan",
@@ -90,10 +90,10 @@ export default function HelpHubPage() {
           FAQ &amp; live chat
         </Link>
         <Link
-          href={`${HELP_LINKS.fans}#staking`}
+          href={`${HELP_LINKS.fans}#membership`}
           className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-5 py-2.5 text-sm text-cyan-200 hover:bg-cyan-500/20 transition-colors"
         >
-          Staking perks
+          Membership perks
         </Link>
       </div>
 
@@ -102,7 +102,7 @@ export default function HelpHubPage() {
         <div className="grid sm:grid-cols-2 gap-3">
           {HELP_TOPICS.map((topic) => {
             const Icon =
-              topic.title.includes("Staking") ? TrendingUp
+              topic.title.includes("Membership") ? TrendingUp
               : topic.title.includes("Replay") ? Eye
               : topic.title.includes("Account") ? Mail
               : topic.title.includes("Wallet") ? Wallet

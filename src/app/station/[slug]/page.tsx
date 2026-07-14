@@ -105,7 +105,7 @@ export default async function StationPage({
             </span>
             <span className="flex items-center gap-1">
               <TrendingUp className="h-3.5 w-3.5" />
-              {station._count.stakes.toLocaleString()} stakers
+              {station._count.stakes.toLocaleString()} members
             </span>
             {station.flagshipDj && (
               <span className="flex items-center gap-1 text-amber-400/90">
