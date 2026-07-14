@@ -24,6 +24,8 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
   const [totpCode, setTotpCode] = useState("");
   const [csv, setCsv] = useState("");
   const [importResult, setImportResult] = useState<string>("");
+  const [notifStats, setNotifStats] = useState<{ total: number; unread: number } | null>(null);
+  const [clearingNotifs, setClearingNotifs] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
@@ -32,10 +34,12 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
     Promise.all([
       apiFetch("/api/admin/settings").then((r) => r.json()),
       apiFetch("/api/admin/totp").then((r) => r.json()),
-    ]).then(([s, t]) => {
+      apiFetch("/api/admin/notifications").then((r) => r.json()),
+    ]).then(([s, t, n]) => {
       setSettings(s.settings);
       setEmailConfigured(s.emailConfigured ?? null);
       setTotp(t);
+      setNotifStats({ total: n.total ?? 0, unread: n.unread ?? 0 });
     }).finally(() => setLoading(false));
   }, []);
 
@@ -90,6 +94,27 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
       onMsg("Import complete");
     } else {
       onMsg(String(data.error ?? "Import failed"));
+    }
+  }
+
+  async function clearAllNotifications() {
+    const total = notifStats?.total ?? 0;
+    if (
+      !confirm(
+        `Delete all in-app notifications for every user? This removes ${total} notification(s) and cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setClearingNotifs(true);
+    const res = await apiFetch("/api/admin/notifications", { method: "POST" });
+    const data = await res.json();
+    setClearingNotifs(false);
+    if (res.ok) {
+      setNotifStats({ total: 0, unread: 0 });
+      onMsg(`Cleared ${data.deleted ?? 0} notifications for all users`);
+    } else {
+      onMsg(String(data.error ?? "Clear failed"));
     }
   }
 
@@ -248,6 +273,33 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
             )}
           </div>
         )}
+      </section>
+
+      <section className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 space-y-3">
+        <h2 className="font-semibold text-white">In-app notifications</h2>
+        <p className="text-xs text-zinc-500">
+          Clears the notification bell for every user. New go-live and support alerts will still arrive after this.
+          Browser push subscriptions are not affected.
+        </p>
+        {notifStats != null && (
+          <p className="text-sm text-zinc-400">
+            <span className="font-mono text-white">{notifStats.total}</span> total
+            {notifStats.unread > 0 && (
+              <>
+                {" "}
+                · <span className="font-mono text-amber-300">{notifStats.unread}</span> unread
+              </>
+            )}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={clearAllNotifications}
+          disabled={clearingNotifs || (notifStats?.total ?? 0) === 0}
+          className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-40"
+        >
+          {clearingNotifs ? "Clearing…" : "Clear all notifications"}
+        </button>
       </section>
 
       <section className="rounded-xl border border-white/10 bg-[#141416] p-5 space-y-3">

@@ -221,3 +221,8 @@ export async function markNotificationsRead(userId: string, ids?: string[]) {
     });
   }
 }
+
+export async function clearAllNotifications() {
+  const result = await prisma.notification.deleteMany({});
+  return result.count;
+}
