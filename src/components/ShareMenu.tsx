@@ -104,7 +104,7 @@ export function ShareMenu({
 
   const btnClass =
     variant === "primary"
-      ? "btn-primary rounded-xl px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 w-full sm:w-auto"
+      ? `btn-primary rounded-xl px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 w-full ${className.includes("w-full") ? "" : "sm:w-auto"}`
       : variant === "ghost"
         ? "text-zinc-400 hover:text-white p-2 rounded-lg hover:bg-white/5 flex items-center gap-1.5 text-sm"
         : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-white/10 flex items-center gap-2 w-full sm:w-auto";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Radio,
@@ -28,6 +28,8 @@ import { CollabDashboardPanel } from "@/components/CollabDashboardPanel";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
 import { DjWalletBanner } from "@/components/DjWalletBanner";
 import { DjDashboardOverview, type DashboardSummary } from "@/components/DjDashboardOverview";
+import { useIngestWatch } from "@/hooks/useIngestWatch";
+import { endStreamWithObsSync } from "@/lib/end-stream-client";
 
 export default function DashboardPage() {
   const { user, refresh } = useAuth();
@@ -53,6 +55,27 @@ export default function DashboardPage() {
     setGrade?: string | null;
     setScore?: number | null;
   } | null>(null);
+  const [obsSyncNote, setObsSyncNote] = useState<string | null>(null);
+
+  const handleIngestLost = useCallback(async () => {
+    const res = await apiFetch("/api/streams/go-live", { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) return;
+    setLiveStream(null);
+    setLiveStats(null);
+    setObsSyncNote("OBS stopped — your LiveBooth session was ended automatically.");
+    if (data.recap) setRecap(data.recap as RecapData);
+    await refresh();
+    apiFetch("/api/dashboard/summary")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setSummary(d as DashboardSummary));
+  }, [refresh]);
+
+  useIngestWatch({
+    ingestKey: liveStream?.ingestKey,
+    isLive: Boolean(liveStream),
+    onIngestLost: handleIngestLost,
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -117,7 +140,10 @@ export default function DashboardPage() {
 
   async function endStream() {
     setDashboardError("");
-    const res = await apiFetch("/api/streams/go-live", { method: "DELETE" });
+    setObsSyncNote(null);
+    const { res, obsStopped } = await endStreamWithObsSync(() =>
+      apiFetch("/api/streams/go-live", { method: "DELETE" }),
+    );
     const data = await res.json();
     if (!res.ok) {
       setDashboardError(data.error ?? "Could not end stream");
@@ -126,6 +152,11 @@ export default function DashboardPage() {
     setLiveStream(null);
     setLiveStats(null);
     if (data.recap) setRecap(data.recap as RecapData);
+    if (obsStopped) {
+      setObsSyncNote("Stream ended on LiveBooth and OBS was stopped.");
+    } else if (liveStream?.ingestMode === "local") {
+      setObsSyncNote("Stream ended on LiveBooth — click Stop Streaming in OBS if it's still running.");
+    }
     await refresh();
     apiFetch("/api/dashboard/summary")
       .then((r) => (r.ok ? r.json() : null))
@@ -213,6 +244,11 @@ export default function DashboardPage() {
       {dashboardError && (
         <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">
           {dashboardError}
+        </p>
+      )}
+      {obsSyncNote && (
+        <p className="mb-4 rounded-lg border border-[#53fc18]/25 bg-[#53fc18]/10 px-4 py-2 text-sm text-[#53fc18]">
+          {obsSyncNote}
         </p>
       )}
       {recap && <SessionRecapModal recap={recap} onClose={() => setRecap(null)} />}
@@ -327,15 +363,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 rounded-xl border border-white/5 bg-[#141416] p-5">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+        <div className="lg:col-span-3 rounded-xl border border-white/5 bg-[#141416] p-5">
+          <h2 className="font-semibold mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-[#53fc18]" />
             Recent Transactions
           </h2>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="divide-y divide-white/5">
             {entries.map((e, i) => (
-              <div key={`${e.createdAt}-${e.type}-${i}`} className="flex justify-between text-sm border-b border-white/5 pb-2">
+              <div key={`${e.createdAt}-${e.type}-${i}`} className="flex justify-between text-sm py-2.5 first:pt-0">
                 <span className="text-zinc-400 capitalize">{e.type.replace(/_/g, " ")}</span>
                 <span className={e.amount >= 0 ? "text-[#53fc18]" : "text-red-400"}>
                   {e.amount >= 0 ? "+" : ""}{e.amount} {DROP_TOKEN_SYMBOL}
@@ -343,7 +379,7 @@ export default function DashboardPage() {
               </div>
             ))}
             {entries.length === 0 && (
-              <div className="py-8 text-center">
+              <div className="py-6 text-center">
                 <p className="text-zinc-500 text-sm">No transactions yet</p>
                 <p className="text-xs text-zinc-600 mt-2">
                   Tips, unlocks, and quest rewards show up here when fans engage with your sets.
@@ -353,37 +389,49 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/5 bg-[#141416] p-5">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
+        <div className="lg:col-span-2 rounded-xl border border-white/5 bg-[#141416] p-5">
+          <h2 className="font-semibold mb-3 flex items-center gap-2">
             <ListMusic className="h-4 w-4 text-[#53fc18]" />
             Quick links
           </h2>
-          <div className="space-y-2 text-sm">
+          <nav className="flex flex-col gap-0.5 text-sm">
             <Link
               href={`/stream/${user.username}`}
-              className="flex items-center gap-2 text-zinc-400 hover:text-white"
+              className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
             >
-              <Radio className="h-3.5 w-3.5" /> Your booth page
+              <Radio className="h-3.5 w-3.5 shrink-0" /> Your booth page
             </Link>
             <Link
               href={`/dj/${user.username}?tab=archive`}
-              className="flex items-center gap-2 text-zinc-400 hover:text-white"
+              className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
             >
-              <Archive className="h-3.5 w-3.5" /> Set archive (replays)
+              <Archive className="h-3.5 w-3.5 shrink-0" /> Set archive (replays)
             </Link>
-            <Link href={`/dj/${user.username}`} className="flex items-center gap-2 text-zinc-400 hover:text-white">
-              <Users className="h-3.5 w-3.5" /> Public profile
+            <Link
+              href={`/dj/${user.username}`}
+              className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+            >
+              <Users className="h-3.5 w-3.5 shrink-0" /> Public profile
             </Link>
-            <Link href="/achievements" className="flex items-center gap-2 text-zinc-400 hover:text-white">
-              <Trophy className="h-3.5 w-3.5" /> Achievements
+            <Link
+              href="/achievements"
+              className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+            >
+              <Trophy className="h-3.5 w-3.5 shrink-0" /> Achievements
             </Link>
-            <Link href="/wallet" className="flex items-center gap-2 text-zinc-400 hover:text-white">
-              <Coins className="h-3.5 w-3.5" /> Wallet & withdrawals
+            <Link
+              href="/wallet"
+              className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+            >
+              <Coins className="h-3.5 w-3.5 shrink-0" /> Wallet & withdrawals
             </Link>
-            <Link href="/settings" className="flex items-center gap-2 text-zinc-400 hover:text-white">
-              <Mic className="h-3.5 w-3.5" /> Profile settings
+            <Link
+              href="/settings"
+              className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+            >
+              <Mic className="h-3.5 w-3.5 shrink-0" /> Profile settings
             </Link>
-          </div>
+          </nav>
         </div>
       </div>
     </div>

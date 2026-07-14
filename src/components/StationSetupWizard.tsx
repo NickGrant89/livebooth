@@ -168,27 +168,29 @@ export function StationSetupWizard({
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <p className="text-sm text-[#53fc18]">
             Station live at{" "}
             <Link href={`/station/${createdSlug}`} className="underline font-medium">
               /station/{createdSlug}
             </Link>
           </p>
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1 flex items-center gap-1">
+          <div className="space-y-2">
+            <label className="block text-xs text-zinc-500 flex items-center gap-1.5">
               <Radio className="h-3.5 w-3.5" />
-              First resident DJ username
+              First resident DJ
             </label>
             <DjUserPicker
               value={firstDj}
               onChange={setFirstDj}
-              placeholder="Search DJ username"
+              placeholder="Search by name or @username"
             />
-            <p className="text-[11px] text-zinc-600 mt-1">They must already have a DJ account on LiveBooth</p>
+            <p className="text-[11px] text-zinc-600">
+              Start typing a name or @username to search existing DJ accounts.
+            </p>
           </div>
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">Show title (optional)</label>
+          <div className="space-y-2">
+            <label className="block text-xs text-zinc-500">Show title (optional)</label>
             <input
               value={showTitle}
               onChange={(e) => setShowTitle(e.target.value)}

@@ -572,7 +572,6 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             crossOrigin={useCrossOrigin ? "anonymous" : undefined}
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <StreamVideoWatermark />
           {(!playbackError && (isLoading || awaitingVideo)) && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px] px-6 text-center">
               <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
@@ -680,6 +679,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         )}
         <h2 className="text-lg font-bold text-white">{streamTitle}</h2>
         <p className="text-sm text-zinc-400">{djName}</p>
+        <StreamVideoWatermark />
       </div>
 
       {showSeekBar && (

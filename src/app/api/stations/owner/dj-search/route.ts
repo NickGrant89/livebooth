@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   if (!station) return error("No station owned by this account", 404);
 
   const q = new URL(request.url).searchParams.get("q")?.trim().replace(/^@/, "") ?? "";
-  if (q.length < 2) {
+  if (q.length < 1) {
     return json({ djs: [] });
   }
 

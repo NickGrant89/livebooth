@@ -64,14 +64,14 @@ export function SessionRecapModal({
             ))}
           </div>
         )}
-        <div className="flex flex-col sm:flex-row gap-2 mt-5">
+        <div className="mt-5 grid grid-cols-2 gap-2">
           <Link
             href={`/vod/${recap.streamId}`}
-            className="flex-1 text-center rounded-xl bg-white/10 py-2.5 text-sm font-medium hover:bg-white/15"
+            className="text-center rounded-xl bg-white/10 py-2.5 text-sm font-medium hover:bg-white/15"
           >
             Replay
           </Link>
-          <SetRecordingDownloadButton streamId={recap.streamId} className="flex-1" />
+          <SetRecordingDownloadButton streamId={recap.streamId} className="w-full" />
           <ShareRecapMenu recap={recap} />
         </div>
       </div>

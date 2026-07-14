@@ -10,11 +10,11 @@ const SITE_HOST =
 export function StreamVideoWatermark() {
   return (
     <div
-      className="absolute left-3 bottom-11 z-[15] flex items-center gap-1.5 rounded-md bg-black/50 border border-white/10 px-2 py-1 backdrop-blur-sm pointer-events-none select-none"
+      className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-black/40 border border-white/10 px-2 py-1 pointer-events-none select-none"
       aria-hidden
     >
-      <LogoMarkOnly className="h-5 w-5 rounded-md border-white/5" />
-      <span className="text-[10px] font-semibold tracking-wide text-white/90">{SITE_HOST}</span>
+      <LogoMarkOnly className="h-4 w-4 rounded border-white/5" />
+      <span className="text-[10px] font-semibold tracking-wide text-white/80">{SITE_HOST}</span>
     </div>
   );
 }

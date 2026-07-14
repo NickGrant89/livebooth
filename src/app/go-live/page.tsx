@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Radio, Mic, Headphones, ChevronRight, BookOpen } from "lucide-react";
@@ -12,6 +12,8 @@ import { DJ_OBS_STEPS, GO_LIVE_STEPS } from "@/lib/guidance";
 import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
 import { StreamDetailsFields } from "@/components/StreamDetailsFields";
+import { useIngestWatch } from "@/hooks/useIngestWatch";
+import { endStreamWithObsSync } from "@/lib/end-stream-client";
 
 type StreamInfo = {
   id: string;
@@ -35,6 +37,23 @@ export default function GoLivePage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [rtmpOnline, setRtmpOnline] = useState<boolean | null>(null);
+  const [obsSyncNote, setObsSyncNote] = useState<string | null>(null);
+
+  const handleIngestLost = useCallback(async () => {
+    const res = await apiFetch("/api/streams/go-live", { method: "DELETE" });
+    if (!res.ok) return;
+    setStreamInfo(null);
+    setStep(1);
+    setTitle("");
+    setObsSyncNote("OBS stopped — your LiveBooth session was ended automatically.");
+    await refresh();
+  }, [refresh]);
+
+  useIngestWatch({
+    ingestKey: streamInfo?.ingestKey,
+    isLive: streamInfo?.status === "live",
+    onIngestLost: handleIngestLost,
+  });
 
   useEffect(() => {
     apiFetch("/api/rtmp/health")
@@ -82,7 +101,10 @@ export default function GoLivePage() {
     }
     setSubmitting(true);
     setError("");
-    const res = await apiFetch("/api/streams/go-live", { method: "DELETE" });
+    setObsSyncNote(null);
+    const { res, obsStopped } = await endStreamWithObsSync(() =>
+      apiFetch("/api/streams/go-live", { method: "DELETE" }),
+    );
     setSubmitting(false);
     if (!res.ok) {
       const data = await res.json();
@@ -92,6 +114,11 @@ export default function GoLivePage() {
     setStreamInfo(null);
     setStep(1);
     setTitle("");
+    if (obsStopped) {
+      setObsSyncNote("Stream ended on LiveBooth and OBS was stopped.");
+    } else if (streamInfo?.ingestMode === "local") {
+      setObsSyncNote("Stream ended — click Stop Streaming in OBS if it's still running.");
+    }
     await refresh();
   }
 
@@ -283,6 +310,11 @@ export default function GoLivePage() {
 
         {error && step !== 3 && (
           <p className="mb-4 text-red-400 text-sm text-center">{error}</p>
+        )}
+        {obsSyncNote && (
+          <p className="mb-4 rounded-lg border border-[#53fc18]/25 bg-[#53fc18]/10 px-4 py-2 text-sm text-[#53fc18] text-center">
+            {obsSyncNote}
+          </p>
         )}
 
         {step === 1 && (

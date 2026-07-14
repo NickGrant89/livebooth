@@ -4,12 +4,12 @@ import { DROP_TOKEN_SYMBOL, MEMBER_TIER_PRICES, MEMBER_DJ_CREATOR_SHARE, MEMBER_
 
 export function CreatorMonetizationPanel({ isLive }: { isLive: boolean }) {
   return (
-    <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 mt-4">
+    <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-5 mb-6">
       <h3 className="text-sm font-bold text-purple-200">Monetization</h3>
-      <p className="text-xs text-zinc-500 mt-1">
+      <p className="text-xs text-zinc-500 mt-1.5 mb-4">
         Three ways to earn on LiveBooth — monthly membership, brand placement, and platform ads.
       </p>
-      <ul className="mt-3 space-y-2.5 text-xs text-zinc-400">
+      <ul className="space-y-3 text-xs text-zinc-400">
         <li className="flex gap-2">
           <Crown className="h-4 w-4 shrink-0 text-purple-300 mt-0.5" />
           <span>

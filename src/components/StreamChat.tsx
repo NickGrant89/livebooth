@@ -401,33 +401,52 @@ export function StreamChat({
         ))}
       </div>
 
-      <div className="border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 max-h-[min(34vh,260px)] overflow-y-auto overscroll-y-contain bg-[#0a0a0c]">
+      <div
+        className={`border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 overflow-y-auto overscroll-y-contain bg-[#0a0a0c] ${
+          showTip || showRequest ? "max-h-[min(50vh,360px)]" : "max-h-[min(34vh,260px)]"
+        }`}
+      >
+        {!showTip && !showRequest && (
         <div className="flex gap-1.5 sm:gap-2 min-w-0">
           <button
             onClick={handleUnlockTrack}
             disabled={!hasTrack}
-            title={hasTrack ? `Unlock for ${trackUnlockCost} DROP` : "DJ hasn't set a track yet"}
-            className="flex-1 min-w-0 flex items-center justify-center gap-1 rounded-xl bg-white/[0.04] border border-white/[0.06] py-2 px-1 text-[10px] sm:text-[11px] font-medium text-zinc-400 hover:border-[#53fc18]/30 hover:text-[#53fc18] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title={hasTrack ? `Reveal track for ${trackUnlockCost} DROP` : "DJ hasn't set a track yet"}
+            className="flex-1 min-w-0 flex items-center justify-center gap-1 rounded-xl bg-white/[0.04] border border-white/[0.06] py-2 px-1.5 text-[10px] sm:text-xs font-medium text-zinc-400 hover:border-[#53fc18]/30 hover:text-[#53fc18] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Music className="h-3 w-3 shrink-0" />
-            <span className="truncate">ID · {trackUnlockCost}</span>
+            <span className="truncate">Track ID · {trackUnlockCost}</span>
           </button>
           <button
-            onClick={() => setShowRequest(true)}
-            className="flex-1 min-w-0 rounded-xl bg-white/[0.04] border border-white/[0.06] py-2 px-1 text-[10px] sm:text-[11px] font-medium text-zinc-400 hover:border-[#53fc18]/30 transition-colors truncate"
+            onClick={() => {
+              setShowTip(false);
+              setShowRequest(true);
+            }}
+            className="flex-1 min-w-0 rounded-xl bg-white/[0.04] border border-white/[0.06] py-2 px-1.5 text-[10px] sm:text-xs font-medium text-zinc-400 hover:border-[#53fc18]/30 transition-colors truncate"
           >
-            Req · {requestCost}
+            Request · {requestCost}
           </button>
           <button
             onClick={openTipForm}
-            className="flex-1 min-w-0 rounded-xl bg-[#53fc18]/10 border border-[#53fc18]/20 py-2 px-1 text-[10px] sm:text-[11px] font-bold text-[#53fc18] hover:bg-[#53fc18]/20 transition-colors"
+            className="flex-1 min-w-0 rounded-xl bg-[#53fc18]/10 border border-[#53fc18]/20 py-2 px-1.5 text-[10px] sm:text-xs font-bold text-[#53fc18] hover:bg-[#53fc18]/20 transition-colors"
           >
             Tip
           </button>
         </div>
+        )}
 
         {showRequest ? (
           <form onSubmit={handleRequest} className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-zinc-300">Request a track</span>
+              <button
+                type="button"
+                onClick={() => setShowRequest(false)}
+                className="text-xs font-semibold text-zinc-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 shrink-0"
+              >
+                Back to chat
+              </button>
+            </div>
             <input
               value={requestTrack}
               onChange={(e) => setRequestTrack(e.target.value)}
@@ -438,13 +457,20 @@ export function StreamChat({
               <button type="submit" className="flex-1 rounded-lg bg-[#53fc18] py-2 text-sm font-bold text-black">
                 Send · {requestCost} DROP
               </button>
-              <button type="button" onClick={() => setShowRequest(false)} className="text-xs text-zinc-500 px-2">
-                Cancel
-              </button>
             </div>
           </form>
         ) : showTip ? (
           <form onSubmit={handleTip} className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-zinc-300">Send a tip</span>
+              <button
+                type="button"
+                onClick={() => setShowTip(false)}
+                className="text-xs font-semibold text-zinc-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 shrink-0"
+              >
+                Back to chat
+              </button>
+            </div>
             <div className="flex gap-2">
               {[10, 25, 50, 100].map((amt) => (
                 <button
@@ -528,9 +554,6 @@ export function StreamChat({
                 Tip this drop — pin moment on VOD ({HIGHLIGHT_TIP_MIN}+ DROP)
               </label>
             )}
-            <button type="button" onClick={() => setShowTip(false)} className="text-xs text-zinc-500">
-              Cancel
-            </button>
           </form>
         ) : (
           <div className="flex gap-2">

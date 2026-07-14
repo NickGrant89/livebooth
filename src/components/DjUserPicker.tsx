@@ -36,7 +36,7 @@ export function DjUserPicker({
 
   useEffect(() => {
     const query = value.trim().replace(/^@/, "");
-    if (query.length < 2) {
+    if (query.length < 1) {
       setResults([]);
       setOpen(false);
       return;
@@ -114,7 +114,7 @@ export function DjUserPicker({
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
-          className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm pr-8"
+          className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-white pr-8"
         />
         {loading && (
           <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" />
@@ -151,7 +151,7 @@ export function DjUserPicker({
         </ul>
       )}
 
-      {open && !loading && value.trim().length >= 2 && results.length === 0 && (
+      {open && !loading && value.trim().length >= 1 && results.length === 0 && (
         <p className="absolute z-30 mt-1 w-full rounded-lg border border-white/10 bg-[#141416] px-3 py-2 text-xs text-zinc-500 shadow-xl">
           No DJ accounts found — they must sign up as Creator first.
         </p>

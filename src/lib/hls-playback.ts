@@ -22,26 +22,35 @@ export function isProxiedMediaMtxHls(url: string): boolean {
   return url.includes("/api/hls/live/") || /hls\.livebooth\.uk\/live\//.test(url);
 }
 
+/** iPad / iPadOS (incl. desktop UA with touch) — native LL-HLS via proxy is unreliable. */
+export function isIPadLike(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /iPad/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 /** hls.js settings for MediaMTX default lowLatency fMP4 HLS. */
 export function createMediaMtxHlsConfig() {
+  const tablet = isIPadLike();
   return {
-    enableWorker: true,
-    lowLatencyMode: true,
-    backBufferLength: 30,
-    liveSyncDurationCount: 2,
-    liveMaxLatencyDurationCount: 5,
+    enableWorker: !tablet,
+    lowLatencyMode: !tablet,
+    backBufferLength: tablet ? 60 : 30,
+    liveSyncDurationCount: tablet ? 3 : 2,
+    liveMaxLatencyDurationCount: tablet ? 8 : 5,
     maxLiveSyncPlaybackRate: 1.2,
     liveDurationInfinity: true,
-    manifestLoadingTimeOut: 15000,
-    manifestLoadingMaxRetry: 8,
-    fragLoadingTimeOut: 20000,
-    fragLoadingMaxRetry: 8,
+    manifestLoadingTimeOut: 20000,
+    manifestLoadingMaxRetry: 10,
+    fragLoadingTimeOut: 25000,
+    fragLoadingMaxRetry: 10,
   } as const;
 }
 
 /** Safari plays MediaMTX HLS natively; hls.js LL-HLS mode is for Chrome/Firefox. */
 export function preferNativeMediaMtxHls(): boolean {
   if (typeof window === "undefined") return false;
+  if (isIPadLike()) return false;
   const video = document.createElement("video");
   if (!video.canPlayType("application/vnd.apple.mpegurl")) return false;
   const ua = navigator.userAgent;
