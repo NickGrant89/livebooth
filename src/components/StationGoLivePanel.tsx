@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Radio, Tv } from "lucide-react";
 import { GoLivePreview } from "@/components/GoLivePreview";
+import { StreamDetailsFields } from "@/components/StreamDetailsFields";
 import { apiFetch } from "@/lib/fetch-client";
 import { genreLabels } from "@/lib/constants";
 
@@ -29,6 +30,7 @@ export function StationGoLivePanel({ stationName, stationSlug, onStatusChange }:
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [title, setTitle] = useState(`${stationName} live`);
+  const [description, setDescription] = useState("");
   const [genre, setGenre] = useState("mixed");
   const [rtmpOnline, setRtmpOnline] = useState<boolean | null>(null);
 
@@ -57,7 +59,7 @@ export function StationGoLivePanel({ stationName, stationSlug, onStatusChange }:
     setError("");
     const res = await apiFetch("/api/stations/owner/go-live", {
       method: "POST",
-      body: JSON.stringify({ title, genre }),
+      body: JSON.stringify({ title, genre, description: description || undefined }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -207,17 +209,22 @@ export function StationGoLivePanel({ stationName, stationSlug, onStatusChange }:
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Show title"
-          className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
-        />
+      <StreamDetailsFields
+        title={title}
+        description={description}
+        onTitleChange={setTitle}
+        onDescriptionChange={setDescription}
+        titlePlaceholder="Show title"
+        descriptionPlaceholder="Describe this station show for fans and replay viewers."
+        compact
+      />
+
+      <div>
+        <label className="block text-xs text-zinc-500 mb-1.5">Genre</label>
         <select
           value={genre}
           onChange={(e) => setGenre(e.target.value)}
-          className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
+          className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
         >
           {Object.entries(genreLabels).map(([id, label]) => (
             <option key={id} value={id}>

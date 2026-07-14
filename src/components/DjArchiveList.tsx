@@ -11,6 +11,7 @@ import { apiFetch } from "@/lib/fetch-client";
 export type ArchiveStream = {
   id: string;
   title: string;
+  description?: string | null;
   genre: string;
   peakViewers: number;
   totalTips: number;
@@ -61,6 +62,9 @@ function ArchiveRowContent({
       )}
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{s.title}</p>
+        {s.description ? (
+          <p className="text-xs text-zinc-600 mt-0.5 line-clamp-1">{s.description}</p>
+        ) : null}
         <p className="text-xs text-zinc-500 mt-0.5">
           {variant === "admin" && s.dj ? `@${s.dj.username} · ` : ""}
           {variant === "dj" && (

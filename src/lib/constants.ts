@@ -27,6 +27,8 @@ export const APP_TAGLINE = "Tip the drop";
 export const DAILY_LOGIN_DROP = 5;
 export const FIRST_TIP_BONUS = 5;
 export const HIGHLIGHT_TIP_MIN = 25;
+export const STREAM_TITLE_MAX = 120;
+export const STREAM_DESCRIPTION_MAX = 500;
 export const MIN_STAKE_AMOUNT = 50;
 
 /** Staker membership perks (v2) */

@@ -126,7 +126,7 @@ export function SupportLiveChat({
   }, [session, poll]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
 
   async function startChat(e: React.FormEvent) {

@@ -122,6 +122,7 @@ export async function getPastBroadcastsForStation(stationId: string, limit = 20)
     select: {
       id: true,
       title: true,
+      description: true,
       genre: true,
       peakViewers: true,
       totalTips: true,

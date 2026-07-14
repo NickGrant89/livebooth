@@ -12,6 +12,7 @@ import {
 } from "@/lib/vod-recording";
 import { computeSetScore } from "@/lib/set-score";
 import { vodMetadata } from "@/lib/metadata-share";
+import { canEditStreamDetails } from "@/lib/stream-details";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function generateMetadata({
     streamId: id,
     djName: stream.dj.displayName,
     title: stream.title,
+    description: stream.description,
   });
 }
 
@@ -50,6 +52,13 @@ export default async function VODPage({
   if (!stream || stream.status !== "ended") notFound();
 
   const session = await getSessionUser();
+  const canEditDetails = session
+    ? await canEditStreamDetails(session.id, session.role, {
+        djId: stream.djId,
+        stationId: stream.stationId,
+        stationChannel: stream.stationChannel,
+      })
+    : false;
   const vodAccess = await getVodAccess(
     session?.id,
     {
@@ -117,6 +126,8 @@ export default async function VODPage({
       <VodReplay
         streamId={id}
         title={stream.title}
+        description={stream.description}
+        canEditDetails={canEditDetails}
         djName={displayName}
         djUsername={stream.dj.username}
         peakViewers={stream.peakViewers}

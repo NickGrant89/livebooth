@@ -11,6 +11,7 @@ import { GoLivePreview } from "@/components/GoLivePreview";
 import { DJ_OBS_STEPS, GO_LIVE_STEPS } from "@/lib/guidance";
 import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
+import { StreamDetailsFields } from "@/components/StreamDetailsFields";
 
 type StreamInfo = {
   id: string;
@@ -27,6 +28,7 @@ export default function GoLivePage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [genre, setGenre] = useState("live-band");
   const [bpmRange, setBpmRange] = useState("");
   const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
@@ -98,7 +100,7 @@ export default function GoLivePage() {
     setError("");
     const res = await apiFetch("/api/streams/go-live", {
       method: "POST",
-      body: JSON.stringify({ title, genre, bpmRange: bpmRange || undefined }),
+      body: JSON.stringify({ title, genre, description: description || undefined, bpmRange: bpmRange || undefined }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -122,6 +124,7 @@ export default function GoLivePage() {
       method: "POST",
       body: JSON.stringify({
         title: streamInfo?.title || title,
+        description: description || undefined,
         genre,
         bpmRange: bpmRange || undefined,
         forceNew: true,
@@ -267,11 +270,12 @@ export default function GoLivePage() {
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Mic className="h-5 w-5 text-[#53fc18]" /> Stream Details
             </h2>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Set title"
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-4 py-3 text-white"
+            <StreamDetailsFields
+              title={title}
+              description={description}
+              onTitleChange={setTitle}
+              onDescriptionChange={setDescription}
+              titlePlaceholder="Set title"
             />
             <label className="block text-xs text-zinc-500 mb-2">Category / genre</label>
             <GenrePicker value={genre} onChange={setGenre} />

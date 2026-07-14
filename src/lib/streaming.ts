@@ -137,6 +137,7 @@ export async function createStationChannelSession(
   stationId: string,
   title: string,
   genre: string,
+  description = "",
 ) {
   const ingestKey = `st_${crypto.randomUUID().replace(/-/g, "")}`;
   const playbackUrl = useLocalRtmp()
@@ -149,6 +150,7 @@ export async function createStationChannelSession(
     data: {
       djId: ownerId,
       title,
+      description,
       genre,
       status: "preparing",
       ingestKey,
@@ -165,6 +167,7 @@ export async function createStreamSession(
   genre: string,
   bpmRange?: string,
   stationId?: string | null,
+  description = "",
 ) {
   const ingestKey = `lb_${crypto.randomUUID().replace(/-/g, "")}`;
 
@@ -192,6 +195,7 @@ export async function createStreamSession(
           data: {
             djId,
             title,
+            description,
             genre,
             bpmRange,
             status: "preparing",
@@ -217,6 +221,7 @@ export async function createStreamSession(
     data: {
       djId,
       title,
+      description,
       genre,
       bpmRange,
       status: "preparing",

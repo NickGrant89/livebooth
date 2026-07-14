@@ -14,10 +14,12 @@ import { evaluateAchievements } from "@/lib/achievements";
 import { updateDjStreak, buildStreamRecap } from "@/lib/retention";
 import { computeSetScore } from "@/lib/set-score";
 import { z } from "zod";
+import { normalizeStreamDescription } from "@/lib/stream-details";
 
 const schema = z.object({
   title: z.string().min(1),
   genre: z.string().default("mixed"),
+  description: z.string().max(500).optional(),
 });
 
 function serializeChannelStream(stream: {
@@ -65,6 +67,7 @@ export async function POST(request: Request) {
       station.id,
       body.title,
       body.genre,
+      normalizeStreamDescription(body.description),
     );
     return json({ stream: serializeChannelStream(stream), alreadyLive: false });
   } catch (e) {

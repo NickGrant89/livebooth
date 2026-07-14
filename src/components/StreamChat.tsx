@@ -53,8 +53,7 @@ export function StreamChat({
   const { queue, pushUnlocks, dismissOne } = useAchievementUnlocks();
   const [unlockedTrack, setUnlockedTrack] = useState<string | null>(null);
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const tipPanelRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
 
   const canUseOnChain =
     contractsReady && isConnected && Boolean(djWalletAddress?.startsWith("0x"));
@@ -74,12 +73,6 @@ export function StreamChat({
     setShowTip(true);
     if (!tipAmount) setTipAmount("25");
   }
-
-  useEffect(() => {
-    if (showTip || showRequest) {
-      tipPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    }
-  }, [showTip, showRequest]);
 
   async function reportMessage(messageId: string) {
     if (!user) {
@@ -147,7 +140,9 @@ export function StreamChat({
   }, [user, streamId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   async function handleSend(e: React.FormEvent) {
@@ -338,7 +333,10 @@ export function StreamChat({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
+      <div
+        ref={messagesRef}
+        className="flex-1 overflow-y-auto overscroll-y-contain p-3 sm:p-4 space-y-3 min-h-0"
+      >
         {messages.map((msg) => (
           <div key={msg.id} className="text-sm group flex gap-2.5">
             <ProfileAvatar
@@ -401,13 +399,9 @@ export function StreamChat({
             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
 
-      <div
-        ref={tipPanelRef}
-        className="border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 max-h-[min(52vh,420px)] overflow-y-auto bg-[#0a0a0c]"
-      >
+      <div className="border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 max-h-[min(52vh,420px)] overflow-y-auto overscroll-y-contain bg-[#0a0a0c]">
         <div className="flex gap-1.5 sm:gap-2 min-w-0">
           <button
             onClick={handleUnlockTrack}

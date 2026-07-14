@@ -54,9 +54,11 @@ export function StreamMobileTabs({
       </div>
 
       {/* Desktop: side by side */}
-      <div className="hidden lg:flex flex-1 flex-row min-h-0 min-w-0 overflow-hidden max-w-[1600px] mx-auto w-full">
-        <div className="flex-1 min-w-0 flex flex-col">{watch}</div>
-        <div className="shrink-0 flex flex-col border-l border-white/[0.06]">{chat}</div>
+      <div className="hidden lg:flex flex-1 flex-row min-h-0 min-w-0 h-full overflow-hidden max-w-[1600px] mx-auto w-full">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">{watch}</div>
+        <div className="shrink-0 flex flex-col min-h-0 h-full overflow-hidden border-l border-white/[0.06]">
+          {chat}
+        </div>
       </div>
     </div>
   );

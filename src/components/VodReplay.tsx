@@ -8,6 +8,7 @@ import { ShareMenu } from "@/components/ShareMenu";
 import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { FanGradeShare } from "@/components/FanGradeShare";
 import { ClipExportPanel } from "@/components/ClipExportPanel";
+import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
 import { formatClipTimestamp } from "@/lib/clip-export";
 import { STAKER_VOD_EARLY_HOURS, DJ_STAKER_VOD_EARLY_HOURS } from "@/lib/constants";
 
@@ -21,6 +22,8 @@ type Highlight = {
 type VodReplayProps = {
   streamId: string;
   title: string;
+  description?: string | null;
+  canEditDetails?: boolean;
   djName: string;
   djUsername: string;
   peakViewers: number;
@@ -51,6 +54,8 @@ function formatTimestamp(ms: number) {
 export function VodReplay({
   streamId,
   title,
+  description = "",
+  canEditDetails = false,
   djName,
   djUsername,
   peakViewers,
@@ -150,9 +155,15 @@ export function VodReplay({
         </p>
       )}
       <div className="mt-4 rounded-xl border border-white/5 bg-[#141416] p-4 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold">{title}</h1>
-          <p className="text-sm text-zinc-400 mt-1">
+        <div className="min-w-0 flex-1">
+          <StreamDetailsEditor
+            streamId={streamId}
+            initialTitle={title}
+            initialDescription={description}
+            canEdit={canEditDetails}
+            variant="vod"
+          />
+          <p className="text-sm text-zinc-400 mt-2">
             {peakViewers} peak viewers · {totalTips} DROP tipped
           </p>
         </div>

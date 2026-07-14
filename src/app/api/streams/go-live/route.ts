@@ -8,9 +8,12 @@ import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { z } from "zod";
 
+import { normalizeStreamDescription } from "@/lib/stream-details";
+
 const schema = z.object({
   title: z.string().min(1),
   genre: z.string(),
+  description: z.string().max(500).optional(),
   bpmRange: z.string().optional(),
   /** Discard preparing session and issue a fresh lb_ key (fixes OBS auth disconnect loops). */
   forceNew: z.boolean().optional(),
@@ -21,6 +24,7 @@ function serializeGoLiveStream(stream: {
   ingestKey: string | null;
   playbackUrl: string | null;
   title: string;
+  description?: string;
   status?: string;
 }) {
   return {
@@ -33,6 +37,7 @@ function serializeGoLiveStream(stream: {
       stream.playbackUrl,
     ),
     title: stream.title,
+    description: stream.description ?? "",
     status: stream.status ?? "preparing",
     ingestMode: getIngestModeForStream(stream.ingestKey, stream.playbackUrl),
   };
@@ -69,6 +74,7 @@ export async function POST(request: Request) {
       body.genre,
       body.bpmRange,
       station?.id,
+      normalizeStreamDescription(body.description),
     );
 
     return json({ stream: serializeGoLiveStream(stream), alreadyLive: false });

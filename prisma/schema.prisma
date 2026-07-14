@@ -123,6 +123,7 @@ model Stream {
   id           String    @id @default(cuid())
   djId         String
   title        String
+  description  String    @default("")
   genre        String
   bpmRange     String?
   status       String    @default("scheduled")

@@ -18,6 +18,7 @@ import { isDemoPlayback, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { StreamPageLayout } from "@/components/StreamPageLayout";
 import { StationBrandAvatar } from "@/components/StationBrandAvatar";
 import { getStationBySlug, getLiveStreamForStation } from "@/lib/stations";
+import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,8 @@ export default async function StationLivePage({
   const playbackUrl = resolveLivePlaybackUrl(stream.status, stream.ingestKey, stream.playbackUrl);
   const isStationChannel = stream.stationChannel;
   const isHost = session?.id === stream.djId;
+  const isStationOwner = session?.id === station.ownerId;
+  const canEditDetails = isHost || isStationOwner;
 
   const achievements = await prisma.userAchievement.findMany({
     where: { userId: stream.djId, unlockedAt: { not: null } },
@@ -72,7 +75,7 @@ export default async function StationLivePage({
   return (
     <StreamPageLayout
       watch={
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto lg:border-r lg:border-white/[0.06]">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto overscroll-y-contain lg:overflow-hidden lg:border-r lg:border-white/[0.06]">
           <div className="bg-black relative shrink-0">
             <StreamTheater
               streamId={stream.id}
@@ -131,7 +134,26 @@ export default async function StationLivePage({
                       </>
                     )}
                   </p>
-                  <p className="text-sm text-zinc-500 truncate">{stream.title}</p>
+                  {canEditDetails ? (
+                    <div className="mt-1">
+                      <StreamDetailsEditor
+                        streamId={stream.id}
+                        initialTitle={stream.title}
+                        initialDescription={stream.description}
+                        canEdit
+                        variant="live"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-zinc-500 truncate">{stream.title}</p>
+                      {stream.description ? (
+                        <p className="text-xs text-zinc-500 mt-1 line-clamp-2 whitespace-pre-wrap">
+                          {stream.description}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                   <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-zinc-500">
                     <StreamLiveStats streamId={stream.id} initialPeak={stream.peakViewers} />
                     <span className="flex items-center gap-1 text-[#53fc18]">

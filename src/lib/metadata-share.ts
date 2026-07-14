@@ -76,6 +76,7 @@ export function vodMetadata(opts: {
   streamId: string;
   djName: string;
   title: string;
+  description?: string | null;
 }): Metadata {
   const base = getSiteUrl();
   const pageUrl = `${base}/vod/${opts.streamId}`;
@@ -84,17 +85,20 @@ export function vodMetadata(opts: {
     dj: opts.djName,
     title: opts.title,
   });
+  const description =
+    opts.description?.trim() ||
+    `Watch the set replay on LiveBooth. ${APP_TAGLINE}`;
 
   return {
     title: `Replay — ${opts.title} · ${opts.djName}`,
-    description: `Watch the set replay on LiveBooth. ${APP_TAGLINE}`,
+    description,
     openGraph: {
       title: `Replay — ${opts.title}`,
-      description: `${opts.djName} on LiveBooth`,
+      description,
       url: pageUrl,
       images: [{ url: ogImage, width: 1200, height: 630 }],
     },
-    twitter: { card: "summary_large_image", images: [ogImage] },
+    twitter: { card: "summary_large_image", description, images: [ogImage] },
   };
 }
 

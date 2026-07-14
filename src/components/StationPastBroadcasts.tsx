@@ -7,6 +7,7 @@ import { isVodLikelyProcessing } from "@/lib/vod-recording";
 export type StationPastBroadcast = {
   id: string;
   title: string;
+  description?: string | null;
   genre: string;
   peakViewers: number;
   totalTips: number;
@@ -114,6 +115,9 @@ export function StationPastBroadcasts({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate text-white">{b.title}</p>
+                {b.description ? (
+                  <p className="text-xs text-zinc-600 mt-0.5 line-clamp-1">{b.description}</p>
+                ) : null}
                 <p className="text-xs text-zinc-500 mt-0.5 truncate">
                   {formatDate(b.startedAt, b.endedAt)}
                   {duration ? ` · ${duration}` : ""}

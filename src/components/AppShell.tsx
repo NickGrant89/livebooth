@@ -22,6 +22,9 @@ export function AppShell({
   const isEmbed = pathname?.startsWith("/embed");
 
   const isStream = pathname?.startsWith("/stream/");
+  const isStationLive =
+    pathname != null && /^\/station\/[^/]+\/live\/?$/.test(pathname);
+  const isLiveBooth = isStream || isStationLive;
 
   if (isEmbed) {
     return <Providers initialUser={initialUser}>{children}</Providers>;
@@ -29,15 +32,23 @@ export function AppShell({
 
   return (
     <Providers initialUser={initialUser}>
-      <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
+      <div
+        className={`relative flex flex-col overflow-x-hidden max-w-[100vw] ${
+          isLiveBooth ? "h-[100dvh] overflow-hidden" : "min-h-screen"
+        }`}
+      >
         <Navbar />
-        <BetaBanner />
-        <DemoHostBanner />
-        <DailyLoginBanner />
-        <main className="relative z-[1] flex-1 min-w-0 w-full">
+        {!isLiveBooth && <BetaBanner />}
+        {!isLiveBooth && <DemoHostBanner />}
+        {!isLiveBooth && <DailyLoginBanner />}
+        <main
+          className={`relative z-[1] flex-1 min-w-0 w-full min-h-0 ${
+            isLiveBooth ? "flex flex-col overflow-hidden" : ""
+          }`}
+        >
           <MaintenanceGate>{children}</MaintenanceGate>
         </main>
-        {!isStream && <Footer />}
+        {!isLiveBooth && <Footer />}
         <SupportChatWidget />
       </div>
     </Providers>

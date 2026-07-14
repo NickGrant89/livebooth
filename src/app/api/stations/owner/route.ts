@@ -104,7 +104,7 @@ export async function GET() {
     embed: stationAllowsEmbed(station.tier)
       ? {
           url: `${appUrl}/embed/station/${station.slug}`,
-          snippet: `<iframe src="${appUrl}/embed/station/${station.slug}" width="100%" height="420" frameborder="0" allow="autoplay" title="${station.name}"></iframe>`,
+          snippet: `<iframe src="${appUrl}/embed/station/${station.slug}" width="100%" height="420" frameborder="0" allow="autoplay; fullscreen" title="${station.name} live"></iframe>`,
         }
       : null,
   });
