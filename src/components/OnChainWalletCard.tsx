@@ -8,7 +8,7 @@ import { LiveBoothWalletConnect } from "@/components/LiveBoothWalletConnect";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
 import { privyConfigured } from "@/lib/vechain-kit-config";
 import { apiFetch } from "@/lib/fetch-client";
-import { contractsConfigured, isOnChainEnabled } from "@/lib/web3/contracts";
+import { CONTRACTS, contractsConfigured, isOnChainEnabled } from "@/lib/web3/contracts";
 
 type OnChainStatus = {
   contractsConfigured: boolean;
