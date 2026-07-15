@@ -84,7 +84,7 @@ remux_largest_in_dir() {
   done < <(find "$dir" -maxdepth 1 -type f \( -name '*.mp4' -o -name '*.fmp4' \) ! -name '*.remuxing*')
   if [[ -n "$best" && ! -f "${best}.remuxed" ]]; then
     echo "Remuxing ${best} (${best_size} bytes) …"
-    REMUX_FORCE=1 "${REMUX_BIN}" "$best" || echo "WARN: remux failed for ${best}" >&2
+    REMUX_FORCE=1 "${REMUX_BIN}" "$best" < /dev/null || echo "WARN: remux failed for ${best}" >&2
   fi
 }
 

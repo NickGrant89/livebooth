@@ -3,9 +3,19 @@ import { json, error, isApiError } from "@/lib/api-utils";
 import {
   requireStaffApi,
   requireAdminApi,
+  requireModeratorAnyPermissionApi,
+  requireModeratorPermissionApi,
   logAdminAction,
 } from "@/lib/admin";
-import { isProtectedStaffTarget, isFullAdminRole } from "@/lib/staff-roles";
+import {
+  isProtectedStaffTarget,
+  isFullAdminRole,
+  MODERATOR_PERMISSION_IDS,
+  isModeratorCreatableUserRole,
+  parseModeratorPermissions,
+  serializeModeratorPermissions,
+  type ModeratorPermissionId,
+} from "@/lib/staff-roles";
 import { getWelcomeBonus } from "@/lib/platform-settings";
 import { generateInvitePassword } from "@/lib/invite-password";
 import bcrypt from "bcryptjs";
@@ -14,7 +24,12 @@ import { createPasswordResetToken, getResetUrl } from "@/lib/password-reset";
 import { sendAdminPasswordResetEmail, isEmailConfigured } from "@/lib/email";
 
 export async function GET(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorAnyPermissionApi(request, [
+    "users_search",
+    "users_suspend",
+    "users_create",
+    "users_invite",
+  ]);
   if (isApiError(staff)) return staff;
 
   const q = new URL(request.url).searchParams.get("q")?.trim();
@@ -50,6 +65,8 @@ export async function GET(request: Request) {
       streamCount: u._count.streams,
       followers: u._count.followers,
       createdAt: u.createdAt.toISOString(),
+      moderatorPermissions:
+        u.role === "moderator" ? parseModeratorPermissions(u.moderatorPermissions) : [],
     })),
   });
 }
@@ -65,6 +82,7 @@ const patchSchema = z.object({
   setBalance: z.number().min(0).optional(),
   sendPasswordReset: z.boolean().optional(),
   setPassword: z.string().min(6).optional(),
+  moderatorPermissions: z.array(z.enum(MODERATOR_PERMISSION_IDS as [string, ...string[]])).optional(),
 });
 
 const moderatorPatchSchema = z.object({
@@ -82,6 +100,9 @@ export async function PATCH(request: Request) {
     const isFullAdmin = isFullAdminRole(staff.role);
 
     if (!isFullAdmin) {
+      const permCheck = await requireModeratorPermissionApi(request, "users_suspend");
+      if (isApiError(permCheck)) return permCheck;
+
       const body = moderatorPatchSchema.parse(raw);
       if (body.userId === staff.id) return error("Cannot suspend your own account", 400);
 
@@ -154,6 +175,14 @@ export async function PATCH(request: Request) {
     if (body.setPassword) {
       data.passwordHash = await bcrypt.hash(body.setPassword, 10);
     }
+    if (body.moderatorPermissions) {
+      data.moderatorPermissions = serializeModeratorPermissions(
+        body.moderatorPermissions as ModeratorPermissionId[],
+      );
+    }
+    if (body.role === "moderator" && !body.moderatorPermissions && target.role !== "moderator") {
+      data.moderatorPermissions = serializeModeratorPermissions([]);
+    }
 
     const user = await prisma.user.update({
       where: { id: body.userId },
@@ -183,7 +212,19 @@ export async function PATCH(request: Request) {
     }
 
     await logAdminAction(staff.id, "user_update", body.userId, { ...data, balanceAdjust: body.balanceAdjust, sendPasswordReset: body.sendPasswordReset }, request);
-    return json({ user: { id: user.id, role: user.role, suspendedAt: user.suspendedAt, email: user.email, displayName: user.displayName } });
+    return json({
+      user: {
+        id: user.id,
+        role: user.role,
+        suspendedAt: user.suspendedAt,
+        email: user.email,
+        displayName: user.displayName,
+        moderatorPermissions:
+          user.role === "moderator"
+            ? parseModeratorPermissions(user.moderatorPermissions)
+            : [],
+      },
+    });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid request");
     return error("Update failed", 500);
@@ -196,14 +237,21 @@ const createSchema = z.object({
   username: z.string().min(3).max(20).regex(/^[a-z0-9_]+$/),
   displayName: z.string().min(1).max(50),
   role: z.enum(["fan", "dj", "station", "moderator", "admin"]).default("fan"),
+  moderatorPermissions: z.array(z.enum(MODERATOR_PERMISSION_IDS as [string, ...string[]])).optional(),
 });
 
 export async function POST(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireModeratorPermissionApi(request, "users_create");
+  if (isApiError(staff)) return staff;
+  const isFullAdmin = isFullAdminRole(staff.role);
 
   try {
     const body = createSchema.parse(await request.json());
+    if (!isFullAdmin) {
+      if (!isModeratorCreatableUserRole(body.role)) {
+        return error("Moderators can only create fan, DJ, and radio accounts", 403);
+      }
+    }
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email: body.email }, { username: body.username }] },
     });
@@ -221,11 +269,17 @@ export async function POST(request: Request) {
         role: body.role,
         avatar: body.displayName.slice(0, 2).toUpperCase(),
         emailVerifiedAt: new Date(),
+        moderatorPermissions:
+          body.role === "moderator"
+            ? serializeModeratorPermissions(
+                (body.moderatorPermissions ?? []) as ModeratorPermissionId[],
+              )
+            : "[]",
         balance: { create: { balance: welcomeBonus, totalEarned: 0 } },
       },
     });
 
-    await logAdminAction(admin.id, "user_create", user.id, { role: body.role }, request);
+    await logAdminAction(staff.id, "user_create", user.id, { role: body.role }, request);
     return json({
       user: {
         id: user.id,

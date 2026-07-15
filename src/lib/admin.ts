@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "./db";
-import { error } from "./api-utils";
+import { error, isApiError } from "./api-utils";
 import { getSessionUser, type SessionUser } from "./auth";
 import { enforceRateLimit, getClientIp } from "./rate-limit";
 import { isSupportTicketUnread } from "./support-ticket-unread";
@@ -8,8 +8,11 @@ import {
   isStaffRole,
   isFullAdminRole,
   type StaffRole,
+  type ModeratorPermissionId,
   STAFF_ROLES,
   MODERATOR_TAB_IDS,
+  parseModeratorPermissions,
+  hasModeratorPermission,
 } from "./staff-roles";
 
 const ADMIN_API_LIMIT = 120;
@@ -18,11 +21,62 @@ const ADMIN_API_WINDOW_MS = 60 * 1000;
 export {
   STAFF_ROLES,
   MODERATOR_TAB_IDS,
+  MODERATOR_PERMISSIONS,
+  MODERATOR_PERMISSION_IDS,
+  DEFAULT_MODERATOR_PERMISSIONS,
   isStaffRole,
   isFullAdminRole,
   isProtectedStaffTarget,
+  parseModeratorPermissions,
+  serializeModeratorPermissions,
+  hasModeratorPermission,
+  moderatorCanAccessTab,
+  isModeratorCreatableUserRole,
+  MODERATOR_CREATABLE_USER_ROLES,
+  type ModeratorCreatableUserRole,
   type StaffRole,
+  type ModeratorPermissionId,
 } from "./staff-roles";
+
+async function staffPermissions(staff: SessionUser): Promise<ModeratorPermissionId[]> {
+  if (isFullAdminRole(staff.role)) return [];
+  const row = await prisma.user.findUnique({
+    where: { id: staff.id },
+    select: { moderatorPermissions: true },
+  });
+  return parseModeratorPermissions(row?.moderatorPermissions);
+}
+
+export async function requireModeratorPermissionApi(
+  request: Request,
+  permission: ModeratorPermissionId,
+): Promise<SessionUser | NextResponse> {
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
+  if (isFullAdminRole(staff.role)) return staff;
+
+  const perms = await staffPermissions(staff);
+  if (!hasModeratorPermission(staff.role, perms, permission)) {
+    return error("Permission denied", 403);
+  }
+  return staff;
+}
+
+/** Staff with any of the listed permissions (admins always pass). */
+export async function requireModeratorAnyPermissionApi(
+  request: Request,
+  permissions: ModeratorPermissionId[],
+): Promise<SessionUser | NextResponse> {
+  const staff = await requireStaffApi(request);
+  if (isApiError(staff)) return staff;
+  if (isFullAdminRole(staff.role)) return staff;
+
+  const perms = await staffPermissions(staff);
+  if (!permissions.some((p) => hasModeratorPermission(staff.role, perms, p))) {
+    return error("Permission denied", 403);
+  }
+  return staff;
+}
 
 export async function requireStaff(): Promise<SessionUser | null> {
   const user = await getSessionUser();

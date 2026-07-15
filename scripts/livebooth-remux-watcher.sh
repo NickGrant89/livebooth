@@ -36,7 +36,7 @@ remux_largest_in_path() {
   fi
 
   echo "[remux-watcher] remux ${best}"
-  REMUX_FORCE=1 "${REMUX_BIN}" "$best" || echo "[remux-watcher] failed ${best}" >&2
+  REMUX_FORCE=1 "${REMUX_BIN}" "$best" < /dev/null || echo "[remux-watcher] failed ${best}" >&2
 }
 
 process_queue() {

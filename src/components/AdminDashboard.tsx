@@ -27,7 +27,15 @@ import { AdminStationResidents } from "@/components/admin/AdminStationResidents"
 import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
 import { generateInvitePassword } from "@/lib/invite-password";
 import { formatBetaInviteText, inviteRoleLabel } from "@/lib/invite-copy";
-import { MODERATOR_TAB_IDS, isProtectedStaffTarget } from "@/lib/staff-roles";
+import { ModeratorPermissionsEditor } from "@/components/admin/ModeratorPermissionsEditor";
+import {
+  DEFAULT_MODERATOR_PERMISSIONS,
+  hasModeratorPermission,
+  moderatorCanAccessTab,
+  MODERATOR_PERMISSIONS,
+  type ModeratorPermissionId,
+  isProtectedStaffTarget,
+} from "@/lib/staff-roles";
 
 type PendingInvite = {
   userId: string;
@@ -117,8 +125,31 @@ type AdminWithdrawRow = {
   user: { username: string; displayName: string; email: string; role: string; stripeConnectOnboarded?: boolean };
 };
 
-export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
-  const [tab, setTab] = useState<Tab>("overview");
+export function AdminDashboard({
+  isFullAdmin,
+  moderatorPermissions = DEFAULT_MODERATOR_PERMISSIONS,
+  emailConfigured = false,
+}: {
+  isFullAdmin: boolean;
+  moderatorPermissions?: ModeratorPermissionId[];
+  emailConfigured?: boolean;
+}) {
+  const [tab, setTab] = useState<Tab>(() => {
+    if (isFullAdmin) return "overview";
+    const order: Tab[] = [
+      "overview",
+      "users",
+      "streams",
+      "archives",
+      "stations",
+      "moderation",
+      "support",
+    ];
+    for (const id of order) {
+      if (moderatorCanAccessTab("moderator", moderatorPermissions, id)) return id;
+    }
+    return "moderation";
+  });
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [users, setUsers] = useState<Array<Record<string, unknown>>>([]);
   const [streams, setStreams] = useState<Array<Record<string, unknown>>>([]);
@@ -162,6 +193,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
     displayName: "",
     password: "",
     role: "fan",
+    moderatorPermissions: [...DEFAULT_MODERATOR_PERMISSIONS] as ModeratorPermissionId[],
   });
   const [showCreateStation, setShowCreateStation] = useState(false);
   const [createStationForm, setCreateStationForm] = useState({
@@ -177,11 +209,21 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
   const [transferStation, setTransferStation] = useState<{ id: string; slug: string } | null>(null);
   const [transferUsername, setTransferUsername] = useState("");
   const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
-  const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
+  const [emailConfiguredState, setEmailConfigured] = useState<boolean | null>(
+    emailConfigured ? true : null,
+  );
   const [signupEnabled, setSignupEnabled] = useState<boolean | null>(null);
   const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
+  const [editingModPermsUserId, setEditingModPermsUserId] = useState<string | null>(null);
+  const [modPermsDraft, setModPermsDraft] = useState<ModeratorPermissionId[]>([
+    ...DEFAULT_MODERATOR_PERMISSIONS,
+  ]);
 
-  const moderatorTabSet = new Set<string>(MODERATOR_TAB_IDS);
+  const hasPerm = (perm: ModeratorPermissionId) =>
+    isFullAdmin || hasModeratorPermission("moderator", moderatorPermissions, perm);
+
+  const canAccessTab = (tabId: string) =>
+    isFullAdmin || moderatorCanAccessTab("moderator", moderatorPermissions, tabId);
 
   const allTabs: { id: Tab; label: string; icon: typeof Shield; badge?: number }[] = [
     { id: "overview", label: "Overview", icon: Shield },
@@ -198,7 +240,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
     { id: "audit", label: "Audit log", icon: ScrollText },
   ];
 
-  const tabs = isFullAdmin ? allTabs : allTabs.filter((t) => moderatorTabSet.has(t.id));
+  const tabs = isFullAdmin ? allTabs : allTabs.filter((t) => canAccessTab(t.id));
 
   async function runAiScanAll() {
     setMsg("");
@@ -351,10 +393,12 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
   }
 
   useEffect(() => {
-    if (!isFullAdmin && !moderatorTabSet.has(tab)) {
-      setTab("moderation");
+    if (isFullAdmin) return;
+    if (!canAccessTab(tab)) {
+      const first = (tabs[0]?.id ?? "moderation") as Tab;
+      setTab(first);
     }
-  }, [isFullAdmin, tab]);
+  }, [isFullAdmin, tab, moderatorPermissions]);
 
   useEffect(() => {
     if (!isFullAdmin) return;
@@ -365,7 +409,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
         setEmailConfigured(d.emailConfigured ?? false);
       })
       .catch(() => {});
-  }, []);
+  }, [isFullAdmin]);
 
   useEffect(() => {
     const onArchivesUpdated = () => {
@@ -378,7 +422,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      loadOverview(),
+      hasPerm("overview") ? loadOverview() : Promise.resolve(),
       tab === "users" ? loadUsers() : Promise.resolve(),
       tab === "streams" ? loadStreams() : Promise.resolve(),
       tab === "archives" ? loadArchives() : Promise.resolve(),
@@ -404,6 +448,21 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
       setMsg("Stream stopped");
       loadStreams();
       loadOverview();
+    }
+  }
+
+  async function saveModeratorPermissions(userId: string) {
+    const res = await apiFetch("/api/admin/users", {
+      method: "PATCH",
+      body: JSON.stringify({ userId, moderatorPermissions: modPermsDraft }),
+    });
+    if (res.ok) {
+      setMsg("Moderator permissions saved");
+      setEditingModPermsUserId(null);
+      loadUsers(search);
+    } else {
+      const data = await res.json();
+      setMsg(String(data.error ?? "Could not save permissions"));
     }
   }
 
@@ -437,7 +496,14 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
         tempPassword: pw,
       });
       setMsg(`Created @${data.user.username} (${inviteRoleLabel(data.user.role)})`);
-      setCreateUserForm({ username: "", email: "", displayName: "", password: "", role: "fan" });
+      setCreateUserForm({
+        username: "",
+        email: "",
+        displayName: "",
+        password: "",
+        role: "fan",
+        moderatorPermissions: [...DEFAULT_MODERATOR_PERMISSIONS],
+      });
       setShowCreateUser(false);
       loadUsers(search);
       loadOverview();
@@ -455,6 +521,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
         displayName: "",
         password: generateInvitePassword(),
         role: "fan",
+        moderatorPermissions: [...DEFAULT_MODERATOR_PERMISSIONS],
       });
       return true;
     });
@@ -734,25 +801,28 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
         <div className="space-y-4">
           {!isFullAdmin && (
             <p className="text-xs text-zinc-500 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-              Moderator view — search users and suspend or unsuspend. Staff accounts and account edits are admin-only.
+              Moderator view — tabs and actions depend on permissions assigned by an admin.
+              {" "}
+              Your access: {moderatorPermissions.map((p) => MODERATOR_PERMISSIONS.find((m) => m.id === p)?.label ?? p).join(", ")}.
             </p>
           )}
           {isFullAdmin && signupEnabled === false && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
               <strong>Closed beta</strong> — public signup is off. Add users here and send invites below.
-              {emailConfigured === false && (
+              {emailConfiguredState === false && (
                 <span className="block mt-1 text-amber-300/80">
                   Email not configured — set RESEND_API_KEY and EMAIL_FROM on Vercel to use Send invite.
                 </span>
               )}
             </div>
           )}
-          {isFullAdmin && emailConfigured === true && signupEnabled !== false && (
+          {isFullAdmin && emailConfiguredState === true && signupEnabled !== false && (
             <p className="text-xs text-zinc-500">
               Invite emails ready (Resend configured). Turn off signup in Settings for a closed beta.
             </p>
           )}
           <div className="flex flex-wrap gap-2 items-center justify-between">
+            {hasPerm("users_search") ? (
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -760,7 +830,10 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
               placeholder="Search username, email…"
               className="flex-1 min-w-[200px] rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
             />
-            {isFullAdmin && (
+            ) : (
+            <p className="text-xs text-zinc-500">Recent users — search requires the Search users permission.</p>
+            )}
+            {hasPerm("users_create") && (
             <button
               type="button"
               onClick={openCreateUserForm}
@@ -770,7 +843,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
             </button>
             )}
           </div>
-          {isFullAdmin && showCreateUser && (
+          {hasPerm("users_create") && showCreateUser && (
             <form onSubmit={createUser} className="rounded-xl border border-[#53fc18]/30 bg-[#141416] p-4 grid gap-3 sm:grid-cols-2">
               <input required value={createUserForm.username} onChange={(e) => setCreateUserForm((f) => ({ ...f, username: e.target.value.toLowerCase() }))} placeholder="username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
               <input required type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm((f) => ({ ...f, email: e.target.value }))} placeholder="email" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
@@ -797,16 +870,26 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                 <option value="fan">Fan</option>
                 <option value="dj">DJ</option>
                 <option value="station">Radio</option>
-                <option value="moderator">Moderator</option>
-                <option value="admin">Admin</option>
+                {isFullAdmin && <option value="moderator">Moderator</option>}
+                {isFullAdmin && <option value="admin">Admin</option>}
               </select>
+              {isFullAdmin && createUserForm.role === "moderator" && (
+                <div className="sm:col-span-2">
+                  <ModeratorPermissionsEditor
+                    value={createUserForm.moderatorPermissions}
+                    onChange={(moderatorPermissions) =>
+                      setCreateUserForm((f) => ({ ...f, moderatorPermissions }))
+                    }
+                  />
+                </div>
+              )}
               <p className="text-xs text-zinc-500 sm:col-span-2">
                 After creating, use <strong className="text-zinc-400">Send invite</strong> to email login details, or copy the invite text manually.
               </p>
               <button type="submit" className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black sm:col-span-2">Create user</button>
             </form>
           )}
-          {isFullAdmin && pendingInvite && (
+          {hasPerm("users_invite") && pendingInvite && (
             <div className="rounded-xl border border-[#53fc18]/40 bg-[#53fc18]/5 p-4 space-y-3">
               <div>
                 <p className="font-semibold text-white">
@@ -827,7 +910,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                 </button>
                 <button
                   type="button"
-                  disabled={!emailConfigured || sendingInviteId === pendingInvite.userId}
+                  disabled={!emailConfiguredState || sendingInviteId === pendingInvite.userId}
                   onClick={() =>
                     sendInvite({
                       userId: pendingInvite.userId,
@@ -887,10 +970,29 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                     Edit
                   </button>
                   )}
-                  {isFullAdmin && (
+                  {isFullAdmin && userRole === "moderator" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const perms = (u.moderatorPermissions as ModeratorPermissionId[] | undefined) ?? [
+                          ...DEFAULT_MODERATOR_PERMISSIONS,
+                        ];
+                        if (editingModPermsUserId === String(u.id)) {
+                          setEditingModPermsUserId(null);
+                        } else {
+                          setEditingModPermsUserId(String(u.id));
+                          setModPermsDraft(perms);
+                        }
+                      }}
+                      className="text-xs text-purple-300 underline"
+                    >
+                      {editingModPermsUserId === String(u.id) ? "Close permissions" : "Permissions"}
+                    </button>
+                  )}
+                  {hasPerm("users_invite") && (
                   <button
                     type="button"
-                    disabled={!emailConfigured || sendingInviteId === String(u.id)}
+                    disabled={!emailConfiguredState || sendingInviteId === String(u.id)}
                     onClick={() => sendInviteFromRow(String(u.id), String(u.email))}
                     className="inline-flex items-center gap-1 text-xs text-[#53fc18] underline disabled:opacity-40 disabled:no-underline"
                   >
@@ -915,7 +1017,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                     <option value="admin">Admin</option>
                   </select>
                   )}
-                  {(!protectedStaff || isFullAdmin) && (
+                  {(!protectedStaff || isFullAdmin) && hasPerm("users_suspend") && (
                     u.suspendedAt ? (
                       <button type="button" onClick={() => updateUser(String(u.id), { suspend: false })} className="text-xs text-[#53fc18] underline">Unsuspend</button>
                     ) : (
@@ -936,6 +1038,21 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                       <button type="button" onClick={() => saveUserEdit(String(u.id))} className="text-xs text-[#53fc18] underline">Save</button>
                       <button type="button" onClick={() => sendUserPasswordReset(String(u.id))} className="text-xs text-zinc-400 underline">Email password reset</button>
                     </div>
+                  </div>
+                )}
+                {isFullAdmin && editingModPermsUserId === String(u.id) && (
+                  <div className="w-full mt-3 pt-3 border-t border-white/10 space-y-3">
+                    <ModeratorPermissionsEditor
+                      value={modPermsDraft}
+                      onChange={setModPermsDraft}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => saveModeratorPermissions(String(u.id))}
+                      className="text-xs text-[#53fc18] underline"
+                    >
+                      Save permissions
+                    </button>
                   </div>
                 )}
               </div>
@@ -980,9 +1097,11 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                   </p>
                 )}
               </div>
+              {hasPerm("streams_stop") && (
               <button type="button" onClick={() => stopStream(String(s.id))} className="inline-flex items-center gap-1 rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-300">
                 <StopCircle className="h-3.5 w-3.5" /> Stop stream
               </button>
+              )}
             </div>
           );})}
         </div>
@@ -1399,6 +1518,7 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
               placeholder="Search station slug, name, owner…"
               className="flex-1 min-w-[200px] rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm"
             />
+            {hasPerm("stations_create") && (
             <button
               type="button"
               onClick={() => setShowCreateStation((v) => !v)}
@@ -1406,8 +1526,9 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
             >
               {showCreateStation ? "Cancel" : "Add station"}
             </button>
+            )}
           </div>
-          {showCreateStation && (
+          {hasPerm("stations_create") && showCreateStation && (
             <form onSubmit={createStation} className="rounded-xl border border-[#53fc18]/30 bg-[#141416] p-4 grid gap-3 sm:grid-cols-2">
               <input required value={createStationForm.ownerUsername} onChange={(e) => setCreateStationForm((f) => ({ ...f, ownerUsername: e.target.value }))} placeholder="Owner username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
               <input required value={createStationForm.slug} onChange={(e) => setCreateStationForm((f) => ({ ...f, slug: e.target.value }))} placeholder="URL slug" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
@@ -1444,13 +1565,16 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                       @{String((s.owner as { username: string }).username)} ·{" "}
                       {String(s.residentCount)} residents · {String(s.followerCount)} followers
                     </p>
+                    {isFullAdmin && (
                     <AdminStationResidents
                       stationId={String(s.id)}
                       stationSlug={String(s.slug)}
                       onMsg={setMsg}
                     />
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
+                    {isFullAdmin && (
                     <select
                       defaultValue={String(s.tier)}
                       onChange={(e) => updateStation(String(s.id), e.target.value)}
@@ -1460,6 +1584,8 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                       <option value="pro">pro</option>
                       <option value="network">network</option>
                     </select>
+                    )}
+                    {isFullAdmin && (
                     <button
                       type="button"
                       onClick={() => setTransferStation({ id: String(s.id), slug: String(s.slug) })}
@@ -1467,7 +1593,10 @@ export function AdminDashboard({ isFullAdmin }: { isFullAdmin: boolean }) {
                     >
                       Transfer
                     </button>
+                    )}
+                    {isFullAdmin && (
                     <button type="button" onClick={() => deleteStation(String(s.id), String(s.slug))} className="text-xs text-red-400 underline">Delete</button>
+                    )}
                   </div>
                   {transferStation?.id === String(s.id) && (
                     <div className="w-full flex gap-2 mt-2 pt-2 border-t border-white/10">

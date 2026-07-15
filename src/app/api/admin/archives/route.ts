@@ -1,12 +1,12 @@
-import { requireStaffApi } from "@/lib/admin";
-import { json } from "@/lib/api-utils";
+import { requireModeratorPermissionApi } from "@/lib/admin";
+import { json, isApiError } from "@/lib/api-utils";
 import { hasStreamReplay } from "@/lib/streaming";
 import { pruneAdminArchives } from "@/lib/archive-cleanup";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: Request) {
-  const auth = await requireStaffApi(request);
-  if (auth instanceof Response) return auth;
+  const auth = await requireModeratorPermissionApi(request, "archives");
+  if (isApiError(auth)) return auth;
 
   await pruneAdminArchives();
 

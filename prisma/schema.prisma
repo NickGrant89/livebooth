@@ -29,6 +29,7 @@ model User {
   weeklySlotLabel   String?
   suspendedAt       DateTime?
   suspendedReason   String?
+  moderatorPermissions String  @default("[]")
   totpSecret        String?
   totpEnabled       Boolean   @default(false)
   emailVerifiedAt   DateTime?

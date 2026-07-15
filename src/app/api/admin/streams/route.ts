@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireStaffApi, logAdminAction } from "@/lib/admin";
+import { requireModeratorAnyPermissionApi, requireModeratorPermissionApi, logAdminAction } from "@/lib/admin";
 import { forceEndStream, evaluateAllLiveStreams } from "@/lib/moderation";
 import { z } from "zod";
 
 export async function GET(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorAnyPermissionApi(request, ["streams_view", "streams_stop"]);
   if (isApiError(staff)) return staff;
 
   await evaluateAllLiveStreams();
@@ -46,7 +46,7 @@ const stopSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorPermissionApi(request, "streams_stop");
   if (isApiError(staff)) return staff;
 
   try {

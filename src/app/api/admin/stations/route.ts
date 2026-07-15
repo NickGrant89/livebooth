@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireAdminApi, logAdminAction } from "@/lib/admin";
+import { requireAdminApi, requireModeratorPermissionApi, logAdminAction } from "@/lib/admin";
 import { getTierMeta } from "@/lib/stations";
 import { normalizeStationSlug, validateStationSlug } from "@/lib/station-slug";
 import { z } from "zod";
 
 export async function GET(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireModeratorPermissionApi(request, "stations_create");
+  if (isApiError(staff)) return staff;
 
   const q = new URL(request.url).searchParams.get("q")?.trim();
   const stations = await prisma.radioStation.findMany({
@@ -125,8 +125,8 @@ const createSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireModeratorPermissionApi(request, "stations_create");
+  if (isApiError(staff)) return staff;
 
   try {
     const body = createSchema.parse(await request.json());
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
       });
     });
 
-    await logAdminAction(admin.id, "station_create", station.id, { slug, ownerId: owner.id }, request);
+    await logAdminAction(staff.id, "station_create", station.id, { slug, ownerId: owner.id }, request);
     return json({
       station: {
         id: station.id,

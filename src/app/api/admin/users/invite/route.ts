@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireAdminApi, logAdminAction } from "@/lib/admin";
+import { requireModeratorPermissionApi, logAdminAction } from "@/lib/admin";
 import { sendBetaInviteEmail, isEmailConfigured } from "@/lib/email";
 import { generateInvitePassword } from "@/lib/invite-password";
 import { z } from "zod";
@@ -15,8 +15,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const admin = await requireAdminApi(request);
-  if (isApiError(admin)) return admin;
+  const staff = await requireModeratorPermissionApi(request, "users_invite");
+  if (isApiError(staff)) return staff;
 
   if (!isEmailConfigured()) {
     return error("Email not configured — set RESEND_API_KEY and EMAIL_FROM on Vercel", 503);
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       return error("Failed to send invite email", 502);
     }
 
-    await logAdminAction(admin.id, "user_invite_sent", user.id, { email: user.email }, request);
+    await logAdminAction(staff.id, "user_invite_sent", user.id, { email: user.email }, request);
 
     return json({
       ok: true,

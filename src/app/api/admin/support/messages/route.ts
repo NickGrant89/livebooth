@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireStaffApi, logAdminAction } from "@/lib/admin";
+import { requireModeratorPermissionApi, logAdminAction } from "@/lib/admin";
 import { appendSupportMessage, serializeSupportMessage } from "@/lib/support-chat";
 import { notifyAdminsSupportMessage, notifySupportReply } from "@/lib/support-notifications";
 import { z } from "zod";
@@ -11,7 +11,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorPermissionApi(request, "support");
   if (isApiError(staff)) return staff;
 
   try {

@@ -39,7 +39,7 @@ fi
 base="${FILE%.*}"
 ext="${FILE##*.}"
 TMP="${base}.remux-$$.${ext}"
-if ffmpeg -y -loglevel error -i "$FILE" -c copy -movflags +faststart -f mp4 "$TMP"; then
+if ffmpeg -nostdin -y -loglevel error -i "$FILE" -c copy -movflags +faststart -f mp4 "$TMP" < /dev/null; then
   mv "$TMP" "$FILE"
   touch "$MARKER"
 else
@@ -51,14 +51,14 @@ fi
 HLS_DIR="$(dirname "$FILE")/playback"
 rm -rf "$HLS_DIR"
 mkdir -p "$HLS_DIR"
-if ffmpeg -y -loglevel error -i "$FILE" \
+if ffmpeg -nostdin -y -loglevel error -i "$FILE" \
   -c copy \
   -hls_time 6 \
   -hls_list_size 0 \
   -hls_playlist_type vod \
   -hls_flags independent_segments \
   -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
-  "${HLS_DIR}/index.m3u8"; then
+  "${HLS_DIR}/index.m3u8" < /dev/null; then
   touch "${HLS_DIR}/.ready"
 else
   rm -rf "$HLS_DIR"

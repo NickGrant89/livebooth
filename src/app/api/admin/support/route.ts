@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db";
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireStaffApi, logAdminAction } from "@/lib/admin";
+import { requireModeratorPermissionApi, logAdminAction } from "@/lib/admin";
 import { notifyUser } from "@/lib/notifications";
 import { isSupportTicketUnread } from "@/lib/support-ticket-unread";
 import { z } from "zod";
 
 export async function GET(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorPermissionApi(request, "support");
   if (isApiError(staff)) return staff;
 
   const statusParam = new URL(request.url).searchParams.get("status") ?? "open";
@@ -90,7 +90,7 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorPermissionApi(request, "support");
   if (isApiError(staff)) return staff;
 
   try {

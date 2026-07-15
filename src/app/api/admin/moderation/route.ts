@@ -1,5 +1,5 @@
 import { json, error, isApiError } from "@/lib/api-utils";
-import { requireStaffApi, logAdminAction } from "@/lib/admin";
+import { requireModeratorPermissionApi, logAdminAction } from "@/lib/admin";
 import { getModerationQueue } from "@/lib/moderation";
 import {
   getRecentAiScans,
@@ -16,7 +16,7 @@ import {
 } from "@/lib/constants";
 
 export async function GET(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorPermissionApi(request, "moderation");
   if (isApiError(staff)) return staff;
 
   const [queue, recentReports, chatMessageReports, aiScans] = await Promise.all([
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const staff = await requireStaffApi(request);
+  const staff = await requireModeratorPermissionApi(request, "moderation");
   if (isApiError(staff)) return staff;
 
   const body = await request.json().catch(() => ({}));
