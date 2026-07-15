@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "./db";
 import { resolveRecordingVodUrlWithRetry } from "./vod-recording";
+import { scheduleRecordingRemux } from "./recordings-remux";
 import { deactivateCollabCompositor, resolveCollabVodIngestKey } from "./collab-compositor";
 import {
   DEMO_HLS,
@@ -298,6 +299,7 @@ export async function endStreamSession(streamId: string, djId: string) {
   if (vodIngestKey && isLocalRtmpMode()) {
     const recorded = await resolveRecordingVodUrlWithRetry(vodIngestKey, 10, 4000);
     vodUrl = recorded;
+    void scheduleRecordingRemux(vodIngestKey);
   }
 
   return prisma.stream.update({
