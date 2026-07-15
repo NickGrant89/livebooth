@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Banknote, Loader2, Info } from "lucide-react";
 import { apiFetch } from "@/lib/fetch-client";
 import { useAuth, formatTokens } from "@/context/AuthContext";
-import { quoteWithdrawal, formatUsd } from "@/lib/redeem";
+import { quoteWithdrawal, formatUsd } from "@/lib/redeem-quote";
 
 type WithdrawRow = {
   id: string;

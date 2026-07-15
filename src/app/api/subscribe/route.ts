@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants";
 import { isVipSubscriber } from "@/lib/subscriptions";
 import { debitUser, creditUser } from "@/lib/ledger";
+import { fanPaymentCountsAsCreatorEarnings } from "@/lib/withdrawable-earnings";
 import { evaluateAchievements } from "@/lib/achievements";
 import { listActiveSubscriptions } from "@/lib/subscriptions";
 import { z } from "zod";
@@ -94,7 +95,10 @@ export async function POST(request: Request) {
     if (!ok) return error("Insufficient DROP", 402);
 
     const djShare = VIP_SUB_COST * 0.9;
-    await creditUser(dj.id, djShare, "subscription_earned", auth.id);
+    const countsAsEarned = await fanPaymentCountsAsCreatorEarnings(auth.id);
+    await creditUser(dj.id, djShare, "subscription_earned", auth.id, undefined, {
+      countAsEarned: countsAsEarned,
+    });
 
     const nextBilling = new Date(Date.now() + 30 * 86400000);
     await prisma.subscription.upsert({

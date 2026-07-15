@@ -13,6 +13,7 @@ import { applyFirstTipBonus, createStreamHighlight } from "./retention";
 import { getStakerBadgeForStream } from "./staker-perks";
 import { evaluateDjMilestones } from "./staking";
 import { evaluateStationMilestones } from "./station-staking";
+import { fanPaymentCountsAsCreatorEarnings } from "./withdrawable-earnings";
 
 export async function getOrCreateBalance(userId: string) {
   let balance = await prisma.beatBalance.findUnique({ where: { userId } });
@@ -116,6 +117,8 @@ export async function processTip(
   });
   if (!ok) return null;
 
+  const countsAsEarned = await fanPaymentCountsAsCreatorEarnings(fromUserId);
+
   if (collab?.status === "active") {
     const partnerShare = djAmount * collab.splitRatio;
     const hostShare = djAmount - partnerShare;
@@ -123,11 +126,11 @@ export async function processTip(
       fromUserId,
       platformFee,
       collabSplit: collab.splitRatio,
-    });
+    }, { countAsEarned: countsAsEarned });
     await creditUser(collab.partnerDjId, partnerShare, "tip_received", streamId, {
       fromUserId,
       collabPartner: true,
-    });
+    }, { countAsEarned: countsAsEarned });
   } else if (useStationSplit && stream?.stationId) {
     const station = await prisma.radioStation.findUnique({
       where: { id: stream.stationId },
@@ -137,18 +140,18 @@ export async function processTip(
       fromUserId,
       platformFee,
       stationSplit: STATION_TIP_STATION_SHARE,
-    });
+    }, { countAsEarned: countsAsEarned });
     if (station) {
       await creditUser(station.ownerId, stationAmount, "station_tip", streamId, {
         fromUserId,
         residentDjId: toUserId,
-      });
+      }, { countAsEarned: countsAsEarned });
     }
   } else {
     await creditUser(toUserId, djAmount, "tip_received", streamId, {
       fromUserId,
       platformFee,
-    });
+    }, { countAsEarned: countsAsEarned });
   }
 
   const tip = await prisma.tip.create({
@@ -231,7 +234,10 @@ export async function processTrackUnlock(
   const ok = await debitUser(userId, amount, "track_unlock", streamId);
   if (!ok) return null;
 
-  await creditUser(djId, djAmount, "track_unlock_earned", streamId);
+  const countsAsEarned = await fanPaymentCountsAsCreatorEarnings(userId);
+  await creditUser(djId, djAmount, "track_unlock_earned", streamId, undefined, {
+    countAsEarned: countsAsEarned,
+  });
 
   const priorUnlocks = await prisma.trackUnlock.count({ where: { streamId } });
 
@@ -286,7 +292,10 @@ export async function resolveCrowdRequest(
   if (accept) {
     const platformFee = request.amount * PLATFORM_FEE_REQUEST;
     const djAmount = request.amount - platformFee;
-    await creditUser(djId, djAmount, "request_earned", requestId);
+    const countsAsEarned = await fanPaymentCountsAsCreatorEarnings(request.fanId);
+    await creditUser(djId, djAmount, "request_earned", requestId, undefined, {
+      countAsEarned: countsAsEarned,
+    });
     return prisma.crowdRequest.update({
       where: { id: requestId },
       data: { status: "accepted", platformFee },

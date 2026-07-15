@@ -137,8 +137,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     setLiveNoSignal(false);
     setIsLoading(!isLive && !previewMode);
 
-    const attachVodHls = (src: string) => {
+    const attachVodHls = (src: string, mp4Fallback?: string) => {
       if (Hls.isSupported()) {
+        let networkRetries = 0;
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
@@ -154,13 +155,29 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           setPlaybackError(false);
         });
         hls.on(Hls.Events.ERROR, (_e, data) => {
-          if (!data.fatal) return;
+          if (!data.fatal) {
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              networkRetries += 1;
+              if (networkRetries >= 8 && mp4Fallback && !vodFallbackTriedRef.current) {
+                vodFallbackTriedRef.current = true;
+                hls.destroy();
+                attachVodMp4(mp4Fallback);
+              }
+            }
+            return;
+          }
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
             hls.startLoad();
             return;
           }
           if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError();
+            return;
+          }
+          if (mp4Fallback && !vodFallbackTriedRef.current) {
+            vodFallbackTriedRef.current = true;
+            hls.destroy();
+            attachVodMp4(mp4Fallback);
             return;
           }
           setPlaybackError(true);
@@ -170,7 +187,9 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         return;
       }
       if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.crossOrigin = "anonymous";
+        if (playbackNeedsCrossOrigin(src)) {
+          video.crossOrigin = "anonymous";
+        }
         video.src = src;
         video.addEventListener(
           "loadedmetadata",
@@ -193,7 +212,11 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     };
 
     const attachVodMp4 = (src: string) => {
-      video.crossOrigin = "anonymous";
+      if (playbackNeedsCrossOrigin(src)) {
+        video.crossOrigin = "anonymous";
+      } else {
+        video.removeAttribute("crossorigin");
+      }
 
       const markReady = () => {
         vodReadyRef.current = true;
@@ -404,6 +427,13 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       });
     };
 
+    const vodLoadTimeout = window.setTimeout(() => {
+      if (cancelled || vodReadyRef.current || isLive || previewMode) return;
+      setPlaybackError(true);
+      setIsLoading(false);
+    }, 25_000);
+    cleanupFns.push(() => window.clearTimeout(vodLoadTimeout));
+
     void (async () => {
       if (!isLive && !previewMode) {
         const looksLikeFile =
@@ -412,10 +442,11 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           /\.(mp4|fmp4|webm|m3u8)(\?|$)/i.test(playbackUrl);
 
         if (looksLikeFile) {
+          const mp4Src = resolveVodPlaybackSrc(playbackUrl);
           const { url: src, mode } = await resolveVodPlaybackMode(playbackUrl);
           if (cancelled) return;
           if (mode === "hls") {
-            attachVodHls(src);
+            attachVodHls(src, mp4Src);
           } else {
             attachVodMp4(src);
           }

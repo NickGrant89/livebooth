@@ -9,13 +9,23 @@ export function resolvePlaybackUrl(url: string): string {
   return url.startsWith("/") ? `${window.location.origin}${url}` : url;
 }
 
-/** VOD archives — bypass slow Vercel proxy; load directly from recordings CDN. */
+/** VOD archives — same-origin proxy with Range support (avoids CDN CORS stalls). */
 export function resolveVodPlaybackSrc(url: string): string {
   const resolved = resolvePlaybackUrl(url);
+
   if (resolved.includes("/api/vod/file/")) {
-    const rel = resolved.split("/api/vod/file/")[1];
-    if (rel) return `${RECORDINGS_CDN}/${rel}`;
+    const u = new URL(resolved, window.location.origin);
+    if (!u.searchParams.has("proxy")) u.searchParams.set("proxy", "1");
+    return u.pathname + u.search;
   }
+
+  const proxy = recordingUrlToProxy(url);
+  if (proxy) {
+    const u = new URL(proxy, window.location.origin);
+    u.searchParams.set("proxy", "1");
+    return u.pathname + u.search;
+  }
+
   return resolved;
 }
 
@@ -38,17 +48,6 @@ export async function resolveVodPlaybackMode(
   if (direct.includes(".m3u8")) {
     return { url: direct, mode: "hls" };
   }
-
-  const hlsCandidate = hlsVodUrlForRecording(url);
-  if (hlsCandidate) {
-    try {
-      const res = await fetch(hlsCandidate, { method: "HEAD", cache: "no-store" });
-      if (res.ok) return { url: hlsCandidate, mode: "hls" };
-    } catch {
-      // fall through to MP4
-    }
-  }
-
   return { url: direct, mode: "file" };
 }
 
