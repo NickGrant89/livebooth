@@ -54,10 +54,6 @@ export function hlsVodUrlForRecording(url: string): string | null {
 
 export type VodPlaybackMode = "hls" | "file";
 
-export async function isRemoteHlsVodReady(ingestKey: string): Promise<string | null> {
-  return remoteHlsPlaybackReady(ingestKey);
-}
-
 /** Prefer segmented HLS VOD when the server has finished building it. */
 export async function resolveVodPlaybackMode(
   url: string,

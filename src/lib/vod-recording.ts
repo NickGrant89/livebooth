@@ -77,20 +77,24 @@ async function findLargestRemoteRecordingFilename(
   const files = await listRemoteRecordingFilenames(baseUrl, ingestKey);
   if (files.length === 0) return null;
 
-  let best: { name: string; size: number } | null = null;
-  await Promise.all(
+  const sized = await Promise.all(
     files.map(async (name) => {
       const url = `${baseUrl}/live/${encodeURIComponent(ingestKey)}/${encodeURIComponent(name)}`;
       try {
         const res = await fetch(url, { method: "HEAD", cache: "no-store" });
-        if (!res.ok) return;
+        if (!res.ok) return null;
         const size = parseInt(res.headers.get("content-length") ?? "0", 10);
-        if (size > 0 && (!best || size > best.size)) best = { name, size };
+        return size > 0 ? { name, size } : null;
       } catch {
-        // ignore
+        return null;
       }
     }),
   );
+
+  let best: { name: string; size: number } | null = null;
+  for (const entry of sized) {
+    if (entry && (!best || entry.size > best.size)) best = entry;
+  }
   return best?.name ?? null;
 }
 
