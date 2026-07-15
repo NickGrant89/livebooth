@@ -9,7 +9,7 @@ export function resolvePlaybackUrl(url: string): string {
   return url.startsWith("/") ? `${window.location.origin}${url}` : url;
 }
 
-/** VOD archives — same-origin proxy with Range support (avoids CDN CORS stalls). */
+/** VOD archives — direct CDN first (fast Range); same-origin proxy as fallback. */
 export function resolveVodPlaybackSrc(url: string): string {
   const resolved = resolvePlaybackUrl(url);
 
@@ -17,6 +17,11 @@ export function resolveVodPlaybackSrc(url: string): string {
     const u = new URL(resolved, window.location.origin);
     if (!u.searchParams.has("proxy")) u.searchParams.set("proxy", "1");
     return u.pathname + u.search;
+  }
+
+  // Recordings CDN supports byte-range + CORS — avoid piping large files through Vercel.
+  if (resolved.includes("/recordings/") && /\.(mp4|fmp4|webm)(\?|$)/i.test(resolved)) {
+    return resolved;
   }
 
   const proxy = recordingUrlToProxy(url);
@@ -27,6 +32,15 @@ export function resolveVodPlaybackSrc(url: string): string {
   }
 
   return resolved;
+}
+
+/** Same-origin proxy URL for when direct CDN playback fails in the browser. */
+export function resolveVodProxySrc(url: string): string | null {
+  const proxy = recordingUrlToProxy(url);
+  if (!proxy) return null;
+  const u = new URL(proxy, window.location.origin);
+  u.searchParams.set("proxy", "1");
+  return u.pathname + u.search;
 }
 
 /** Derive HLS VOD playlist URL from a recording MP4 URL (same ingest folder). */

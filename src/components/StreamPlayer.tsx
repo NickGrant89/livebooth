@@ -17,6 +17,7 @@ import {
   resolvePlaybackUrl,
   resolveVodPlaybackMode,
   resolveVodPlaybackSrc,
+  resolveVodProxySrc,
 } from "@/lib/video-cors";
 
 const VOD_SKIP_SECONDS = 10;
@@ -137,6 +138,8 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     setLiveNoSignal(false);
     setIsLoading(!isLive && !previewMode);
 
+    let vodLoadTimeout = 0;
+
     const attachVodHls = (src: string, mp4Fallback?: string) => {
       if (Hls.isSupported()) {
         let networkRetries = 0;
@@ -212,24 +215,22 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     };
 
     const attachVodMp4 = (src: string) => {
-      if (playbackNeedsCrossOrigin(src)) {
-        video.crossOrigin = "anonymous";
-      } else {
-        video.removeAttribute("crossorigin");
-      }
+      // No crossOrigin for normal playback — avoids CORS stalls; clip export sets it when needed.
+      video.removeAttribute("crossorigin");
 
       const markReady = () => {
         vodReadyRef.current = true;
         setIsLoading(false);
         setPlaybackError(false);
+        window.clearTimeout(vodLoadTimeout);
       };
 
       const onError = () => {
         if (vodReadyRef.current) return;
-        const proxyFallback = recordingUrlToProxy(playbackUrl);
-        if (proxyFallback && !vodFallbackTriedRef.current && video.src !== proxyFallback) {
+        const proxySrc = resolveVodProxySrc(playbackUrl);
+        if (proxySrc && !vodFallbackTriedRef.current && !video.src.includes("/api/vod/file/")) {
           vodFallbackTriedRef.current = true;
-          video.src = proxyFallback;
+          video.src = proxySrc;
           video.load();
           return;
         }
@@ -427,11 +428,11 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       });
     };
 
-    const vodLoadTimeout = window.setTimeout(() => {
+    vodLoadTimeout = window.setTimeout(() => {
       if (cancelled || vodReadyRef.current || isLive || previewMode) return;
       setPlaybackError(true);
       setIsLoading(false);
-    }, 25_000);
+    }, 90_000);
     cleanupFns.push(() => window.clearTimeout(vodLoadTimeout));
 
     void (async () => {
