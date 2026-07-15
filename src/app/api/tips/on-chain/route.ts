@@ -4,7 +4,7 @@ import { broadcastChatMessageWithProfile } from "@/lib/chat-profiles";
 import { creditUser } from "@/lib/ledger";
 import { PLATFORM_FEE_TIP } from "@/lib/constants";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
-import { contractsConfigured } from "@/lib/web3/contracts";
+import { contractsConfigured, isOnChainEnabled } from "@/lib/web3/contracts";
 import { normalizeTxHash, verifyOnChainTip } from "@/lib/web3/verify-tip";
 import { z } from "zod";
 
@@ -19,6 +19,9 @@ export async function POST(request: Request) {
   const auth = await requireApiUser();
   if (isApiError(auth)) return auth;
 
+  if (!isOnChainEnabled()) {
+    return error("On-chain features are disabled", 503);
+  }
   if (!contractsConfigured()) {
     return error("On-chain tipping not configured", 503);
   }

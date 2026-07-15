@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { Link2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { contractsConfigured } from "@/lib/web3/contracts";
+import { onChainFeaturesAvailable } from "@/lib/web3/contracts";
 
 export function DjWalletBanner() {
   const { user } = useAuth();
   if (!user || user.role === "fan") return null;
-  if (!contractsConfigured()) return null;
+  if (!onChainFeaturesAvailable()) return null;
   if (user.walletAddress?.startsWith("0x")) return null;
 
   return (

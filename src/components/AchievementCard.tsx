@@ -6,7 +6,7 @@ import { tierColors } from "@/lib/constants";
 import { useAuth, formatTokens } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
-import { contractsConfigured } from "@/lib/web3/contracts";
+import { onChainFeaturesAvailable } from "@/lib/web3/contracts";
 
 interface Achievement {
   id: string;
@@ -82,7 +82,7 @@ export function AchievementCard({ achievement }: { achievement: Achievement }) {
   async function handleClaim() {
     setError("");
     const useChain =
-      contractsConfigured() && isConnected && user?.walletAddress?.startsWith("0x");
+      onChainFeaturesAvailable() && isConnected && user?.walletAddress?.startsWith("0x");
 
     try {
       if (useChain) await handleClaimOnChain();
@@ -138,7 +138,7 @@ export function AchievementCard({ achievement }: { achievement: Achievement }) {
                 className="flex items-center gap-1 rounded-lg bg-[#53fc18] px-3 py-1 text-xs font-bold text-black disabled:opacity-50"
               >
                 <Sparkles className="h-3 w-3" />
-                {isPending ? "..." : contractsConfigured() && isConnected ? "Claim on-chain" : "Claim"}
+                {isPending ? "..." : onChainFeaturesAvailable() && isConnected ? "Claim on-chain" : "Claim"}
               </button>
             )}
             {achievement.claimed && (

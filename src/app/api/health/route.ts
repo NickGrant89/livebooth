@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { contractsConfigured } from "@/lib/web3/contracts";
+import { isOnChainEnabled, onChainFeaturesAvailable } from "@/lib/web3/contracts";
 import { getDatabaseUrl, isPostgresDatabaseUrl, isSqliteDatabaseUrl } from "@/lib/database-url";
 import { json } from "@/lib/api-utils";
 
@@ -32,7 +32,9 @@ export async function GET() {
             : "unknown",
         error: dbError,
       },
-      contractsConfigured: contractsConfigured(),
+      onChainEnabled: isOnChainEnabled(),
+      onChainFeaturesAvailable: onChainFeaturesAvailable(),
+      contractsConfigured: onChainFeaturesAvailable(),
       timestamp: new Date().toISOString(),
     },
     healthy ? 200 : 503,

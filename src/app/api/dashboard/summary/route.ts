@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
-import { contractsConfigured } from "@/lib/web3/contracts";
+import { onChainFeaturesAvailable } from "@/lib/web3/contracts";
 import { hasStreamReplay } from "@/lib/streaming";
 
 export async function GET() {
@@ -73,7 +73,7 @@ export async function GET() {
     achievementCount,
     walletLinked,
     canReceiveOnChainTips: walletLinked,
-    contractsConfigured: contractsConfigured(),
+    contractsConfigured: onChainFeaturesAvailable(),
     liveStream,
     recentSets: recentSets.map((s) => ({
       ...s,

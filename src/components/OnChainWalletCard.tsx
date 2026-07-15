@@ -8,7 +8,7 @@ import { LiveBoothWalletConnect } from "@/components/LiveBoothWalletConnect";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
 import { privyConfigured } from "@/lib/vechain-kit-config";
 import { apiFetch } from "@/lib/fetch-client";
-import { contractsConfigured, CONTRACTS } from "@/lib/web3/contracts";
+import { contractsConfigured, isOnChainEnabled } from "@/lib/web3/contracts";
 
 type OnChainStatus = {
   contractsConfigured: boolean;
@@ -35,6 +35,8 @@ export function OnChainWalletCard() {
   const onChainBal =
     balanceWei !== undefined ? Number(balanceWei / BigInt(10 ** 18)) : null;
   const isDj = user?.role === "dj" || user?.role === "admin";
+
+  if (!isOnChainEnabled()) return null;
 
   return (
     <div className="rounded-xl border border-[#15CFF4]/25 bg-[#15CFF4]/5 p-6 mb-6 space-y-4">

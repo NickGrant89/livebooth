@@ -1,9 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageSquare, Tv } from "lucide-react";
 
 type MobileTab = "watch" | "chat";
+
+function useIsLgViewport() {
+  const [isLg, setIsLg] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsLg(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return isLg;
+}
 
 export function StreamMobileTabs({
   watch,
@@ -13,6 +27,7 @@ export function StreamMobileTabs({
   chat: React.ReactNode;
 }) {
   const [tab, setTab] = useState<MobileTab>("watch");
+  const isLg = useIsLgViewport();
 
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full">
@@ -44,22 +59,23 @@ export function StreamMobileTabs({
         </button>
       </div>
 
-      {/* Mobile: single panel */}
-      <div className="lg:hidden flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
-        {tab === "watch" ? (
-          watch
-        ) : (
-          <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">{chat}</div>
-        )}
-      </div>
-
-      {/* Desktop: side by side — both columns stretch to viewport height */}
-      <div className="hidden lg:flex flex-1 flex-row min-h-0 min-w-0 h-full overflow-hidden max-w-[1600px] mx-auto w-full">
-        <div className="flex-1 min-w-0 min-h-0 h-full flex flex-col overflow-hidden">{watch}</div>
-        <div className="shrink-0 flex flex-col min-h-0 h-full self-stretch overflow-hidden border-l border-white/[0.06]">
-          {chat}
+      {/* Mount watch/chat once — hidden desktop column used to double-mount chat on phones */}
+      {isLg ? (
+        <div className="flex flex-1 flex-row min-h-0 min-w-0 h-full overflow-hidden max-w-[1600px] mx-auto w-full">
+          <div className="flex-1 min-w-0 min-h-0 h-full flex flex-col overflow-hidden">{watch}</div>
+          <div className="shrink-0 flex flex-col min-h-0 h-full self-stretch overflow-hidden border-l border-white/[0.06]">
+            {chat}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
+          {tab === "watch" ? (
+            watch
+          ) : (
+            <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">{chat}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

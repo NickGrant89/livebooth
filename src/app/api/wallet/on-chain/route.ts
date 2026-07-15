@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
-import { contractsConfigured, CONTRACTS } from "@/lib/web3/contracts";
+import { CONTRACTS, isOnChainEnabled, onChainFeaturesAvailable } from "@/lib/web3/contracts";
 
 export async function GET() {
   const auth = await requireApiUser();
@@ -13,12 +13,14 @@ export async function GET() {
   if (!user) return error("Not found", 404);
 
   return json({
-    contractsConfigured: contractsConfigured(),
+    onChainEnabled: isOnChainEnabled(),
+    contractsConfigured: onChainFeaturesAvailable(),
     chainId: CONTRACTS.chainId,
-    dropToken: contractsConfigured() ? CONTRACTS.dropToken : null,
-    tipRouter: contractsConfigured() ? CONTRACTS.tipRouter : null,
+    dropToken: onChainFeaturesAvailable() ? CONTRACTS.dropToken : null,
+    tipRouter: onChainFeaturesAvailable() ? CONTRACTS.tipRouter : null,
     linkedAddress: user.walletAddress,
     canReceiveOnChainTips:
+      onChainFeaturesAvailable() &&
       (user.role === "dj" || user.role === "admin") &&
       Boolean(user.walletAddress?.startsWith("0x")),
   });

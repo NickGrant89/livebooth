@@ -7,7 +7,7 @@ import { useAuth, formatTokens } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { OnChainWalletCard } from "@/components/OnChainWalletCard";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
-import { contractsConfigured } from "@/lib/web3/contracts";
+import { isOnChainEnabled } from "@/lib/web3/contracts";
 import Link from "next/link";
 import { WithdrawPanel } from "@/components/WithdrawPanel";
 import { StripeConnectPanel } from "@/components/StripeConnectPanel";
@@ -138,7 +138,7 @@ function WalletContent() {
 
       <OnChainWalletCard />
 
-      {contractsReady && isConnected && (
+      {isOnChainEnabled() && contractsReady && isConnected && (
         <div className="mb-6">
           <button
             type="button"

@@ -1,5 +1,10 @@
 import { createPublicClient, http, type Address } from "viem";
-import { CONTRACTS, ABIS, contractsConfigured, formatDropWei } from "./web3/contracts";
+import {
+  CONTRACTS,
+  ABIS,
+  formatDropWei,
+  onChainFeaturesAvailable,
+} from "./web3/contracts";
 import { vechainTestnet, vechainMainnet } from "./web3/chains";
 
 function getChain() {
@@ -44,7 +49,7 @@ function resolveVeChainRpc(defaultUrl: string): string {
 }
 
 export async function getOnChainTreasuryStats(): Promise<OnChainTreasuryStats | null> {
-  if (!contractsConfigured()) return null;
+  if (!onChainFeaturesAvailable()) return null;
 
   const chain = getChain();
   const rpc = resolveVeChainRpc(chain.rpcUrls.default.http[0]);

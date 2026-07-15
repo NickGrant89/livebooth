@@ -1,11 +1,15 @@
 import { achievementClaimId, signAchievementClaim } from "@/lib/web3/claim-signer";
+import { isOnChainEnabled, parseDrop } from "@/lib/web3/contracts";
 import { prisma } from "@/lib/db";
-import { parseDrop } from "@/lib/web3/contracts";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 
 export async function POST(request: Request) {
   const auth = await requireApiUser();
   if (isApiError(auth)) return auth;
+
+  if (!isOnChainEnabled()) {
+    return error("On-chain features are disabled", 503);
+  }
 
   const { achievementId } = (await request.json()) as { achievementId: string };
   if (!achievementId) return error("achievementId required");

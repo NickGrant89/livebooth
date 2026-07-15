@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { useKitLoadState } from "@/components/WalletKitScope";
+import { isOnChainEnabled } from "@/lib/web3/contracts";
 
 interface LiveBoothWalletConnectProps {
   className?: string;
 }
 
 export function LiveBoothWalletConnect({ className }: LiveBoothWalletConnectProps) {
+  if (!isOnChainEnabled()) return null;
+
   const loadState = useKitLoadState();
   const [Inner, setInner] = useState<
     typeof import("@/components/LiveBoothWalletConnectInner").LiveBoothWalletConnectInner | null

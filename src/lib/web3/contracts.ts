@@ -28,6 +28,16 @@ export function contractsConfigured(): boolean {
   );
 }
 
+/** Kill switch — set NEXT_PUBLIC_ONCHAIN_ENABLED=false to hide wallet / on-chain UX (beta). */
+export function isOnChainEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_ONCHAIN_ENABLED !== "false";
+}
+
+/** Contracts deployed and on-chain features not disabled. */
+export function onChainFeaturesAvailable(): boolean {
+  return isOnChainEnabled() && contractsConfigured();
+}
+
 export function parseDrop(amount: number): bigint {
   return BigInt(Math.floor(amount)) * BigInt(10 ** 18);
 }

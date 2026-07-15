@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/fetch-client";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { TRACK_UNLOCK_COST, REQUEST_COST, HIGHLIGHT_TIP_MIN } from "@/lib/constants";
+import { onChainFeaturesAvailable } from "@/lib/web3/contracts";
 import { AchievementToasts, useAchievementUnlocks } from "@/components/AchievementToasts";
 import { StakerBadge, tierFromBadgeLabel } from "@/components/StakerBadge";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
@@ -33,8 +34,9 @@ export function StreamChat({
   const { user, refresh } = useAuth();
   const { isConnected, contractsReady, isPending, approveTipRouter, tipOnChain, balanceWei } =
     useOnChainDrop();
-  const { messages, status, appendMessage } = useStreamChat(streamId);
+  const { messages, status } = useStreamChat(streamId);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
   const [tipAmount, setTipAmount] = useState("");
   const [showTip, setShowTip] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
@@ -56,11 +58,11 @@ export function StreamChat({
   const messagesRef = useRef<HTMLDivElement>(null);
 
   const canUseOnChain =
-    contractsReady && isConnected && Boolean(djWalletAddress?.startsWith("0x"));
+    onChainFeaturesAvailable() && isConnected && Boolean(djWalletAddress?.startsWith("0x"));
   const onChainDropBal =
     balanceWei !== undefined ? Number(balanceWei / BigInt(10 ** 18)) : null;
   const djWalletReady = djWalletAddress?.startsWith("0x");
-  const fanWalletReady = contractsReady && isConnected;
+  const fanWalletReady = onChainFeaturesAvailable() && isConnected;
 
   useEffect(() => {
     if (canUseOnChain && showTip && !tipOnChainMode) {
@@ -147,20 +149,24 @@ export function StreamChat({
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || !user) return;
+    if (!input.trim() || !user || sending) return;
     setError("");
-    const res = await apiFetch(`/api/chat/${streamId}`, {
-      method: "POST",
-      body: JSON.stringify({ message: input.trim() }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError((data as { error?: string }).error ?? "Could not send message");
-      return;
-    }
-    const data = await res.json();
-    if (data.message) appendMessage(data.message);
+    setSending(true);
+    const text = input.trim();
     setInput("");
+    try {
+      const res = await apiFetch(`/api/chat/${streamId}`, {
+        method: "POST",
+        body: JSON.stringify({ message: text }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError((data as { error?: string }).error ?? "Could not send message");
+        setInput(text);
+      }
+    } finally {
+      setSending(false);
+    }
   }
 
   async function handleTip(e: React.FormEvent) {
@@ -520,7 +526,7 @@ export function StreamChat({
                 Tip on-chain via your LiveBooth wallet (VeChain testnet)
               </label>
             )}
-            {contractsReady && showTip && (!fanWalletReady || !djWalletReady) && (
+            {onChainFeaturesAvailable() && showTip && (!fanWalletReady || !djWalletReady) && (
               <p className="text-[10px] text-purple-300/80 leading-relaxed">
                 {!fanWalletReady && (
                   <>
@@ -562,10 +568,14 @@ export function StreamChat({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={user ? "Send a message..." : "Login to chat"}
-                disabled={!user}
+                disabled={!user || sending}
                 className="flex-1 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white disabled:opacity-50"
               />
-              <button type="submit" className="rounded-lg bg-white/10 px-3 py-2">
+              <button
+                type="submit"
+                disabled={!user || sending}
+                className="rounded-lg bg-white/10 px-3 py-2 disabled:opacity-50"
+              >
                 <Send className="h-4 w-4" />
               </button>
             </form>

@@ -7,14 +7,30 @@ export type ChatConnectionStatus = "connecting" | "live" | "reconnecting" | "off
 
 const POLL_MS = 4000;
 
+function isNearDuplicate(a: ChatMessagePayload, b: ChatMessagePayload): boolean {
+  if (a.id === b.id) return true;
+  if (a.userId && b.userId && a.userId !== b.userId) return false;
+  if (a.username !== b.username || a.message !== b.message) return false;
+  return (
+    Math.abs(new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) <= 3000
+  );
+}
+
 function mergeChatMessages(
   prev: ChatMessagePayload[],
   incoming: ChatMessagePayload[],
 ): ChatMessagePayload[] {
   if (incoming.length === 0) return prev;
-  const byId = new Map(prev.map((m) => [m.id, m]));
-  for (const msg of incoming) byId.set(msg.id, msg);
-  return [...byId.values()]
+  const merged = [...prev];
+  for (const msg of incoming) {
+    const dupeIdx = merged.findIndex((existing) => isNearDuplicate(existing, msg));
+    if (dupeIdx >= 0) {
+      merged[dupeIdx] = msg;
+      continue;
+    }
+    merged.push(msg);
+  }
+  return merged
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     .slice(-100);
 }

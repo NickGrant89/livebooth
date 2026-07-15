@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { buildVeChainKitProviderProps } from "@/lib/vechain-kit-config";
+import { isOnChainEnabled } from "@/lib/web3/contracts";
 
 export type KitLoadState =
   | { status: "loading" }
@@ -70,6 +71,10 @@ function KitShell({
 
 /** Loads VeChain Kit only on routes that opt in (wallet / stream / achievements). */
 export function WalletKitScope({ children }: { children: ReactNode }) {
+  if (!isOnChainEnabled()) {
+    return <KitShell state={{ status: "ready" }}>{children}</KitShell>;
+  }
+
   const [kit, setKit] = useState<KitModules | null>(null);
   const [mounted, setMounted] = useState(false);
   const [loadState, setLoadState] = useState<KitLoadState>({ status: "loading" });

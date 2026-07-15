@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
+import { isOnChainEnabled } from "@/lib/web3/contracts";
 import { normalizeTxHash } from "@/lib/web3/verify-tip";
 import { verifyOnChainClaim } from "@/lib/web3/verify-claim";
 import { z } from "zod";
@@ -12,6 +13,10 @@ const schema = z.object({
 export async function POST(request: Request) {
   const auth = await requireApiUser();
   if (isApiError(auth)) return auth;
+
+  if (!isOnChainEnabled()) {
+    return error("On-chain features are disabled", 503);
+  }
 
   try {
     const body = schema.parse(await request.json());

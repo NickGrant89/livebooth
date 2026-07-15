@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Coins, ExternalLink } from "lucide-react";
 import { DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { isOnChainEnabled } from "@/lib/web3/contracts";
 import deployed from "@/lib/contracts/deployed.json";
 
 function shortAddress(addr: string) {
@@ -14,6 +15,8 @@ type ProfileOnChainStripProps = {
 };
 
 export function ProfileOnChainStrip({ walletAddress, isOwnProfile, isDj }: ProfileOnChainStripProps) {
+  if (!isOnChainEnabled()) return null;
+
   const dropToken = deployed.dropToken;
   const hasWallet = Boolean(walletAddress?.startsWith("0x"));
 
