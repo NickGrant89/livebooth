@@ -1,3 +1,4 @@
+import { prisma } from "./db";
 import {
   REDEEM_USD_CENTS_PER_DROP,
   WITHDRAWAL_FEE_BPS,
@@ -39,6 +40,28 @@ export function formatUsd(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+/** DROP that can be cashed out — creator earnings only, not welcome bonus or purchases. */
+export async function getWithdrawableDrop(userId: string): Promise<{
+  balance: number;
+  totalEarned: number;
+  alreadyWithdrawn: number;
+  withdrawable: number;
+}> {
+  const bal = await prisma.beatBalance.findUnique({ where: { userId } });
+  const balance = bal?.balance ?? 0;
+  const totalEarned = bal?.totalEarned ?? 0;
+
+  const agg = await prisma.withdrawalRequest.aggregate({
+    where: { userId, status: { in: ["pending", "approved", "paid"] } },
+    _sum: { dropAmount: true },
+  });
+  const alreadyWithdrawn = Math.round(agg._sum.dropAmount ?? 0);
+  const earningsRemaining = Math.max(0, totalEarned - alreadyWithdrawn);
+  const withdrawable = Math.min(balance, earningsRemaining);
+
+  return { balance, totalEarned, alreadyWithdrawn, withdrawable };
+}
+
 export async function checkWithdrawEligibility(
   userId: string,
   userCreatedAt: Date,
@@ -46,8 +69,18 @@ export async function checkWithdrawEligibility(
     countTipsSent: () => Promise<number>;
     countStreamsHosted: () => Promise<number>;
     sumPaidWithdrawalsUsdCentsThisMonth: () => Promise<number>;
+    totalEarned?: number;
   },
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const earned = deps.totalEarned ?? 0;
+  if (earned <= 0) {
+    return {
+      ok: false,
+      reason:
+        "Only DROP you've earned from streams (tips, unlocks, requests) can be cashed out — welcome bonus and purchases are for spending in the booth",
+    };
+  }
+
   if (!isDemoEconomyMode()) {
     const ageMs = Date.now() - userCreatedAt.getTime();
     const minAgeMs = WITHDRAWAL_MIN_ACCOUNT_AGE_DAYS * 24 * 60 * 60 * 1000;

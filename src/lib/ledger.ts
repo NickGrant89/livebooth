@@ -30,14 +30,16 @@ export async function creditUser(
   type: string,
   reference?: string,
   metadata?: Record<string, unknown>,
+  opts?: { countAsEarned?: boolean },
 ) {
+  const countAsEarned = opts?.countAsEarned ?? true;
   await getOrCreateBalance(userId);
   await prisma.$transaction([
     prisma.beatBalance.update({
       where: { userId },
       data: {
         balance: { increment: amount },
-        totalEarned: { increment: amount },
+        ...(countAsEarned ? { totalEarned: { increment: amount } } : {}),
       },
     }),
     prisma.ledgerEntry.create({
@@ -300,9 +302,14 @@ export async function resolveCrowdRequest(
 }
 
 export async function buyDrop(userId: string, amount: number, source: "dev" | "stripe" = "dev") {
-  await creditUser(userId, amount, source === "stripe" ? "stripe_purchase" : "purchase", undefined, {
-    simulated: source === "dev",
-  });
+  await creditUser(
+    userId,
+    amount,
+    source === "stripe" ? "stripe_purchase" : "purchase",
+    undefined,
+    { simulated: source === "dev" },
+    { countAsEarned: false },
+  );
   return getOrCreateBalance(userId);
 }
 

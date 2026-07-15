@@ -26,6 +26,7 @@ export function WithdrawPanel() {
   const { user, refresh } = useAuth();
   const [amount, setAmount] = useState("500");
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [withdrawableDrop, setWithdrawableDrop] = useState(0);
   const [requests, setRequests] = useState<WithdrawRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +38,7 @@ export function WithdrawPanel() {
     if (res.ok) {
       const d = await res.json();
       setQuote(d.quote);
+      setWithdrawableDrop(d.withdrawableDrop ?? 0);
       setRequests(d.requests ?? []);
     }
     setLoading(false);
@@ -91,8 +93,8 @@ export function WithdrawPanel() {
       </h2>
       <p className="text-xs text-zinc-400 mb-4 flex items-start gap-1.5">
         <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+        Only DROP you&apos;ve earned from streams can be cashed out — welcome bonus and card purchases stay in your booth wallet.
         Redeem at platform rate ({quote?.redeemRateLabel ?? "~$0.0425/DROP"}) minus {quote?.feePercent ?? 2}% fee.
-        Connect Stripe on this page for automated payouts when approved.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
@@ -106,7 +108,13 @@ export function WithdrawPanel() {
         />
         <button
           type="button"
-          disabled={submitting || hasPending || parsed < minDrop || parsed > user.balance}
+          disabled={
+            submitting ||
+            hasPending ||
+            parsed < minDrop ||
+            parsed > withdrawableDrop ||
+            withdrawableDrop < minDrop
+          }
           onClick={() => submit()}
           className="rounded-lg bg-amber-500/20 border border-amber-500/40 px-5 py-2 text-sm font-bold text-amber-200 hover:bg-amber-500/30 disabled:opacity-40"
         >
@@ -115,8 +123,12 @@ export function WithdrawPanel() {
       </div>
 
       <p className="text-xs text-zinc-500 mb-2">
-        Balance: {formatTokens(user.balance)} · Min {minDrop} DROP
-        {preview && parsed >= minDrop && (
+        Booth balance: {formatTokens(user.balance)} · Cash-out available:{" "}
+        <span className={withdrawableDrop >= minDrop ? "text-amber-200/90" : "text-zinc-400"}>
+          {formatTokens(withdrawableDrop)}
+        </span>
+        {" · "}Min {minDrop} DROP
+        {preview && parsed >= minDrop && parsed <= withdrawableDrop && (
           <span className="text-amber-200/80">
             {" "}
             → ~{formatUsd(preview.netUsdCents)} net ({preview.feeDrop} DROP fee)
@@ -124,6 +136,11 @@ export function WithdrawPanel() {
         )}
       </p>
 
+      {withdrawableDrop < minDrop && (
+        <p className="text-xs text-zinc-500 mb-2">
+          Earn DROP from tips, track unlocks, or requests during live sets before requesting a payout.
+        </p>
+      )}
       {hasPending && (
         <p className="text-xs text-amber-300 mb-2">You have a pending withdrawal — wait for admin review.</p>
       )}

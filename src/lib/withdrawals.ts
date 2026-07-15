@@ -1,7 +1,7 @@
 import { prisma } from "./db";
 import { debitUser, creditUser } from "./ledger";
 import { effectiveWithdrawMinDrop } from "./constants";
-import { checkWithdrawEligibility, quoteWithdrawal } from "./redeem";
+import { checkWithdrawEligibility, getWithdrawableDrop, quoteWithdrawal } from "./redeem";
 import {
   isStripeAutoPayoutEnabled,
   transferWithdrawalPayout,
@@ -21,8 +21,28 @@ export async function requestWithdrawal(userId: string, dropAmount: number) {
     return { ok: false as const, error: `Minimum withdrawal is ${minDrop} DROP` };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { balance: { select: { totalEarned: true } } },
+  });
   if (!user) return { ok: false as const, error: "User not found" };
+
+  const { withdrawable } = await getWithdrawableDrop(userId);
+  if (withdrawable < minDrop) {
+    return {
+      ok: false as const,
+      error:
+        withdrawable <= 0
+          ? "Only DROP you've earned from streams can be cashed out — welcome bonus and purchases stay in your booth wallet"
+          : `You need at least ${minDrop} DROP in withdrawable earnings (you have ${Math.floor(withdrawable)} DROP available to cash out)`,
+    };
+  }
+  if (dropAmount > withdrawable) {
+    return {
+      ok: false as const,
+      error: `Only ${Math.floor(withdrawable)} DROP from stream earnings can be cashed out`,
+    };
+  }
 
   const pending = await prisma.withdrawalRequest.count({
     where: { userId, status: { in: ["pending", "approved"] } },
@@ -32,6 +52,7 @@ export async function requestWithdrawal(userId: string, dropAmount: number) {
   }
 
   const eligibility = await checkWithdrawEligibility(userId, user.createdAt, {
+    totalEarned: user.balance?.totalEarned ?? 0,
     countTipsSent: () => prisma.tip.count({ where: { fromUserId: userId } }),
     countStreamsHosted: () => prisma.stream.count({ where: { djId: userId } }),
     sumPaidWithdrawalsUsdCentsThisMonth: async () => {
@@ -165,7 +186,7 @@ export async function adminUpdateWithdrawal(
     }
     await creditUser(row.userId, row.dropAmount, "withdraw_refund", requestId, {
       reason: rejectReason ?? "rejected",
-    });
+    }, { countAsEarned: false });
     const updated = await prisma.withdrawalRequest.update({
       where: { id: requestId },
       data: {

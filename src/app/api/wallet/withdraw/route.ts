@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
-import { quoteWithdrawal } from "@/lib/redeem";
+import { getWithdrawableDrop, quoteWithdrawal } from "@/lib/redeem";
 import { listUserWithdrawals, requestWithdrawal } from "@/lib/withdrawals";
 
 export async function GET() {
@@ -8,8 +8,11 @@ export async function GET() {
   if (isApiError(auth)) return auth;
 
   const rows = await listUserWithdrawals(auth.id);
+  const { withdrawable, totalEarned } = await getWithdrawableDrop(auth.id);
   return json({
     quote: quoteWithdrawal(100),
+    withdrawableDrop: Math.floor(withdrawable),
+    totalEarned: Math.floor(totalEarned),
     requests: rows.map((r) => ({
       id: r.id,
       dropAmount: r.dropAmount,
