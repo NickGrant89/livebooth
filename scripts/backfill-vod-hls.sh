@@ -35,7 +35,7 @@ while IFS= read -r f; do
 
   if [[ ! -f "${f}.remuxed" ]]; then
     echo "Remux (faststart + HLS): ${f}"
-    REMUX_FORCE=1 REMUX_IDLE_SEC=0 bash "${REMUX_SCRIPT}" "${f}" || {
+    REMUX_FORCE=1 REMUX_IDLE_SEC=0 bash "${REMUX_SCRIPT}" "${f}" < /dev/null || {
       echo "WARN: remux failed, trying HLS from raw file: ${f}" >&2
     }
   fi
@@ -53,14 +53,14 @@ while IFS= read -r f; do
   echo "HLS VOD only: ${f}"
   rm -rf "$dir"
   mkdir -p "$dir"
-  ffmpeg -y -loglevel error -i "$f" \
+  ffmpeg -nostdin -y -loglevel error -i "$f" \
     -c copy \
     -hls_time 6 \
     -hls_list_size 0 \
     -hls_playlist_type vod \
     -hls_flags independent_segments \
     -hls_segment_filename "${dir}/seg_%04d.ts" \
-    "${dir}/index.m3u8"
+    "${dir}/index.m3u8" < /dev/null
   touch "${dir}/.ready"
   count=$((count + 1))
 done < <(find "${RECORDINGS}" -type f \( -name '*.mp4' -o -name '*.fmp4' \) ! -name '*.remuxing*' | sort)

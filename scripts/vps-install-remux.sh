@@ -99,6 +99,13 @@ else
 fi
 
 echo ""
+echo "--- Backfill HLS VOD for any recordings missing playback/ ---"
+BACKFILL="${REPO_RAW}/scripts/backfill-vod-hls.sh"
+if curl -fsSL "${BACKFILL}" -o /tmp/livebooth-backfill-vod-hls.sh; then
+  bash /tmp/livebooth-backfill-vod-hls.sh || echo "WARN: backfill had errors (check logs)" >&2
+fi
+
+echo ""
 echo "=== Done ==="
 echo "  systemctl status livebooth-remux   # watcher (runs every 30s)"
 echo "  tail -f /var/log/syslog | grep livebooth-remux   # logs (Debian/Ubuntu)"

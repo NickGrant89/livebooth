@@ -2,7 +2,7 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { hasStreamReplay } from "./playback-url";
+import { hasStreamReplay, isArchivedHlsVodUrl, isFilePlaybackUrl } from "./playback-url";
 
 const RECORDINGS_DIR =
   process.env.RECORDINGS_DIR ?? path.join(process.cwd(), "rtmp-server/recordings");
@@ -248,7 +248,7 @@ function isLiveHlsArchiveUrl(url: string): boolean {
 }
 
 /** Remux watcher waits ~3 min idle before processing; allow time for HLS VOD build. */
-export const VOD_PROCESSING_WINDOW_MS = 12 * 60 * 1000;
+export const VOD_PROCESSING_WINDOW_MS = 20 * 60 * 1000;
 
 export function isVodLikelyProcessing(
   endedAt: Date | null | undefined,
@@ -257,8 +257,91 @@ export function isVodLikelyProcessing(
   playbackUrl: string | null | undefined,
 ): boolean {
   if (!endedAt || !ingestKey || !isLocalRecordingEnabled()) return false;
-  if (hasStreamReplay(vodUrl, playbackUrl)) return false;
-  return Date.now() - endedAt.getTime() < VOD_PROCESSING_WINDOW_MS;
+  if (isArchivedHlsVodUrl(vodUrl) || isArchivedHlsVodUrl(playbackUrl)) return false;
+
+  const withinWindow = Date.now() - endedAt.getTime() < VOD_PROCESSING_WINDOW_MS;
+  const url = vodUrl ?? playbackUrl;
+
+  if (!hasStreamReplay(vodUrl, playbackUrl)) {
+    return withinWindow;
+  }
+
+  // MP4 on disk but HLS VOD may still be remuxing.
+  if (withinWindow && isFilePlaybackUrl(url)) return true;
+
+  return false;
+}
+
+export type StreamReplayState = "ready" | "processing" | "unavailable";
+
+export async function getStreamReplayState(
+  ingestKey: string | null | undefined,
+  endedAt: Date | null | undefined,
+  vodUrl: string | null | undefined,
+  playbackUrl: string | null | undefined,
+): Promise<StreamReplayState> {
+  if (isArchivedHlsVodUrl(vodUrl) || isArchivedHlsVodUrl(playbackUrl)) return "ready";
+  if (vodUrl?.includes("livepeercdn.studio") || playbackUrl?.includes("livepeercdn.studio")) {
+    return "ready";
+  }
+
+  if (!ingestKey || !isLocalRecordingEnabled()) {
+    return hasStreamReplay(vodUrl, playbackUrl) ? "ready" : "unavailable";
+  }
+
+  const hls = await remoteHlsPlaybackReady(ingestKey);
+  if (hls) return "ready";
+
+  const hasFile =
+    hasStreamReplay(vodUrl, playbackUrl) ||
+    !!(await findLatestRemoteRecordingFilename(ingestKey)) ||
+    !!findLatestRecordingFile(ingestKey);
+
+  if (!hasFile) {
+    return isVodLikelyProcessing(endedAt, ingestKey, vodUrl, playbackUrl)
+      ? "processing"
+      : "unavailable";
+  }
+
+  if (isVodLikelyProcessing(endedAt, ingestKey, vodUrl, playbackUrl)) return "processing";
+  return "ready";
+}
+
+type ArchiveReplayFields = {
+  ingestKey: string | null;
+  endedAt: Date | null;
+  vodUrl: string | null;
+  playbackUrl: string | null;
+};
+
+/** Resolve VPS playback URLs and replay state for archive lists. */
+export async function enrichArchiveStreams<T extends ArchiveReplayFields>(
+  streams: T[],
+  options?: { resolveUrls?: boolean; resolveLimit?: number },
+): Promise<(T & { hasReplay: boolean; replayState: StreamReplayState })[]> {
+  const resolveLimit = options?.resolveUrls ? (options.resolveLimit ?? 12) : 0;
+
+  return Promise.all(
+    streams.map(async (stream, index) => {
+      let vodUrl = stream.vodUrl;
+      if (stream.ingestKey && index < resolveLimit) {
+        const resolved = await resolveEndedStreamPlaybackUrl(
+          stream.ingestKey,
+          vodUrl ?? stream.playbackUrl,
+        );
+        if (resolved) vodUrl = resolved;
+      }
+
+      const replayState = await getStreamReplayState(
+        stream.ingestKey,
+        stream.endedAt,
+        vodUrl,
+        stream.playbackUrl,
+      );
+      const hasReplay = replayState === "ready" || replayState === "processing";
+      return { ...stream, vodUrl, hasReplay, replayState };
+    }),
+  );
 }
 
 async function resolveBestRecordingPlaybackUrl(ingestKey: string): Promise<string | null> {

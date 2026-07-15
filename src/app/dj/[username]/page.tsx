@@ -9,6 +9,7 @@ import { StakePanel } from "@/components/StakePanel";
 import { DjArchiveList, DjProfileTabs } from "@/components/DjArchiveList";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { enrichArchiveStreams } from "@/lib/vod-recording";
 import { getStationAffiliationForUser } from "@/lib/stations";
 import { getDjStakeTotal } from "@/lib/staking";
 import { pruneDjArchive } from "@/lib/archive-cleanup";
@@ -72,7 +73,7 @@ export default async function DJProfilePage({
     await pruneDjArchive(dj.id);
   }
 
-  const [liveStream, archiveStreams, stationAffiliation, totalLikes, vipSubCount] = await Promise.all([
+  const [liveStream, rawArchiveStreams, stationAffiliation, totalLikes, vipSubCount] = await Promise.all([
     prisma.stream.findFirst({
       where: { djId: dj.id, status: "live" },
     }),
@@ -85,6 +86,11 @@ export default async function DJProfilePage({
     getDjTotalLikes(dj.id),
     isCreator ? getDjStakeTotal(dj.id).then((t) => t.stakers) : Promise.resolve(0),
   ]);
+
+  const archiveStreams = await enrichArchiveStreams(rawArchiveStreams, {
+    resolveUrls: true,
+    resolveLimit: 15,
+  });
 
   const lastSet = archiveStreams.find((s) => s.setGrade);
   const genres = JSON.parse(dj.genres || "[]") as string[];

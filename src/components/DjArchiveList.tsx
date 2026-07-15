@@ -23,6 +23,7 @@ export type ArchiveStream = {
   vodUrl: string | null;
   playbackUrl: string | null;
   hasReplay?: boolean;
+  replayState?: "ready" | "processing" | "unavailable";
   dj?: { username: string; displayName: string };
 };
 
@@ -47,11 +48,13 @@ function ArchiveRowContent({
   stream: s,
   duration,
   hasReplay,
+  replayState,
   variant,
 }: {
   stream: ArchiveStream;
   duration: string | null;
   hasReplay: boolean;
+  replayState: "ready" | "processing" | "unavailable";
   variant: "dj" | "admin";
 }) {
   return (
@@ -96,7 +99,13 @@ function ArchiveRowContent({
           {s.setScore != null ? ` · ${s.setScore.toLocaleString()}` : ""}
         </span>
       )}
-      {hasReplay && variant === "dj" && (
+      {hasReplay && variant === "dj" && replayState === "processing" && (
+        <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Processing
+        </span>
+      )}
+      {hasReplay && variant === "dj" && replayState === "ready" && (
         <span className="shrink-0 text-xs font-semibold text-[#53fc18]">Replay</span>
       )}
     </>
@@ -214,13 +223,16 @@ export function DjArchiveList({
       <div className="space-y-2">
         {streams.map((s) => {
           const duration = formatDuration(s.startedAt, s.endedAt);
-          const hasReplay =
-            s.hasReplay ?? hasStreamReplay(s.vodUrl, s.playbackUrl);
+          const replayState =
+            s.replayState ??
+            (s.hasReplay ?? hasStreamReplay(s.vodUrl, s.playbackUrl) ? "ready" : "unavailable");
+          const hasReplay = replayState === "ready" || replayState === "processing";
           const inner = (
             <ArchiveRowContent
               stream={s}
               duration={duration}
               hasReplay={hasReplay}
+              replayState={replayState}
               variant={variant}
             />
           );

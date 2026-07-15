@@ -1,7 +1,7 @@
 import { requireModeratorPermissionApi } from "@/lib/admin";
 import { json, isApiError } from "@/lib/api-utils";
-import { hasStreamReplay } from "@/lib/streaming";
 import { pruneAdminArchives } from "@/lib/archive-cleanup";
+import { enrichArchiveStreams } from "@/lib/vod-recording";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: Request) {
@@ -10,28 +10,32 @@ export async function GET(request: Request) {
 
   await pruneAdminArchives();
 
-  const streams = await prisma.stream.findMany({
-    where: { status: "ended" },
-    orderBy: { endedAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      title: true,
-      peakViewers: true,
-      totalTips: true,
-      vodUrl: true,
-      playbackUrl: true,
-      ingestKey: true,
-      endedAt: true,
-      dj: { select: { username: true, displayName: true } },
-    },
-  });
+  const streams = await enrichArchiveStreams(
+    await prisma.stream.findMany({
+      where: { status: "ended" },
+      orderBy: { endedAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        title: true,
+        peakViewers: true,
+        totalTips: true,
+        vodUrl: true,
+        playbackUrl: true,
+        ingestKey: true,
+        endedAt: true,
+        dj: { select: { username: true, displayName: true } },
+      },
+    }),
+    { resolveUrls: true, resolveLimit: 25 },
+  );
 
   return json({
     streams: streams.map((s) => ({
       ...s,
       endedAt: s.endedAt?.toISOString() ?? null,
-      hasReplay: hasStreamReplay(s.vodUrl, s.playbackUrl),
+      hasReplay: s.hasReplay,
+      replayState: s.replayState,
     })),
   });
 }

@@ -47,9 +47,14 @@ export function resolveVodProxySrc(url: string): string | null {
 export function hlsVodUrlForRecording(url: string): string | null {
   const resolved = resolvePlaybackUrl(url);
   if (resolved.includes("/playback/index.m3u8")) return resolved;
-  const match = resolved.match(/^(.*\/live\/lb_[^/]+)\/[^/]+\.(?:mp4|fmp4)(?:\?.*)?$/i);
+  const match = resolved.match(/^(.*\/live\/[^/]+)\/[^/]+\.(?:mp4|fmp4)(?:\?.*)?$/i);
   if (match?.[1]) return `${match[1]}/playback/index.m3u8`;
   return null;
+}
+
+/** HLS VOD playlist for an ingest key on the public recordings CDN. */
+export function hlsVodUrlForIngestKey(ingestKey: string): string {
+  return `${RECORDINGS_CDN}/live/${encodeURIComponent(ingestKey)}/playback/index.m3u8`;
 }
 
 export type VodPlaybackMode = "hls" | "file";
@@ -69,6 +74,18 @@ export async function resolveVodPlaybackMode(
       if (res.ok) return { url: hlsCandidate, mode: "hls" };
     } catch {
       // fall through to MP4
+    }
+  }
+
+  // Also try ingest-key path when URL is a same-origin proxy.
+  const ingestMatch = url.match(/\/live\/([^/]+)\//i);
+  if (ingestMatch?.[1]) {
+    const byKey = hlsVodUrlForIngestKey(decodeURIComponent(ingestMatch[1]));
+    try {
+      const res = await fetch(byKey, { method: "HEAD", cache: "no-store" });
+      if (res.ok) return { url: byKey, mode: "hls" };
+    } catch {
+      // fall through
     }
   }
 

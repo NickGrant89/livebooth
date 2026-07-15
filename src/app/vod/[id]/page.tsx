@@ -8,7 +8,7 @@ import { getVodAccess } from "@/lib/staker-perks";
 import { isDemoPlayback, isFilePlaybackUrl, isVodPlaybackUrl } from "@/lib/streaming";
 import {
   resolveEndedStreamPlaybackUrl,
-  isVodLikelyProcessing,
+  getStreamReplayState,
 } from "@/lib/vod-recording";
 import { computeSetScore } from "@/lib/set-score";
 import { vodMetadata } from "@/lib/metadata-share";
@@ -103,10 +103,15 @@ export default async function VODPage({
   }
 
   const demoPlayback = Boolean(playbackUrl && isDemoPlayback(playbackUrl) && !isFilePlaybackUrl(playbackUrl));
+  const replayState = await getStreamReplayState(
+    stream.ingestKey,
+    stream.endedAt,
+    vodUrl,
+    stream.playbackUrl,
+  );
   const recordingUnavailable = !playbackUrl && !demoPlayback;
   const recordingProcessing =
-    recordingUnavailable &&
-    isVodLikelyProcessing(stream.endedAt, stream.ingestKey, stream.vodUrl, stream.playbackUrl);
+    recordingUnavailable || replayState === "processing";
 
   const displayName = stream.stationChannel && stream.station?.name
     ? stream.station.name

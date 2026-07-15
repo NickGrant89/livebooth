@@ -2,6 +2,7 @@ import { prisma } from "./db";
 import { notifyUser } from "./notifications";
 import { isDemoPlayback } from "./streaming";
 import { resolveRecordingVodUrlWithRetry } from "./vod-recording";
+import { scheduleRecordingRemux } from "./recordings-remux";
 import {
   STREAM_REPORT_AUTO_STOP,
   STREAM_REPORT_WINDOW_MS,
@@ -23,6 +24,7 @@ export async function forceEndStream(
   let vodUrl: string | null = null;
   if (stream.ingestKey) {
     vodUrl = await resolveRecordingVodUrlWithRetry(stream.ingestKey);
+    void scheduleRecordingRemux(stream.ingestKey);
   }
 
   const updated = await prisma.stream.update({

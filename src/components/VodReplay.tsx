@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Play } from "lucide-react";
 import { StreamPlayer, type StreamPlayerHandle } from "@/components/StreamPlayer";
+import { apiFetch } from "@/lib/fetch-client";
 import { ShareMenu } from "@/components/ShareMenu";
 import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { FanGradeShare } from "@/components/FanGradeShare";
@@ -78,6 +79,43 @@ export function VodReplay({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [clipStartSec, setClipStartSec] = useState(0);
   const [clipLabel, setClipLabel] = useState<string | undefined>();
+  const [livePlaybackUrl, setLivePlaybackUrl] = useState(playbackUrl);
+  const [liveProcessing, setLiveProcessing] = useState(recordingProcessing);
+  const [liveUnavailable, setLiveUnavailable] = useState(recordingUnavailable);
+
+  useEffect(() => {
+    setLivePlaybackUrl(playbackUrl);
+    setLiveProcessing(recordingProcessing);
+    setLiveUnavailable(recordingUnavailable);
+  }, [playbackUrl, recordingProcessing, recordingUnavailable]);
+
+  useEffect(() => {
+    if (!liveUnavailable && !liveProcessing) return;
+    let cancelled = false;
+    const poll = async () => {
+      const res = await apiFetch(`/api/streams/${streamId}/vod-playback`);
+      if (!res.ok || cancelled) return;
+      const data = (await res.json()) as {
+        playbackUrl?: string;
+        ready?: boolean;
+        processing?: boolean;
+      };
+      if (data.playbackUrl) setLivePlaybackUrl(data.playbackUrl);
+      if (data.ready) {
+        setLiveUnavailable(false);
+        setLiveProcessing(false);
+        return;
+      }
+      if (data.processing) setLiveProcessing(true);
+    };
+
+    void poll();
+    const interval = window.setInterval(() => void poll(), 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [streamId, liveUnavailable, liveProcessing]);
 
   function jumpTo(h: Highlight) {
     const sec = h.timestampMs / 1000;
@@ -124,13 +162,24 @@ export function VodReplay({
             )}
           </div>
         </div>
+      ) : liveUnavailable ? (
+        <div className="aspect-video rounded-xl border border-white/10 bg-[#141416] flex flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="text-sm text-zinc-300 font-semibold">
+            {liveProcessing ? "Preparing replay…" : "Replay not available"}
+          </p>
+          <p className="text-xs text-zinc-500 max-w-md">
+            {liveProcessing
+              ? "The server is remuxing your recording into fast-start playback (usually 3–5 minutes after you end the stream). This page will load automatically when ready."
+              : "No recording was found for this set. Very short or interrupted streams may not produce a replay."}
+          </p>
+        </div>
       ) : (
         <StreamPlayer
           ref={playerRef}
           djName={djName}
           streamTitle={title}
           viewers={peakViewers}
-          playbackUrl={playbackUrl}
+          playbackUrl={livePlaybackUrl}
           isLive={false}
           demoPlayback={demoPlayback}
           viewerLabel="peak"
@@ -142,18 +191,17 @@ export function VodReplay({
           VOD replay uses the same demo HLS feed until OBS recording is wired up. Highlight jumps seek within the demo clip.
         </p>
       )}
-      {recordingUnavailable && (
+      {liveUnavailable && (
         <p className="mt-3 text-xs text-zinc-400 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-          {recordingProcessing ? (
+          {liveProcessing ? (
             <>
               Replay is still processing on the server (usually ready within 3–5 minutes after you end the stream).
-              Refresh this page shortly — station and DJ shows are saved to the VPS recording archive.
+              This page refreshes automatically — no need to reload manually.
             </>
           ) : (
             <>
               Recording is not available yet. If you just ended the stream, wait 2–3 minutes for the
-              server to finish writing and remuxing the file, then refresh. Short or interrupted OBS
-              streams may not produce a replay.
+              server to finish writing and remuxing the file. Short or interrupted OBS streams may not produce a replay.
             </>
           )}
         </p>
@@ -172,7 +220,7 @@ export function VodReplay({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canEditDetails && !recordingUnavailable && (
+          {canEditDetails && !liveUnavailable && (
             <SetRecordingDownloadButton streamId={streamId} />
           )}
           <StreamLikeButton streamId={streamId} />

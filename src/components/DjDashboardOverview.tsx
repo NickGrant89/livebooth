@@ -43,6 +43,7 @@ export type DashboardSummary = {
     setScore: number | null;
     endedAt: string | null;
     hasReplay: boolean;
+    replayState?: "ready" | "processing" | "unavailable";
   }>;
   lastSet: {
     id: string;
@@ -203,6 +204,11 @@ export function DjDashboardOverview({
                     {s.setGrade && (
                       <span className="shrink-0 text-xs font-bold text-[#15CFF4]">{s.setGrade}</span>
                     )}
+                    {"replayState" in s && s.replayState === "processing" ? (
+                      <span className="shrink-0 text-[10px] font-semibold text-cyan-300">Processing</span>
+                    ) : s.hasReplay ? (
+                      <span className="shrink-0 text-[10px] font-semibold text-[#53fc18]">Replay</span>
+                    ) : null}
                     <span className="shrink-0 text-xs text-zinc-500 hidden sm:inline">
                       {genreLabels[s.genre] ?? s.genre}
                     </span>

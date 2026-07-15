@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { onChainFeaturesAvailable } from "@/lib/web3/contracts";
-import { hasStreamReplay } from "@/lib/streaming";
+import { enrichArchiveStreams } from "@/lib/vod-recording";
 
 export async function GET() {
   const auth = await requireApiUser();
@@ -11,7 +11,7 @@ export async function GET() {
     return error("DJs only", 403);
   }
 
-  const [user, recentSets, liveStream, achievementCount] = await Promise.all([
+  const [user, recentSetsRaw, liveStream, achievementCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: auth.id },
       select: {
@@ -37,6 +37,7 @@ export async function GET() {
         setGrade: true,
         setScore: true,
         endedAt: true,
+        ingestKey: true,
         vodUrl: true,
         playbackUrl: true,
       },
@@ -60,6 +61,11 @@ export async function GET() {
 
   if (!user) return error("Not found", 404);
 
+  const recentSets = await enrichArchiveStreams(recentSetsRaw, {
+    resolveUrls: true,
+    resolveLimit: 5,
+  });
+
   const walletLinked = Boolean(user.walletAddress?.startsWith("0x"));
 
   return json({
@@ -78,7 +84,8 @@ export async function GET() {
     recentSets: recentSets.map((s) => ({
       ...s,
       endedAt: s.endedAt?.toISOString() ?? null,
-      hasReplay: hasStreamReplay(s.vodUrl, s.playbackUrl),
+      hasReplay: s.hasReplay,
+      replayState: s.replayState,
     })),
     lastSet: recentSets[0]
       ? {

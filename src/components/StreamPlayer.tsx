@@ -465,9 +465,10 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
     vodLoadTimeout = window.setTimeout(() => {
       if (cancelled || vodReadyRef.current || isLive || previewMode) return;
+      if (waitingForHlsVod) return;
       setPlaybackError(true);
       setIsLoading(false);
-    }, 90_000);
+    }, 600_000);
     cleanupFns.push(() => window.clearTimeout(vodLoadTimeout));
 
     void (async () => {
