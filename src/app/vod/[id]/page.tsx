@@ -118,6 +118,11 @@ export default async function VODPage({
     ? stream.station.name
     : stream.dj.displayName;
 
+  const expectedDurationSec =
+    stream.startedAt && stream.endedAt
+      ? Math.max(0, (stream.endedAt.getTime() - stream.startedAt.getTime()) / 1000)
+      : undefined;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <Link href={backHref} className="text-sm text-zinc-400 hover:text-white mb-4 inline-block">
@@ -156,6 +161,7 @@ export default async function VODPage({
         }
         showStakerCta={vodAccess.allowed}
         stationSlug={stream.station?.slug ?? null}
+        expectedDurationSec={expectedDurationSec}
       />
     </div>
   );

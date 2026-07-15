@@ -54,22 +54,51 @@ function parseRecordingFilenamesFromListing(html: string): string[] {
   return [...new Set(files)];
 }
 
+async function listRemoteRecordingFilenames(
+  baseUrl: string,
+  ingestKey: string,
+): Promise<string[]> {
+  const listingUrl = `${baseUrl}/live/${encodeURIComponent(ingestKey)}/`;
+  try {
+    const res = await fetch(listingUrl, { cache: "no-store" });
+    if (!res.ok) return [];
+    const html = await res.text();
+    return parseRecordingFilenamesFromListing(html);
+  } catch {
+    return [];
+  }
+}
+
+/** Pick the largest file — full set beats partial reconnect artifacts. */
+async function findLargestRemoteRecordingFilename(
+  baseUrl: string,
+  ingestKey: string,
+): Promise<string | null> {
+  const files = await listRemoteRecordingFilenames(baseUrl, ingestKey);
+  if (files.length === 0) return null;
+
+  let best: { name: string; size: number } | null = null;
+  await Promise.all(
+    files.map(async (name) => {
+      const url = `${baseUrl}/live/${encodeURIComponent(ingestKey)}/${encodeURIComponent(name)}`;
+      try {
+        const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+        if (!res.ok) return;
+        const size = parseInt(res.headers.get("content-length") ?? "0", 10);
+        if (size > 0 && (!best || size > best.size)) best = { name, size };
+      } catch {
+        // ignore
+      }
+    }),
+  );
+  return best?.name ?? null;
+}
+
 async function listRemoteRecordingFilename(
   baseUrl: string,
   ingestKey: string,
 ): Promise<string | null> {
-  const listingUrl = `${baseUrl}/live/${encodeURIComponent(ingestKey)}/`;
-  try {
-    const res = await fetch(listingUrl, { cache: "no-store" });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const unique = parseRecordingFilenamesFromListing(html);
-    if (unique.length === 0) return null;
-    // ISO date filenames — latest recording last when sorted lexicographically
-    return unique.sort().at(-1)!;
-  } catch {
-    return null;
-  }
+  return findLargestRemoteRecordingFilename(baseUrl, ingestKey);
 }
 
 /** Parse Caddy file_server browse HTML for .fmp4 / .mp4 links. */

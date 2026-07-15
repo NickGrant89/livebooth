@@ -45,7 +45,7 @@ export function resolveVodProxySrc(url: string): string | null {
 
 /** Derive HLS VOD playlist URL from a recording MP4 URL (same ingest folder). */
 export function hlsVodUrlForRecording(url: string): string | null {
-  const resolved = resolveVodPlaybackSrc(url);
+  const resolved = resolvePlaybackUrl(url);
   if (resolved.includes("/playback/index.m3u8")) return resolved;
   const match = resolved.match(/^(.*\/live\/lb_[^/]+)\/[^/]+\.(?:mp4|fmp4)(?:\?.*)?$/i);
   if (match?.[1]) return `${match[1]}/playback/index.m3u8`;
@@ -54,15 +54,39 @@ export function hlsVodUrlForRecording(url: string): string | null {
 
 export type VodPlaybackMode = "hls" | "file";
 
+export async function isRemoteHlsVodReady(ingestKey: string): Promise<string | null> {
+  return remoteHlsPlaybackReady(ingestKey);
+}
+
 /** Prefer segmented HLS VOD when the server has finished building it. */
 export async function resolveVodPlaybackMode(
   url: string,
 ): Promise<{ url: string; mode: VodPlaybackMode }> {
-  const direct = resolveVodPlaybackSrc(url);
-  if (direct.includes(".m3u8")) {
-    return { url: direct, mode: "hls" };
+  if (url.includes(".m3u8")) {
+    return { url: resolveVodPlaybackSrc(url), mode: "hls" };
   }
-  return { url: direct, mode: "file" };
+
+  const hlsCandidate = hlsVodUrlForRecording(url);
+  if (hlsCandidate) {
+    try {
+      const res = await fetch(hlsCandidate, { method: "HEAD", cache: "no-store" });
+      if (res.ok) return { url: hlsCandidate, mode: "hls" };
+    } catch {
+      // fall through to MP4
+    }
+  }
+
+  return { url: resolveVodPlaybackSrc(url), mode: "file" };
+}
+
+/** True when browser-reported duration looks like an un-remuxed fMP4 fragment. */
+export function looksLikeFragmentedRecording(
+  reportedDurationSec: number,
+  expectedDurationSec?: number,
+): boolean {
+  if (!Number.isFinite(reportedDurationSec) || reportedDurationSec <= 0) return false;
+  if (!expectedDurationSec || expectedDurationSec < 180) return false;
+  return reportedDurationSec < Math.min(120, expectedDurationSec * 0.15);
 }
 
 /** Fallback when direct cross-origin recording fails in the browser. */

@@ -44,6 +44,7 @@ type VodReplayProps = {
   };
   showStakerCta?: boolean;
   stationSlug?: string | null;
+  expectedDurationSec?: number;
 };
 
 function formatTimestamp(ms: number) {
@@ -71,6 +72,7 @@ export function VodReplay({
   earlyAccessBlocked,
   showStakerCta = false,
   stationSlug = null,
+  expectedDurationSec,
 }: VodReplayProps) {
   const playerRef = useRef<StreamPlayerHandle>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -132,6 +134,7 @@ export function VodReplay({
           isLive={false}
           demoPlayback={demoPlayback}
           viewerLabel="peak"
+          expectedDurationSec={expectedDurationSec}
         />
       )}
       {demoPlayback && (

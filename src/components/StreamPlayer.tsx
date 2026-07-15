@@ -18,6 +18,7 @@ import {
   resolveVodPlaybackMode,
   resolveVodPlaybackSrc,
   resolveVodProxySrc,
+  looksLikeFragmentedRecording,
 } from "@/lib/video-cors";
 
 const VOD_SKIP_SECONDS = 10;
@@ -54,6 +55,8 @@ interface StreamPlayerProps {
   viewerLabel?: "live" | "peak";
   peakViewers?: number;
   station?: { slug: string; name: string; avatar: string; avatarUrl?: string | null } | null;
+  /** Set length in seconds — detects un-remuxed fMP4 fragments and waits for HLS VOD. */
+  expectedDurationSec?: number;
 }
 
 export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(function StreamPlayer(
@@ -69,6 +72,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     viewerLabel = "live",
     peakViewers,
     station,
+    expectedDurationSec,
   },
   ref,
 ) {
@@ -80,6 +84,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const [muted, setMuted] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const [playbackError, setPlaybackError] = useState(false);
+  const [preparingReplay, setPreparingReplay] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [awaitingVideo, setAwaitingVideo] = useState(false);
   const [liveNoSignal, setLiveNoSignal] = useState(false);
@@ -134,11 +139,13 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     vodReadyRef.current = false;
     vodFallbackTriedRef.current = false;
     setPlaybackError(false);
+    setPreparingReplay(false);
     setAwaitingVideo(false);
     setLiveNoSignal(false);
     setIsLoading(!isLive && !previewMode);
 
     let vodLoadTimeout = 0;
+    let waitingForHlsVod = false;
 
     const attachVodHls = (src: string, mp4Fallback?: string) => {
       if (Hls.isSupported()) {
@@ -154,8 +161,12 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           vodReadyRef.current = true;
+          waitingForHlsVod = false;
+          setPreparingReplay(false);
           setIsLoading(false);
           setPlaybackError(false);
+          window.clearTimeout(vodLoadTimeout);
+          video.play().catch(() => undefined);
         });
         hls.on(Hls.Events.ERROR, (_e, data) => {
           if (!data.fatal) {
@@ -220,13 +231,23 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
       const markReady = () => {
         vodReadyRef.current = true;
+        setPreparingReplay(false);
         setIsLoading(false);
         setPlaybackError(false);
         window.clearTimeout(vodLoadTimeout);
       };
 
+      const trySwitchToHls = () => {
+        void resolveVodPlaybackMode(playbackUrl).then(({ url: next, mode }) => {
+          if (cancelled || mode !== "hls") return;
+          runCleanup();
+          attachVodHls(next, src);
+        });
+      };
+
       const onError = () => {
         if (vodReadyRef.current) return;
+        trySwitchToHls();
         const proxySrc = resolveVodProxySrc(playbackUrl);
         if (proxySrc && !vodFallbackTriedRef.current && !video.src.includes("/api/vod/file/")) {
           vodFallbackTriedRef.current = true;
@@ -238,14 +259,27 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         setIsLoading(false);
       };
       const onLoadedMetadata = () => {
+        if (
+          expectedDurationSec &&
+          looksLikeFragmentedRecording(video.duration, expectedDurationSec)
+        ) {
+          waitingForHlsVod = true;
+          setPreparingReplay(true);
+          setIsLoading(true);
+          trySwitchToHls();
+          return;
+        }
         if (Number.isFinite(video.duration) && video.duration > 0) {
           setDuration(video.duration);
         }
         markReady();
       };
-      const onCanPlay = () => markReady();
+      const onCanPlay = () => {
+        if (waitingForHlsVod) return;
+        markReady();
+      };
       const onWaiting = () => {
-        if (!vodReadyRef.current) setIsLoading(true);
+        if (!vodReadyRef.current && !waitingForHlsVod) setIsLoading(true);
       };
       const onPlaying = () => markReady();
 
@@ -254,10 +288,11 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       video.addEventListener("canplay", onCanPlay);
       video.addEventListener("waiting", onWaiting);
       video.addEventListener("playing", onPlaying);
-      video.preload = "metadata";
+      video.preload = "auto";
       video.playsInline = true;
       video.src = src;
       video.load();
+      video.play().catch(() => undefined);
 
       cleanupFns.push(() => {
         video.removeEventListener("error", onError);
@@ -269,14 +304,14 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         video.load();
       });
 
-      // If HLS segments are still being built on the server, switch automatically.
+      // Remux watcher builds HLS VOD ~3–5 min after stream end — poll until ready.
       const hlsPoll = window.setInterval(() => {
         void resolveVodPlaybackMode(playbackUrl).then(({ url: next, mode }) => {
           if (cancelled || mode !== "hls" || next === src) return;
           runCleanup();
-          attachVodHls(next);
+          attachVodHls(next, src);
         });
-      }, 20_000);
+      }, 5_000);
       cleanupFns.push(() => window.clearInterval(hlsPoll));
     };
 
@@ -492,7 +527,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       cancelled = true;
       runCleanup();
     };
-  }, [playbackUrl, isLive, previewMode]);
+  }, [playbackUrl, isLive, previewMode, expectedDurationSec]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -616,8 +651,16 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
                       ? "Buffering preview…"
                       : isLive
                         ? "Connecting stream…"
-                        : "Loading replay…"}
+                        : preparingReplay
+                          ? "Preparing replay…"
+                          : "Loading replay…"}
               </span>
+              {preparingReplay && !isLive && (
+                <span className="mt-2 text-[10px] text-zinc-500 max-w-xs">
+                  The server is converting your recording for fast playback (usually 3–5 minutes after
+                  you end the stream). This page will start automatically — or refresh in a minute.
+                </span>
+              )}
               {liveNoSignal && isLive && (
                 <span className="mt-2 text-[10px] text-zinc-500 max-w-xs">
                   The booth is live but no video has reached the server yet. Host: stream from OBS on Go
