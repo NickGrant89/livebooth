@@ -54,7 +54,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now livebooth-remux.service
+systemctl enable livebooth-remux.service
+systemctl restart livebooth-remux.service
 
 # MediaMTX: queue remux when publisher disconnects (shared recordings volume).
 MTX_CFG="${RTMP_DIR}/mediamtx.production.yml"

@@ -27,8 +27,12 @@ remux_largest_in_path() {
     return 0
   fi
 
+  if [[ -f "${dir}/playback/.ready" ]]; then
+    return 0
+  fi
+
   local mtime now age
-  mtime=$(stat -c %Y "$best" 2>/dev/null || stat -f %m "$best")
+  mtime=$(stat -c %Y "$best" 2>/dev/null || stat -f %m "$best" 2>/dev/null || echo 0)
   now=$(date +%s)
   age=$((now - mtime))
   if (( age < IDLE_SEC )); then

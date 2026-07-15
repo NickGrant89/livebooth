@@ -21,10 +21,18 @@ if [[ -f "$MARKER" ]]; then
   exit 0
 fi
 
+file_mtime() {
+  local path="$1"
+  local ts=""
+  ts=$(stat -c %Y "$path" 2>/dev/null) && { echo "$ts"; return; }
+  ts=$(stat -f %m "$path" 2>/dev/null) && { echo "$ts"; return; }
+  echo 0
+}
+
 # Do not remux while MediaMTX is still appending to the file — that caused ~30s replays.
 if [[ "${REMUX_FORCE:-}" != "1" ]]; then
   now=$(date +%s)
-  mtime=$(stat -f %m "$FILE" 2>/dev/null || stat -c %Y "$FILE" 2>/dev/null || echo 0)
+  mtime=$(file_mtime "$FILE")
   age=$((now - mtime))
   if (( age < IDLE_SEC )); then
     exit 0
