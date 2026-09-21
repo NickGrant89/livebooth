@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/fetch-client";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { TRACK_UNLOCK_COST, REQUEST_COST, HIGHLIGHT_TIP_MIN } from "@/lib/constants";
-import { onChainFeaturesAvailable } from "@/lib/web3/contracts";
+import { onChainFeaturesAvailable, isOnChainEnabled } from "@/lib/web3/contracts";
 import { AchievementToasts, useAchievementUnlocks } from "@/components/AchievementToasts";
 import { StakerBadge, tierFromBadgeLabel } from "@/components/StakerBadge";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
@@ -58,11 +58,14 @@ export function StreamChat({
   const messagesRef = useRef<HTMLDivElement>(null);
 
   const canUseOnChain =
-    onChainFeaturesAvailable() && isConnected && Boolean(djWalletAddress?.startsWith("0x"));
+    isOnChainEnabled() &&
+    onChainFeaturesAvailable() &&
+    isConnected &&
+    Boolean(djWalletAddress?.startsWith("0x"));
   const onChainDropBal =
     balanceWei !== undefined ? Number(balanceWei / BigInt(10 ** 18)) : null;
   const djWalletReady = djWalletAddress?.startsWith("0x");
-  const fanWalletReady = onChainFeaturesAvailable() && isConnected;
+  const fanWalletReady = isOnChainEnabled() && onChainFeaturesAvailable() && isConnected;
 
   useEffect(() => {
     if (canUseOnChain && showTip && !tipOnChainMode) {
@@ -515,7 +518,7 @@ export function StreamChat({
                 ? `On-chain via LiveBooth wallet${onChainDropBal != null ? ` · ${onChainDropBal} DROP on-chain` : ""}`
                 : `In-app balance · you have ${user?.balance ?? "—"} DROP`}
             </p>
-            {canUseOnChain && (
+            {isOnChainEnabled() && onChainFeaturesAvailable() && canUseOnChain && (
               <label className="flex items-center gap-2 text-[11px] text-purple-300 cursor-pointer">
                 <input
                   type="checkbox"
@@ -526,7 +529,7 @@ export function StreamChat({
                 Tip on-chain via your LiveBooth wallet (VeChain testnet)
               </label>
             )}
-            {onChainFeaturesAvailable() && showTip && (!fanWalletReady || !djWalletReady) && (
+            {isOnChainEnabled() && onChainFeaturesAvailable() && showTip && (!fanWalletReady || !djWalletReady) && (
               <p className="text-[10px] text-purple-300/80 leading-relaxed">
                 {!fanWalletReady && (
                   <>

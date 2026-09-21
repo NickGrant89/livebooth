@@ -177,9 +177,8 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
       ) : (
         <p className="text-xs text-zinc-500">
           <Link href="/login" className="text-cyan-300 hover:underline">
-            Sign in
-          </Link>{" "}
-          to {MEMBERSHIP_COPY.signInToJoin.toLowerCase()}
+            {MEMBERSHIP_COPY.signInToJoin}
+          </Link>
         </p>
       )}
 

@@ -89,12 +89,12 @@ export function WithdrawPanel() {
     <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 mb-6">
       <h2 className="font-semibold mb-1 flex items-center gap-2 text-amber-100">
         <Banknote className="h-4 w-4" />
-        Cash out DROP
+        Cash out earnings
       </h2>
       <p className="text-xs text-zinc-400 mb-4 flex items-start gap-1.5">
         <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-        Only DROP you&apos;ve earned from streams can be cashed out — welcome bonus and card purchases stay in your booth wallet.
-        Redeem at platform rate ({quote?.redeemRateLabel ?? "~$0.0425/DROP"}) minus {quote?.feePercent ?? 2}% fee.
+        Request a payout when you&apos;re ready — eligible earnings from tips, unlocks, membership, and requests convert to real money via Stripe.
+        Welcome bonus and card purchases stay in your booth wallet. Rate: {quote?.redeemRateLabel ?? "~$0.0425/DROP"} minus {quote?.feePercent ?? 2}% fee.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-3">

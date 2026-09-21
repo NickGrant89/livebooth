@@ -188,9 +188,8 @@ export function StationStakePanel({ slug }: { slug: string }) {
       ) : (
         <p className="text-xs text-zinc-500">
           <Link href="/login" className="text-[#53fc18] hover:underline">
-            Sign in
-          </Link>{" "}
-          to {MEMBERSHIP_COPY.signInToJoin.toLowerCase()}
+            {MEMBERSHIP_COPY.signInToJoin}
+          </Link>
         </p>
       )}
 

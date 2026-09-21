@@ -151,7 +151,7 @@ export default function DjGuidePage() {
           ))}
         </ul>
         <GuideStep n={3} title="Promote membership">
-          Share your profile link and remind fans after a great set — the VOD page includes a &quot;Back this DJ&quot; CTA.
+          Share your profile link and remind fans after a great set — the VOD page includes a &quot;Subscribe to creator&quot; CTA.
           During live sets, the membership promo appears under the player for non-host viewers.
           A <strong className="text-zinc-300">community goal bar</strong> on your stream page tracks collective member MRR.
         </GuideStep>

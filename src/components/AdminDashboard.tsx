@@ -562,7 +562,7 @@ export function AdminDashboard({
   }
 
   async function deleteStation(stationId: string, slug: string) {
-    if (!confirm(`Delete station /${slug}? Residents, followers, and stakes will be removed.`)) return;
+    if (!confirm(`Delete station /${slug}? Residents, followers, and memberships will be removed.`)) return;
     const res = await apiFetch("/api/admin/stations", {
       method: "DELETE",
       body: JSON.stringify({ stationId }),

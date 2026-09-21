@@ -1,8 +1,8 @@
 # LiveBooth
 
-Live streaming + tipping platform — **$DROP** on **VeChain**. Tip the drop, unlock track IDs, earn achievements.
+Live streaming + creator monetization — fan subscriptions, tips, track unlocks, and Stripe payouts in **DROP** (in-app ledger).
 
-**Planned domain:** [livebooth.uk](https://livebooth.uk)
+**Production:** [livebooth.uk](https://livebooth.uk)
 
 **Self-hosted RTMP (DigitalOcean $12/mo — easiest):** [docs/RTMP-DIGITALOCEAN-QUICKSTART.md](docs/RTMP-DIGITALOCEAN-QUICKSTART.md)  
 **Self-hosted RTMP (Hetzner ~€5/mo):** [docs/RTMP-HETZNER-QUICKSTART.md](docs/RTMP-HETZNER-QUICKSTART.md)  
@@ -18,13 +18,19 @@ Live streaming + tipping platform — **$DROP** on **VeChain**. Tip the drop, un
 
 ```bash
 npm install
-cp .env.example .env
+cp env .env   # or copy your local env template
 npx prisma migrate dev
 npm run db:seed
 npm run dev:clean
 ```
 
 Open [http://localhost:3008](http://localhost:3008)
+
+For creator-platform beta (no wallet / on-chain UI), set in `.env`:
+
+```
+NEXT_PUBLIC_ONCHAIN_ENABLED=false
+```
 
 ### Local demo for friends (same Wi‑Fi)
 
@@ -41,7 +47,9 @@ Full guide: [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md)
 
 After `npm run db:seed`, use the seeded accounts documented in [docs/LOCAL-DEMO.md](docs/LOCAL-DEMO.md) (local-only — never use those credentials in production).
 
-## VeChain contracts (Phase 2)
+## Optional: VeChain on-chain layer (Phase 2)
+
+Off-chain DROP is the default economy (Postgres ledger + Stripe). On-chain tips and wallet linking are optional — see [docs/ONCHAIN-ROADMAP.md](docs/ONCHAIN-ROADMAP.md).
 
 ```bash
 # Get testnet VET from https://faucet.vecha.in/
@@ -49,13 +57,12 @@ After `npm run db:seed`, use the seeded accounts documented in [docs/LOCAL-DEMO.
 npm run contracts:deploy   # deploys to VeChain Testnet (chain 100010)
 ```
 
-Connect **VeWorld** or MetaMask with VeChain Testnet (chain ID `100010`, RPC `https://testnet.veblocks.net`).
+Set `NEXT_PUBLIC_ONCHAIN_ENABLED=true` and contract addresses to enable wallet UX.
 
 ## Stack
 
-- Next.js 16, Prisma/Postgres, wagmi + viem
-- Solidity contracts: `DropToken`, `TipRouter`, `AchievementVault`
-- VeChain Thor (EVM-compatible, low-fee tips)
+- Next.js 16, Prisma/Postgres, Stripe Connect payouts
+- Optional: wagmi + viem, Solidity contracts (`DropToken`, `TipRouter`, `AchievementVault`)
 
 ## Local RTMP streaming
 
@@ -63,7 +70,7 @@ Stream from OBS to your own ingest server (Docker):
 
 ```bash
 npm run rtmp:start          # MediaMTX on :1935 RTMP, :8888 HLS
-# Add RTMP_SERVER_URL + HLS_SERVER_URL to .env (see .env.example)
+# Add RTMP_SERVER_URL + HLS_SERVER_URL to .env
 npm run dev:clean
 ```
 
@@ -78,12 +85,3 @@ Full guide: [rtmp-server/README.md](rtmp-server/README.md)
 | `npm run rtmp:stop` | Stop RTMP server |
 | `npm run launch:check` | Pre-deploy env + migration check |
 | `npm run smoke:deploy` | Post-deploy smoke test (`SMOKE_BASE_URL=...`) |
-| `npm run contracts:deploy` | Deploy to VeChain Testnet |
-
-Design docs: [docs/design/](docs/design/)
-
-## Support
-
-- **Live chat:** [/support](https://livebooth.uk/support) — every conversation is logged as a ticket
-- **Admin replies:** Admin dashboard → Support tab
-- **Docs:** [docs/SUPPORT-LIVE-CHAT.md](docs/SUPPORT-LIVE-CHAT.md)

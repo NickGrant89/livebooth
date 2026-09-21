@@ -126,9 +126,9 @@ export default function FanGuidePage() {
           <strong className="text-zinc-300">Supporter</strong> ({MEMBER_TIER_PRICES.supporter} {DROP_TOKEN_SYMBOL}/mo).
           Billed every {MEMBER_BILLING_DAYS} days. Cancel anytime from the membership panel.
         </p>
-        <GuideStep n={1} title="Back a DJ">
+        <GuideStep n={1} title="Subscribe to a creator">
           On a DJ profile (<code className="text-xs bg-white/10 px-1 rounded">/dj/username#membership</code>) or from a live stream promo,
-          use <strong className="text-zinc-300">Back this DJ</strong>.{" "}
+          tap <strong className="text-zinc-300">Subscribe</strong>.{" "}
           <strong className="text-zinc-300">{Math.round(MEMBER_DJ_CREATOR_SHARE * 100)}%</strong> of your fee goes to the DJ each month;
           the platform keeps <strong className="text-zinc-300">{Math.round(MEMBER_PLATFORM_SHARE * 100)}%</strong>.
         </GuideStep>
@@ -144,9 +144,9 @@ export default function FanGuidePage() {
             <li key={perk}>{perk}</li>
           ))}
         </ul>
-        <GuideStep n={2} title="Become a station member">
+        <GuideStep n={2} title="Join station membership">
           On a station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#membership</code>),
-          use <strong className="text-zinc-300">Become a member</strong>.{" "}
+          tap <strong className="text-zinc-300">Join as member</strong>.{" "}
           <strong className="text-zinc-300">{Math.round(MEMBER_STATION_OWNER_SHARE * 100)}%</strong> goes to the station owner each month.
           When someone is live on air, <strong className="text-zinc-300">{Math.round(MEMBER_STATION_LIVE_DJ_SHARE * 100)}%</strong> goes to that DJ.
           Platform fee: <strong className="text-zinc-300">{Math.round(MEMBER_PLATFORM_SHARE * 100)}%</strong>.

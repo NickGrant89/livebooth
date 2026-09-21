@@ -157,7 +157,7 @@ export const RADIO_TIERS = {
   network: {
     id: "network",
     label: "Network",
-    description: "Multi-show network with white-label player and staking",
+    description: "Multi-show network with white-label player and fan membership",
     maxResidents: 50,
     relayMode: true,
     stationDashboard: true,
@@ -167,7 +167,7 @@ export const RADIO_TIERS = {
 
 export type RadioTierId = keyof typeof RADIO_TIERS;
 
-/** Station staking milestones — reward pool split proportionally among stakers */
+/** Station membership milestones — reward pool split proportionally among members */
 export const STATION_MILESTONES = [
   { key: "followers_25", metric: "followers" as const, threshold: 25, rewardPool: 40, label: "25 station followers" },
   { key: "followers_100", metric: "followers" as const, threshold: 100, rewardPool: 125, label: "100 station followers" },
@@ -178,7 +178,7 @@ export const STATION_MILESTONES = [
 
 export type StationMilestoneKey = (typeof STATION_MILESTONES)[number]["key"];
 
-/** DJ staking milestones — reward pool split proportionally among stakers */
+/** DJ membership milestones — reward pool split proportionally among members */
 export const DJ_MILESTONES = [
   { key: "followers_50", metric: "followers" as const, threshold: 50, rewardPool: 100, label: "50 followers" },
   { key: "followers_250", metric: "followers" as const, threshold: 250, rewardPool: 300, label: "250 followers" },
@@ -434,7 +434,7 @@ export const ACHIEVEMENTS = [
   { id: "marathon-dj", name: "Marathon DJ", description: "Stream for 4 hours in one session", icon: "🏃", tier: "gold", rewardTokens: 750, requirement: "4 hour stream", category: "streaming", audience: "dj", metricKey: "longest_stream_minutes", threshold: 240 },
   { id: "whale-magnet", name: "Whale Magnet", description: "Receive a single tip of 100+ DROP", icon: "🐋", tier: "gold", rewardTokens: 400, requirement: "100 DROP single tip", category: "earnings", audience: "dj", metricKey: "max_single_tip", threshold: 100 },
   { id: "legend-status", name: "Legend Status", description: "Reach 10,000 followers", icon: "👑", tier: "platinum", rewardTokens: 2000, requirement: "10,000 followers", category: "milestones", audience: "dj", metricKey: "followers", threshold: 10000 },
-  { id: "crypto-king", name: "Crypto King", description: "Earn 10,000 DROP total", icon: "₿", tier: "platinum", rewardTokens: 5000, requirement: "10,000 DROP earned", category: "earnings", audience: "dj", metricKey: "total_earned", threshold: 10000 },
+  { id: "crypto-king", name: "Drop Legend", description: "Earn 10,000 DROP total", icon: "👑", tier: "platinum", rewardTokens: 5000, requirement: "10,000 DROP earned", category: "earnings", audience: "dj", metricKey: "total_earned", threshold: 10000 },
   { id: "first-tip", name: "First Tip", description: "Send your first tip", icon: "💎", tier: "bronze", rewardTokens: 10, requirement: "Tip any DJ once", category: "community", audience: "fan", metricKey: "tips_sent_count", threshold: 1 },
   { id: "generous-soul", name: "Generous Soul", description: "Tip 100 DROP total", icon: "🎁", tier: "silver", rewardTokens: 25, requirement: "100 DROP tipped total", category: "community", audience: "fan", metricKey: "tips_sent_total", threshold: 100 },
   { id: "superfan", name: "Superfan", description: "Tip 10 different DJs", icon: "🌟", tier: "silver", rewardTokens: 50, requirement: "Tip 10 unique DJs", category: "community", audience: "fan", metricKey: "unique_djs_tipped", threshold: 10 },

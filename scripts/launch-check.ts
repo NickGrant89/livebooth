@@ -19,6 +19,7 @@ const RECOMMENDED_PROD = [
   "EMAIL_FROM",
   "LIVEPEER_API_KEY",
   "LIVEPEER_WEBHOOK_SECRET",
+  "NEXT_PUBLIC_ONCHAIN_ENABLED",
 ] as const;
 
 const RTMP_RECORDING = [
@@ -80,6 +81,16 @@ function main() {
   }
 
   for (const key of RECOMMENDED_PROD) {
+    if (key === "NEXT_PUBLIC_ONCHAIN_ENABLED") {
+      if (env[key] === "false") {
+        console.log(`✓ ${key}=false (creator-platform mode — no on-chain UI)`);
+      } else if (env[key] === "true" || env[key] === undefined) {
+        console.log(`⚠ ${key} — set to false on production unless VeChain contracts are live`);
+      } else {
+        console.log(`○ ${key}=${env[key]}`);
+      }
+      continue;
+    }
     console.log(env[key] ? `✓ ${key}` : `○ ${key} — recommended for full features`);
   }
 

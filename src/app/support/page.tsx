@@ -82,7 +82,7 @@ const FAQ = [
       },
       {
         q: "What is membership?",
-        a: "Monthly support for a DJ (Back this DJ) or radio station (Become a member). Member tier: 25 DROP/mo. Supporter tier: 75 DROP/mo. Billed every 30 days from your wallet — cancel anytime from the membership panel. 85% of DJ membership goes to the DJ (15% platform). Station membership: 75% to the station owner, 10% to the live DJ when someone is on air, 15% platform. Full details: /help/fans#membership",
+        a: "Monthly support for a DJ (Subscribe) or radio station (Join as member). Member tier: 25 DROP/mo. Supporter tier: 75 DROP/mo. Billed every 30 days from your wallet — cancel anytime from the membership panel. 85% of DJ membership goes to the DJ (15% platform). Station membership: 75% to the station owner, 10% to the live DJ when someone is on air, 15% platform. Full details: /help/fans#membership",
       },
       {
         q: "What perks do station members get?",

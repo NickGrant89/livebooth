@@ -141,7 +141,7 @@ export default function StationGuidePage() {
         </ul>
         <GuideStep n={3} title="Promote your channel">
           Share <code className="text-xs bg-white/10 px-1 rounded">/station/your-slug</code> on socials and your website embed.
-          During resident live shows, fans see a &quot;Become a member&quot; promo on the stream page.
+          During resident live shows, fans see a &quot;Subscribe&quot; or &quot;Join membership&quot; promo on the stream page.
         </GuideStep>
         <GuideStep n={4} title="Fan-facing docs">
           Point listeners to the <Link href={`${HELP_LINKS.fans}#membership`} className="text-[#53fc18] hover:underline">fan guide → Membership</Link> for

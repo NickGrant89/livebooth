@@ -48,7 +48,8 @@ npm run build
 | `STRIPE_WEBHOOK_SECRET` | optional | |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | optional | web push |
 | `VAPID_PRIVATE_KEY` | optional | |
-| `NEXT_PUBLIC_*_ADDRESS` | optional | VeChain testnet |
+| `NEXT_PUBLIC_ONCHAIN_ENABLED` | ✅ recommended | Set `false` for creator-platform beta (hides wallet / on-chain UI). Omit or `true` only when contracts are deployed. |
+| `NEXT_PUBLIC_*_ADDRESS` | optional | VeChain contract addresses (only if on-chain enabled) |
 
 **Do not set:** `NEXT_PUBLIC_DEMO_MODE`, `SEED_DEMO_USERS`
 
