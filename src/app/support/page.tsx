@@ -98,7 +98,11 @@ const FAQ = [
       },
       {
         q: "How do replays and early access work?",
-        a: "Ended sets appear on DJ profiles and /vod/stream-id. Station members get replay access for the first 24h after a station show; DJ members get 12h early access on that DJ's sets. After the window, everyone can watch. Join membership from the blocked replay screen to unlock early.",
+        a: "Ended sets appear on DJ profiles and /vod/stream-id. Replays take about 3–5 minutes to process after a stream ends — refresh the VOD page if you see 'Preparing replay…'. Station members get replay access for the first 24h after a station show; DJ members get 12h early access on that DJ's sets. After the window, everyone can watch. Subscribe or join membership from the blocked replay screen to unlock early.",
+      },
+      {
+        q: "Replay stuck on 'Preparing replay…'",
+        a: "After a DJ ends a stream, the server remuxes the recording into fast-start playback — usually 3–5 minutes. Wait on the VOD page; it reloads automatically when ready. Very short or interrupted streams may not produce a replay. If a replay still fails after 10+ minutes, contact support with the stream URL.",
       },
       {
         q: "What are daily quests?",
@@ -130,8 +134,12 @@ const FAQ = [
         a: "Use Cancel setup — don't publish on the preview step to discard without notifying followers. Only click 'Looks good — go live' when you're ready. End stream from Go Live or the dashboard when finished.",
       },
       {
+        q: "When will my replay be ready?",
+        a: "After you end a stream, the server remuxes your recording into fast-start playback — usually 3–5 minutes. It appears in your profile archive and on the VOD page automatically. Very short or interrupted streams may not produce a replay.",
+      },
+      {
         q: "When do I get paid?",
-        a: "Tips, unlocks, membership, and requests credit instantly to your in-app wallet. Request fiat cash-out from /wallet — payouts are processed after admin approval or via Stripe Connect.",
+        a: "Tips, unlocks, membership, and requests credit instantly to your in-app wallet. Connect Stripe on /wallet, then request a cash-out for eligible earned DROP — processed after admin approval or via Stripe Connect.",
       },
     ],
   },

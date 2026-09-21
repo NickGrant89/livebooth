@@ -42,8 +42,8 @@ export const FAN_QUICK_START: GuidanceStep[] = [
     hrefLabel: "Your crate",
   },
   {
-    title: "Join membership",
-    body: `Back a DJ or become a station member — Member (${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo) or Supporter (${MEMBER_TIER_PRICES.supporter} ${DROP_TOKEN_SYMBOL}/mo) for badges, cheaper unlocks, early replays, and milestone rewards.`,
+    title: "Subscribe or join membership",
+    body: `Subscribe to a creator or join a station membership — Member (${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo) or Supporter (${MEMBER_TIER_PRICES.supporter} ${DROP_TOKEN_SYMBOL}/mo) for badges, cheaper unlocks, early replays, and milestone rewards.`,
     href: `${HELP_LINKS.fans}#membership`,
     hrefLabel: "Membership guide",
   },
@@ -113,10 +113,10 @@ export const DJ_LIVE_CHECKLIST: GuidanceStep[] = [
     body: "Send fans to /stream/yourusername — followers get notified when you go live next time.",
   },
   {
-    title: "Grow supporters",
-    body: "Fans who join membership get early replays and milestone rewards — point them to your profile #membership section.",
-    href: `${HELP_LINKS.djs}#supporters`,
-    hrefLabel: "Supporter guide",
+    title: "Grow members",
+    body: "Fans who subscribe get early replays and milestone rewards — point them to your profile #membership section.",
+    href: `${HELP_LINKS.djs}#members`,
+    hrefLabel: "Membership guide",
   },
 ];
 
@@ -150,10 +150,10 @@ export const GO_LIVE_STEPS = [
 ];
 
 export const FAN_WALLET_TIPS = [
-  `Your balance is in ${DROP_TOKEN_SYMBOL} — the booth currency for tips, unlocks, and requests.`,
-  "Buy more DROP from Wallet via Stripe checkout, or claim your daily login bonus on the home page.",
-  "Buy DROP packs on /wallet when you need more balance for tips or membership.",
-  "Track unlocks and tips appear in your transaction history.",
+  `Your balance is in ${DROP_TOKEN_SYMBOL} — the booth currency for tips, unlocks, requests, and membership.`,
+  "Buy DROP packs on /wallet via Stripe checkout, or claim your daily login bonus on the home page.",
+  "Tips, unlocks, and membership payments appear in your transaction history.",
+  "Optional: connect a VeChain wallet on /wallet for on-chain tips when that beta is enabled — in-app DROP works everywhere by default.",
 ];
 
 export const STATION_QUICK_START: GuidanceStep[] = [

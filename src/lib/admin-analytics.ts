@@ -27,6 +27,10 @@ export async function getAdminAnalytics() {
     unreadCandidates,
     stations,
     pendingWithdrawals,
+    activeDjMembers,
+    activeStationMembers,
+    djMembershipMrr,
+    stationMembershipMrr,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { createdAt: { gte: dayAgo } } }),
@@ -69,6 +73,16 @@ export async function getAdminAnalytics() {
     }),
     prisma.radioStation.count(),
     prisma.withdrawalRequest.count({ where: { status: "pending" } }),
+    prisma.djStake.count({ where: { status: "active" } }),
+    prisma.stationStake.count({ where: { status: "active" } }),
+    prisma.djStake.aggregate({
+      where: { status: "active" },
+      _sum: { monthlyAmount: true },
+    }),
+    prisma.stationStake.aggregate({
+      where: { status: "active" },
+      _sum: { monthlyAmount: true },
+    }),
   ]);
 
   let streamHoursWeek = 0;
@@ -109,5 +123,12 @@ export async function getAdminAnalytics() {
     support: { openTickets, unreadTickets: unreadSupport },
     stations: { total: stations },
     treasury: { pendingWithdrawals },
+    membership: {
+      activeDjMembers,
+      activeStationMembers,
+      estimatedMrrDrop: Math.round(
+        (djMembershipMrr._sum.monthlyAmount ?? 0) + (stationMembershipMrr._sum.monthlyAmount ?? 0),
+      ),
+    },
   };
 }

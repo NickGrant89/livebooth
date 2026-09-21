@@ -44,7 +44,7 @@ export function GettingStartedPanel() {
   return (
     <div className="mx-4 lg:mx-6 mt-4">
       <GuidanceCard
-        title="New here? Start in 4 steps"
+        title="New here? Start in 5 steps"
         subtitle="Everything you need as a listener"
         steps={FAN_QUICK_START}
         role="fan"

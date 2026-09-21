@@ -100,6 +100,7 @@ export default function FanGuidePage() {
         <GuideStep n={3} title="Tip the DJ">
           On a live stream, choose a tip amount or enter a custom one. Tips spend from your in-app balance.
           Optional message appears in chat. Large tips can create VOD highlights.
+          When on-chain tips are enabled (beta), DJs with a linked wallet may also accept VeChain tips from your connected wallet.
         </GuideStep>
         <GuideStep n={4} title="Track ID unlock">
           Pay <strong className="text-zinc-300">{TRACK_UNLOCK_COST} {DROP_TOKEN_SYMBOL}</strong> to reveal the track
@@ -191,7 +192,7 @@ export default function FanGuidePage() {
         </div>
         <GuideStep n={5} title="Find stations">
           Browse <Link href={HELP_LINKS.residencies} className="text-[#53fc18] hover:underline">radio stations</Link> for branded channels.
-          Follow a station, become a member, and see top supporters on the station page.
+          Follow a station, join as member, and see top members on the station page.
         </GuideStep>
       </GuideSection>
 
@@ -199,14 +200,16 @@ export default function FanGuidePage() {
         <GuideStep n={1} title="Watch ended sets">
           After a stream ends, replays appear on the DJ profile archive and at{" "}
           <code className="text-xs bg-white/10 px-1 rounded">/vod/stream-id</code>.
+          The server remuxes the recording into fast-start HLS playback — usually ready within{" "}
+          <strong className="text-zinc-300">3–5 minutes</strong> after the DJ ends the stream. Refresh or wait on the VOD page if you see &quot;Preparing replay…&quot;.
         </GuideStep>
         <GuideStep n={2} title="Early replay access">
-          Supporters get replay access before everyone else:
+          Members get replay access before everyone else:
           <ul className="mt-2 space-y-1 list-disc list-inside">
             <li>Station members — first <strong className="text-zinc-300">{STAKER_VOD_EARLY_HOURS}h</strong> after a station show ends</li>
             <li>DJ members — first <strong className="text-zinc-300">{DJ_STAKER_VOD_EARLY_HOURS}h</strong> after that DJ&apos;s set ends</li>
           </ul>
-          After the window, the replay is public. Join membership from the blocked replay screen or the post-set CTA on the VOD page.
+          After the window, the replay is public. Subscribe or join membership from the blocked replay screen or the post-set CTA on the VOD page.
         </GuideStep>
         <GuideStep n={3} title="Legendary moments">
           Large tips during a live set can create highlight markers — tap them on the VOD page to jump to that moment in the replay.

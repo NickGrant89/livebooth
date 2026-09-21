@@ -82,7 +82,15 @@ function ArchiveRowContent({
           )}
           {variant === "admin" && (
             <>
-              {s.peakViewers} peak · {hasReplay ? "replay available" : "no replay file"}
+              {formatSetDate(s.startedAt, s.endedAt)}
+              {duration ? ` · ${duration}` : ""}
+              {" · "}
+              {s.peakViewers} peak ·{" "}
+              {replayState === "processing"
+                ? "remuxing replay"
+                : hasReplay
+                  ? "replay ready"
+                  : "no replay file"}
             </>
           )}
           {variant === "dj" && (
@@ -98,6 +106,15 @@ function ArchiveRowContent({
           {s.setGrade}
           {s.setScore != null ? ` · ${s.setScore.toLocaleString()}` : ""}
         </span>
+      )}
+      {hasReplay && variant === "admin" && replayState === "processing" && (
+        <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Processing
+        </span>
+      )}
+      {hasReplay && variant === "admin" && replayState === "ready" && (
+        <span className="shrink-0 text-xs font-semibold text-[#53fc18]">Ready</span>
       )}
       {hasReplay && variant === "dj" && replayState === "processing" && (
         <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300">
@@ -183,7 +200,7 @@ export function DjArchiveList({
     return (
       <p className="text-sm text-zinc-500 rounded-xl border border-white/5 bg-[#141416] px-4 py-8 text-center">
         {variant === "admin"
-          ? "No archived sets — missing replays are removed automatically."
+          ? "No archived sets — missing replays are removed automatically after the processing window."
           : "No replays yet — ended sets appear here after you finish streaming."}
       </p>
     );

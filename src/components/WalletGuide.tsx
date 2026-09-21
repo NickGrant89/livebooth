@@ -10,7 +10,11 @@ export function WalletGuide() {
         title="How DROP works in your wallet"
         subtitle="Tips, unlocks, and top-ups"
         steps={FAN_WALLET_TIPS.map((body, i) => ({
-          title: i === 0 ? "Booth currency" : i === 1 ? "Get more DROP" : "History",
+          title:
+            i === 0 ? "Booth currency"
+            : i === 1 ? "Get more DROP"
+            : i === 2 ? "History"
+            : "On-chain (optional)",
           body,
         }))}
         role="fan"

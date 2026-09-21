@@ -19,7 +19,7 @@ const SECTIONS = [
   { id: "going-live", title: "Going live" },
   { id: "obs", title: "OBS setup" },
   { id: "earning", title: "Earning DROP" },
-  { id: "supporters", title: "Supporters & milestones" },
+  { id: "members", title: "Members & milestones" },
   { id: "residencies", title: "Station residencies" },
   { id: "growth", title: "Growth tips" },
   { id: "support", title: "Support" },
@@ -68,9 +68,11 @@ export default function DjGuidePage() {
           playing, accept or decline crowd requests, see session goals, top tippers, and live stats.
           Fans see a membership promo under the player — encourage them to join for early replays and perks.
         </GuideStep>
-        <GuideStep n={4} title="End stream">
+        <GuideStep n={4} title="End stream & replays">
           End from the dashboard or Go Live page. Replays appear in your profile archive after the stream ends.
-          Supporters get early VOD access — see the <Link href={`${HELP_LINKS.fans}#replays`} className="text-[#53fc18] hover:underline">fan guide → Replays</Link>.
+          The server remuxes your recording into fast-start playback — usually ready within{" "}
+          <strong className="text-zinc-300">3–5 minutes</strong>. Members get early VOD access — see the{" "}
+          <Link href={`${HELP_LINKS.fans}#replays`} className="text-[#53fc18] hover:underline">fan guide → Replays</Link>.
         </GuideStep>
       </GuideSection>
 
@@ -129,13 +131,11 @@ export default function DjGuidePage() {
         <GuideStep n={6} title="Wallet & cash-out">
           View earnings at <Link href={HELP_LINKS.wallet} className="text-[#53fc18] hover:underline">/wallet</Link>.
           Connect Stripe for payouts, then request a cash-out when you have eligible earned DROP.
-        </GuideStep>
-        <GuideStep n={7} title="Cash-out">
-          Request fiat cash-out from the wallet page when available. Admin-approved payouts are processed manually or via Stripe Connect.
+          Admin-approved payouts are processed manually or via Stripe Connect.
         </GuideStep>
       </GuideSection>
 
-      <GuideSection id="supporters" title="Members & milestones">
+      <GuideSection id="members" title="Members & milestones">
         <GuideStep n={1} title="Who are your members?">
           Fans with an active membership on your profile appear in your <strong className="text-zinc-300">Top members</strong> list.
           They get chat badges, cheaper unlocks/requests on your streams, early replay access, and a tip boost toward set grades.

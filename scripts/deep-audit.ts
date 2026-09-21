@@ -30,7 +30,6 @@ const STATIC_PAGES = [
   "/dashboard",
   "/settings",
   "/crate",
-  "/collab",
   "/guide",
 ];
 
@@ -47,8 +46,8 @@ const HELP_ANCHORS = [
   "/help/djs#going-live",
   "/help/djs#obs",
   "/help/djs#earning",
-  "/help/djs#supporters",
-  "/help/djs#collab",
+  "/help/djs#members",
+  "/help/djs#residencies",
   "/help/djs#growth",
   "/help/djs#support",
   "/help/stations#getting-started",
@@ -107,6 +106,8 @@ async function checkStaleCopy(path: string): Promise<string[]> {
   const stale = [
     { pattern: /\bCore\b.*\bLegend\b/gi, msg: "old Core/Legend tier copy" },
     { pattern: /Lock DROP on a DJ/gi, msg: "old staking copy" },
+    { pattern: /Back a DJ/gi, msg: "old Back a DJ copy" },
+    { pattern: /\bcollab\b/gi, msg: "removed collab feature" },
     { pattern: /minimum 50 DROP/gi, msg: "old 50 DROP minimum" },
   ];
   for (const { pattern, msg } of stale) {

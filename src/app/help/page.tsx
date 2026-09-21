@@ -31,7 +31,7 @@ const guides = [
     href: HELP_LINKS.djs,
     title: "DJ guide",
     description:
-      "Go live with OBS, preview your feed, earn DROP, grow supporters, and manage your booth.",
+      "Go live with OBS, preview your feed, earn DROP, grow members, and manage your booth.",
     icon: Radio,
     color: "from-[#53fc18]/20 to-cyan-500/20 border-[#53fc18]/30",
     cta: "I'm a DJ",

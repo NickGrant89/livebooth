@@ -275,6 +275,27 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
         )}
       </section>
 
+      <section className="rounded-xl border border-white/10 bg-[#141416] p-5 space-y-3">
+        <h2 className="font-semibold text-white">Platform ops reference</h2>
+        <p className="text-xs text-zinc-500">
+          Quick reference for support tickets — matches the public help center.
+        </p>
+        <ul className="text-xs text-zinc-400 space-y-1.5">
+          <li>
+            RTMP ingest: <code className="bg-white/10 px-1 rounded">rtmp://rtmp.livebooth.uk:1935/live</code>
+          </li>
+          <li>
+            HLS / recordings: <code className="bg-white/10 px-1 rounded">https://hls.livebooth.uk</code>
+          </li>
+          <li>Replays remux 3–5 minutes after a stream ends — fans see &quot;Preparing replay…&quot; until ready.</li>
+          <li>Creator monetization: in-app DROP tips, track unlocks, requests, and monthly membership (Subscribe / Join as member).</li>
+          <li>
+            VeChain on-chain tips are optional beta — controlled by{" "}
+            <code className="bg-white/10 px-1 rounded">NEXT_PUBLIC_ONCHAIN_ENABLED</code> on Vercel.
+          </li>
+        </ul>
+      </section>
+
       <section className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 space-y-3">
         <h2 className="font-semibold text-white">In-app notifications</h2>
         <p className="text-xs text-zinc-500">

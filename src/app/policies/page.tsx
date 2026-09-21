@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { APP_NAME, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 
+const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
+
 export default function PoliciesPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-white mb-2">Policies &amp; procedures</h1>
-      <p className="text-zinc-500 text-sm mb-8">Last updated: July 2026</p>
+      <p className="text-zinc-500 text-sm mb-8">Last updated: September 2026</p>
 
       <nav className="flex flex-wrap gap-2 mb-10">
         {[
@@ -64,11 +66,11 @@ export default function PoliciesPage() {
         <h3 className="text-base font-semibold text-white">Going live</h3>
         <ol className="list-decimal list-inside space-y-2 text-zinc-400">
           <li>Create a stream on <Link href="/go-live" className="text-[#53fc18] hover:underline">Go Live</Link> — this generates your RTMP server URL and stream key</li>
-          <li>Configure OBS: Settings → Stream → Custom. Paste server URL and stream key in separate fields</li>
+          <li>Configure OBS: Settings → Stream → Custom. Server: <code className="text-xs bg-white/10 px-1 rounded">{RTMP_SERVER}</code> — paste stream key in the Stream key field only</li>
           <li>Wait for preview checks — signal must be detected before fans are notified</li>
           <li>Click &quot;Looks good — go live&quot; only when audio and video look correct</li>
           <li>Use &quot;Cancel setup — don&apos;t publish&quot; to discard a preview without notifying followers</li>
-          <li>End your stream from Go Live or the dashboard when finished — replays appear in your archive</li>
+          <li>End your stream from Go Live or the dashboard when finished — replays appear in your archive after 3–5 minutes of server processing</li>
         </ol>
         <h3 className="text-base font-semibold text-white">Earning {DROP_TOKEN_SYMBOL}</h3>
         <ul className="list-disc list-inside space-y-1 text-zinc-400">
@@ -85,7 +87,8 @@ export default function PoliciesPage() {
         <h2 className="text-xl font-bold text-white">Fan procedures</h2>
         <ul className="list-disc list-inside space-y-2 text-zinc-400">
           <li>Follow DJs for go-live alerts — enable push in Settings</li>
-          <li>Tip with in-app {DROP_TOKEN_SYMBOL} from your wallet balance</li>
+          <li>Tip with in-app {DROP_TOKEN_SYMBOL} from your wallet balance (optional VeChain tips when on-chain beta is enabled)</li>
+          <li>Subscribe to creators or join station membership for perks — billed monthly from your wallet</li>
           <li>Track unlocks and requests spend {DROP_TOKEN_SYMBOL} — purchases are non-refundable except where required by law</li>
           <li>Report streams or chat messages that violate community guidelines</li>
         </ul>

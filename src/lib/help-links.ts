@@ -22,7 +22,7 @@ export const HELP_TOPICS = [
   {
     href: `${HELP_LINKS.fans}#membership`,
     title: "Membership",
-    description: "DJ supporters and station members — tiers, perks, revenue splits, milestones, early replays.",
+    description: "Creator subscriptions and station memberships — tiers, perks, revenue splits, milestones, early replays.",
     anchor: "membership",
   },
   {

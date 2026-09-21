@@ -10,7 +10,7 @@ import {
 export function HelpQuickStart({ role }: { role: "fan" | "dj" | "station" }) {
   const config = {
     fan: {
-      title: "Quick start — 4 steps",
+      title: "Quick start — 5 steps",
       subtitle: "Do this first, then read the sections below",
       steps: FAN_QUICK_START,
       variant: "fan" as const,

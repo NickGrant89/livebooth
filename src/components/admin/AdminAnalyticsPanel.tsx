@@ -8,6 +8,7 @@ type Analytics = {
   users: { total: number; newToday: number; newWeek: number; newMonth: number; activeSessions24h: number };
   streams: { liveNow: number; startedToday: number; startedWeek: number; hoursWeek: number };
   tips: { todayDrop: number; todayCount: number; weekDrop: number; weekCount: number; monthDrop: number; monthCount: number };
+  membership: { activeDjMembers: number; activeStationMembers: number; estimatedMrrDrop: number };
   support: { openTickets: number; unreadTickets: number };
   stations: { total: number };
   treasury: { pendingWithdrawals: number };
@@ -43,6 +44,12 @@ export function AdminAnalyticsPanel() {
   }
   if (!data) return <p className="text-zinc-500 text-sm">Could not load analytics.</p>;
 
+  const membership = data.membership ?? {
+    activeDjMembers: 0,
+    activeStationMembers: 0,
+    estimatedMrrDrop: 0,
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -61,6 +68,18 @@ export function AdminAnalyticsPanel() {
           <Stat label="Started today" value={data.streams.startedToday} />
           <Stat label="Started this week" value={data.streams.startedWeek} />
           <Stat label="Stream hours (week)" value={data.streams.hoursWeek} />
+        </div>
+      </div>
+      <div>
+        <h2 className="text-sm font-semibold text-white mb-3">Membership</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Stat label="DJ subscribers" value={membership.activeDjMembers} />
+          <Stat label="Station members" value={membership.activeStationMembers} />
+          <Stat
+            label="Est. MRR (DROP)"
+            value={membership.estimatedMrrDrop.toLocaleString()}
+            sub="active monthly tiers"
+          />
         </div>
       </div>
       <div>

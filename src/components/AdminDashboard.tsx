@@ -27,6 +27,8 @@ import { AdminStationResidents } from "@/components/admin/AdminStationResidents"
 import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
 import { generateInvitePassword } from "@/lib/invite-password";
 import { formatBetaInviteText, inviteRoleLabel } from "@/lib/invite-copy";
+import { formatLedgerType } from "@/lib/admin-labels";
+import { HELP_LINKS } from "@/lib/help-links";
 import { ModeratorPermissionsEditor } from "@/components/admin/ModeratorPermissionsEditor";
 import {
   DEFAULT_MODERATOR_PERMISSIONS,
@@ -218,6 +220,13 @@ export function AdminDashboard({
   const [modPermsDraft, setModPermsDraft] = useState<ModeratorPermissionId[]>([
     ...DEFAULT_MODERATOR_PERMISSIONS,
   ]);
+  const [streamHealth, setStreamHealth] = useState<{
+    mode: string;
+    reachable: boolean | null;
+  } | null>(null);
+
+  const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
+  const HLS_ORIGIN = "https://hls.livebooth.uk";
 
   const hasPerm = (perm: ModeratorPermissionId) =>
     isFullAdmin || hasModeratorPermission("moderator", moderatorPermissions, perm);
@@ -410,6 +419,14 @@ export function AdminDashboard({
       })
       .catch(() => {});
   }, [isFullAdmin]);
+
+  useEffect(() => {
+    if (tab !== "overview" || !isFullAdmin) return;
+    apiFetch("/api/rtmp/health")
+      .then((r) => r.json())
+      .then((d) => setStreamHealth({ mode: d.mode ?? "unknown", reachable: d.reachable ?? null }))
+      .catch(() => setStreamHealth(null));
+  }, [tab, isFullAdmin]);
 
   useEffect(() => {
     const onArchivesUpdated = () => {
@@ -718,7 +735,9 @@ export function AdminDashboard({
         <div>
           <h1 className="text-2xl font-bold text-white">{isFullAdmin ? "Admin" : "Mod panel"}</h1>
           <p className="text-sm text-zinc-500">
-            {isFullAdmin ? "Users, streams, moderation & support" : "Streams, moderation, support & user suspensions"}
+            {isFullAdmin
+              ? "Creator platform ops — streaming, membership, treasury, moderation & support"
+              : "Streams, moderation, support & user suspensions"}
           </p>
         </div>
       </div>
@@ -772,26 +791,64 @@ export function AdminDashboard({
           {accessError ? "Admin stats unavailable." : "No stats loaded."}
         </p>
       ) : tab === "overview" && stats ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {[
-            ...(isFullAdmin ? [{ label: "Total users", value: stats.users }] : []),
-            { label: "Live now", value: stats.liveStreams },
-            { label: "Open tickets", value: stats.openTickets },
-            { label: "Unread support", value: stats.unreadSupport ?? 0 },
-            { label: "Flagged streams", value: stats.flaggedStreams },
-            { label: "Reports (24h)", value: stats.reportsToday },
-            ...(isFullAdmin
-              ? [
-                  { label: "Stations", value: stats.stations },
-                  { label: "Active promos", value: stats.activePromotions ?? 0 },
-                ]
-              : []),
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-xl border border-white/10 bg-[#141416] p-4">
-              <p className="text-2xl font-bold font-mono text-white">{value}</p>
-              <p className="text-[11px] text-zinc-500 uppercase mt-1">{label}</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              ...(isFullAdmin ? [{ label: "Total users", value: stats.users }] : []),
+              { label: "Live now", value: stats.liveStreams },
+              { label: "Open tickets", value: stats.openTickets },
+              { label: "Unread support", value: stats.unreadSupport ?? 0 },
+              { label: "Flagged streams", value: stats.flaggedStreams },
+              { label: "Reports (24h)", value: stats.reportsToday },
+              ...(isFullAdmin
+                ? [
+                    { label: "Stations", value: stats.stations },
+                    { label: "Active promos", value: stats.activePromotions ?? 0 },
+                  ]
+                : []),
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl border border-white/10 bg-[#141416] p-4">
+                <p className="text-2xl font-bold font-mono text-white">{value}</p>
+                <p className="text-[11px] text-zinc-500 uppercase mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {isFullAdmin && (
+            <div className="rounded-xl border border-white/10 bg-[#141416] p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-white">Streaming infrastructure</h2>
+              <p className="text-xs text-zinc-500">
+                Self-hosted RTMP ingest on the VPS. Replays remux to HLS on{" "}
+                <code className="text-zinc-400">{HLS_ORIGIN}/recordings/…</code> — usually ready 3–5 minutes after a stream ends.
+              </p>
+              <ul className="text-xs text-zinc-400 space-y-1">
+                <li>
+                  RTMP ingest: <code className="bg-white/10 px-1 rounded">{RTMP_SERVER}</code>
+                </li>
+                <li>
+                  HLS origin: <code className="bg-white/10 px-1 rounded">{HLS_ORIGIN}</code>
+                </li>
+                <li>
+                  Health check:{" "}
+                  {streamHealth == null ? (
+                    <span className="text-zinc-500">checking…</span>
+                  ) : streamHealth.reachable === true ? (
+                    <span className="text-[#53fc18]">reachable</span>
+                  ) : streamHealth.reachable === false ? (
+                    <span className="text-red-400">unreachable — check VPS MediaMTX / Caddy</span>
+                  ) : (
+                    <span className="text-zinc-500">not configured (Livepeer or demo mode)</span>
+                  )}
+                </li>
+              </ul>
+              <p className="text-[10px] text-zinc-600">
+                User guides:{" "}
+                <Link href={HELP_LINKS.djs} className="text-[#53fc18] hover:underline">DJ guide</Link>
+                {" · "}
+                <Link href={HELP_LINKS.support} className="text-[#53fc18] hover:underline">Support FAQ</Link>
+              </p>
             </div>
-          ))}
+          )}
         </div>
       ) : tab === "analytics" ? (
         <AdminAnalyticsPanel />
@@ -1106,7 +1163,12 @@ export function AdminDashboard({
           );})}
         </div>
       ) : tab === "archives" ? (
-        <DjArchiveList
+        <div className="space-y-4">
+          <p className="text-xs text-zinc-500 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+            Ended streams with recordings. Replays remux on the VPS into fast-start HLS — allow 3–5 minutes after end before
+            marking a replay as failed. Rows show <strong className="text-zinc-400">remuxing replay</strong> while processing.
+          </p>
+          <DjArchiveList
           variant="admin"
           canDelete
           streams={archives.map((s) => {
@@ -1124,10 +1186,12 @@ export function AdminDashboard({
               vodUrl: s.vodUrl ? String(s.vodUrl) : null,
               playbackUrl: s.playbackUrl ? String(s.playbackUrl) : null,
               hasReplay: Boolean(s.hasReplay),
+              replayState: s.replayState as ArchiveStream["replayState"],
               dj,
             } satisfies ArchiveStream;
           })}
         />
+        </div>
       ) : tab === "promotions" ? (
         promotions ? (
         <div className="space-y-6">
@@ -1262,9 +1326,12 @@ export function AdminDashboard({
             </p>
           </div>
 
-          {treasury.onChain && (
+          {treasury.onChain ? (
             <div className="rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-4 text-xs text-zinc-400 space-y-1">
-              <p className="font-semibold text-[#53fc18]">On-chain treasury (TipRouter 10% fees)</p>
+              <p className="font-semibold text-[#53fc18]">On-chain treasury (optional beta)</p>
+              <p>
+                TipRouter sends 10% of on-chain tips to the platform wallet. In-app DROP ledger remains primary for fans and creators.
+              </p>
               <p>
                 Balance: <strong className="text-white">{treasury.onChain.treasuryBalanceDrop.toLocaleString()} DROP</strong>
                 {" · "}Supply: {treasury.onChain.totalSupplyDrop.toLocaleString()} DROP
@@ -1278,10 +1345,21 @@ export function AdminDashboard({
                 View treasury wallet on explorer →
               </a>
             </div>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs text-zinc-500">
+              <p className="font-semibold text-zinc-300">On-chain layer disabled</p>
+              <p className="mt-1">
+                Platform runs on the in-app DROP ledger. Set contract addresses and keep{" "}
+                <code className="bg-white/10 px-1 rounded">NEXT_PUBLIC_ONCHAIN_ENABLED=true</code> to show VeChain treasury stats here.
+              </p>
+            </div>
           )}
 
           <div>
-            <h2 className="text-sm font-bold text-zinc-400 uppercase mb-2">Withdrawal queue</h2>
+            <h2 className="text-sm font-bold text-zinc-400 uppercase mb-2">Creator cash-out queue</h2>
+            <p className="text-xs text-zinc-600 mb-3">
+              Approve eligible earned DROP, then mark paid — Stripe Connect transfers run automatically when the DJ completed onboarding.
+            </p>
             {withdrawals.length === 0 ? (
               <p className="text-sm text-zinc-500">No pending withdrawal requests.</p>
             ) : (
@@ -1318,7 +1396,7 @@ export function AdminDashboard({
             <div className="space-y-1 max-h-48 overflow-y-auto text-xs text-zinc-500">
               {treasury.recentLedger.map((e) => (
                 <div key={e.id} className="flex justify-between border-b border-white/5 py-1">
-                  <span>@{e.username} · {e.type.replace(/_/g, " ")}</span>
+                  <span>@{e.username} · {formatLedgerType(e.type)}</span>
                   <span className={e.amount >= 0 ? "text-[#53fc18]" : "text-red-400"}>{e.amount >= 0 ? "+" : ""}{e.amount}</span>
                 </div>
               ))}
