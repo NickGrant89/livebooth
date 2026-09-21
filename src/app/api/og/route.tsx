@@ -115,7 +115,7 @@ export async function GET(request: Request) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 22, color: "#71717a" }}>Tip the drop · DROP on VeChain</span>
+          <span style={{ fontSize: 22, color: "#71717a" }}>Tip the drop · LiveBooth</span>
           {username && (
             <span style={{ fontSize: 20, color: "#52525b", fontFamily: "monospace" }}>@{username}</span>
           )}

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { DAY_LABELS, DROP_TOKEN_SYMBOL, genreLabels } from "@/lib/constants";
 import { formatTokens } from "@/context/AuthContext";
+import { isOnChainEnabled } from "@/lib/web3/contracts";
 
 export type DashboardSummary = {
   followers: number;
@@ -257,7 +258,7 @@ export function DjDashboardOverview({
             </Link>
           </div>
 
-          {summary.contractsConfigured && (
+          {isOnChainEnabled() && summary.contractsConfigured && (
             <div
               className={`rounded-xl border p-5 ${
                 summary.canReceiveOnChainTips

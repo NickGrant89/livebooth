@@ -131,9 +131,11 @@ function WalletContent() {
       )}
 
       <div className="rounded-xl border border-white/5 bg-[#141416] p-6 mb-6">
-        <p className="text-zinc-400 text-sm">In-app balance (off-chain ledger)</p>
+        <p className="text-zinc-400 text-sm">Your DROP balance</p>
         <p className="text-4xl font-bold text-[#53fc18] mt-1">{formatTokens(user.balance)}</p>
-        <p className="text-sm text-zinc-500 mt-2">Total earned: {user.totalEarned} DROP</p>
+        <p className="text-sm text-zinc-500 mt-2">
+          Total earned: {user.totalEarned} DROP · cash out eligible earnings below
+        </p>
       </div>
 
       <OnChainWalletCard />

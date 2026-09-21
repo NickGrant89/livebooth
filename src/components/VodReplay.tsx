@@ -13,6 +13,7 @@ import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
 import { SetRecordingDownloadButton } from "@/components/SetRecordingDownloadButton";
 import { formatClipTimestamp } from "@/lib/clip-export";
 import { STAKER_VOD_EARLY_HOURS, DJ_STAKER_VOD_EARLY_HOURS } from "@/lib/constants";
+import { MEMBERSHIP_COPY } from "@/lib/staking-ui";
 
 type Highlight = {
   id: string;
@@ -149,7 +150,7 @@ export function VodReplay({
                 href={`/station/${earlyAccessBlocked.stationSlug}#membership`}
                 className="inline-flex rounded-lg bg-[#53fc18] px-5 py-2.5 text-sm font-bold text-black"
               >
-                Become a member
+                {MEMBERSHIP_COPY.earlyAccessStationCta}
               </Link>
             )}
             {earlyAccessBlocked.djUsername && (
@@ -157,7 +158,7 @@ export function VodReplay({
                 href={`/dj/${earlyAccessBlocked.djUsername}#membership`}
                 className="inline-flex rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-5 py-2.5 text-sm font-bold text-cyan-200"
               >
-                Back this DJ
+                {MEMBERSHIP_COPY.earlyAccessDjCta}
               </Link>
             )}
           </div>
@@ -248,10 +249,8 @@ export function VodReplay({
       {showStakerCta && (
         <div className="mt-6 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <p className="font-semibold text-sm text-cyan-200">Love this set?</p>
-            <p className="text-xs text-zinc-400 mt-1">
-              Join {djName}&apos;s membership for early replays, cheaper unlocks, and milestone rewards on future sets.
-            </p>
+            <p className="font-semibold text-sm text-cyan-200">{MEMBERSHIP_COPY.vodCtaTitle}</p>
+            <p className="text-xs text-zinc-400 mt-1">{MEMBERSHIP_COPY.vodCtaBody}</p>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0">
             {stationSlug && (
@@ -259,14 +258,14 @@ export function VodReplay({
                 href={`/station/${stationSlug}#membership`}
                 className="rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black"
               >
-                Station member
+                {MEMBERSHIP_COPY.vodStationCta}
               </Link>
             )}
             <Link
               href={`/dj/${djUsername}#membership`}
               className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-200"
             >
-              Back this DJ
+              {MEMBERSHIP_COPY.vodDjCta}
             </Link>
           </div>
         </div>

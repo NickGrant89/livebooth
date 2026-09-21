@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { MEMBER_TIER_PRICES, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { MEMBERSHIP_COPY } from "@/lib/staking-ui";
 
 type StreamMemberPromoProps = {
   djUsername: string;
@@ -30,8 +31,8 @@ export function StreamStakerPromo({
     : `/dj/${djUsername}#membership`;
   const title = isStation
     ? `Support ${stationName ?? "this station"}`
-    : `Back ${djDisplayName}`;
-  const cta = isStation ? "Become a station member" : "Join membership";
+    : `Subscribe to ${djDisplayName}`;
+  const cta = isStation ? MEMBERSHIP_COPY.streamPromoStationCta : MEMBERSHIP_COPY.streamPromoDjCta;
 
   return (
     <div className="mt-3 rounded-xl border border-[#53fc18]/25 bg-gradient-to-r from-[#53fc18]/10 to-cyan-500/5 p-4">
@@ -43,15 +44,15 @@ export function StreamStakerPromo({
           </p>
           <p className="text-xs text-zinc-400 mt-1">
             {isStation
-              ? `From ${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo — 75% supports the station, perks on every resident show.`
-              : `From ${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo — 85% goes to the DJ, early replays & chat badge.`}
+              ? `From ${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo — member perks on every resident show, most revenue to the station.`
+              : `From ${MEMBER_TIER_PRICES.member} ${DROP_TOKEN_SYMBOL}/mo — early replays, chat badge, and discounts. Most of each payment goes to the DJ.`}
           </p>
         </div>
         <Link
           href={user ? href : "/login"}
           className="shrink-0 inline-flex items-center justify-center rounded-lg bg-[#53fc18] px-4 py-2 text-sm font-bold text-black hover:opacity-90 transition-opacity"
         >
-          {user ? cta : "Sign in to join"}
+          {user ? cta : MEMBERSHIP_COPY.streamPromoSignIn}
         </Link>
       </div>
     </div>

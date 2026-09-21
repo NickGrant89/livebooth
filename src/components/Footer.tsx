@@ -12,7 +12,7 @@ export function Footer() {
             <Logo size="sm" showTagline link={false} />
             <p className="text-sm text-zinc-500 mt-3 max-w-xs">{APP_TAGLINE}</p>
             <p className="text-xs text-zinc-600 mt-2">
-              Powered by {DROP_TOKEN_SYMBOL} on VeChain
+              Tips, membership, and payouts for live creators
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-8 text-sm">

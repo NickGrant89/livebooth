@@ -10,7 +10,7 @@ export default function TermsPage() {
       <section className="space-y-4 text-zinc-300 text-sm leading-relaxed">
         <p>
           Welcome to {APP_NAME}. By using our platform you agree to these terms. {APP_NAME} provides
-          live DJ streaming, chat, and a virtual tipping economy using {DROP_TOKEN_SYMBOL} tokens.
+          live DJ streaming, chat, and a virtual tipping economy using {DROP_TOKEN_SYMBOL}.
         </p>
 
         <h2 className="text-lg font-bold text-white pt-4">Accounts</h2>
@@ -30,10 +30,10 @@ export default function TermsPage() {
 
         <h2 className="text-lg font-bold text-white pt-4">{DROP_TOKEN_SYMBOL} &amp; payments</h2>
         <p>
-          {DROP_TOKEN_SYMBOL} is a platform utility token for tips, unlocks, and in-app features — not
+          {DROP_TOKEN_SYMBOL} is platform credit for tips, unlocks, membership, and in-app features — not
           an investment product. Purchases and tips are generally non-refundable except where required by
-          law. Platform fees apply as disclosed at checkout and in the DJ dashboard. On-chain features
-          are subject to blockchain network conditions.
+          law. Platform fees apply as disclosed at checkout and in the DJ dashboard. Creators may request
+          cash-out of eligible earned {DROP_TOKEN_SYMBOL} via Stripe Connect, subject to review.
         </p>
 
         <h2 className="text-lg font-bold text-white pt-4">Moderation</h2>
@@ -46,7 +46,7 @@ export default function TermsPage() {
         <h2 className="text-lg font-bold text-white pt-4">Limitation of liability</h2>
         <p>
           {APP_NAME} is provided &quot;as is.&quot; We are not liable for indirect damages, lost profits,
-          or issues arising from third-party services (encoders, payment processors, blockchains).
+          or issues arising from third-party services (encoders, payment processors).
         </p>
 
         <h2 className="text-lg font-bold text-white pt-4">Contact</h2>

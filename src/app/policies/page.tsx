@@ -50,7 +50,7 @@ export default function PoliciesPage() {
           <li>Treat DJs, fans, and moderators with respect — no harassment, hate speech, or doxing</li>
           <li>Only stream content you have rights to — licensed music, original sets, or rights-cleared media</li>
           <li>Not stream illegal activity, sexual content involving minors, or gratuitous violence</li>
-          <li>Not use bots, tip fraud, or exploits against the {DROP_TOKEN_SYMBOL} ledger or on-chain contracts</li>
+          <li>Not use bots, tip fraud, or exploits against the {DROP_TOKEN_SYMBOL} ledger</li>
           <li>Report problematic streams or chat via in-app report tools</li>
         </ul>
         <p>
@@ -72,8 +72,8 @@ export default function PoliciesPage() {
         </ol>
         <h3 className="text-base font-semibold text-white">Earning {DROP_TOKEN_SYMBOL}</h3>
         <ul className="list-disc list-inside space-y-1 text-zinc-400">
-          <li>In-app tips credit your ledger balance immediately</li>
-          <li>Link a VeChain wallet in <Link href="/wallet" className="text-[#53fc18] hover:underline">Wallet</Link> to receive on-chain tips during live sets</li>
+          <li>Tips, unlocks, requests, and membership credit your wallet balance immediately</li>
+          <li>Connect Stripe on <Link href="/wallet" className="text-[#53fc18] hover:underline">Wallet</Link> to cash out eligible earnings</li>
           <li>Platform fee applies to tips and unlocks — see dashboard for your share</li>
         </ul>
         <p>
@@ -85,7 +85,7 @@ export default function PoliciesPage() {
         <h2 className="text-xl font-bold text-white">Fan procedures</h2>
         <ul className="list-disc list-inside space-y-2 text-zinc-400">
           <li>Follow DJs for go-live alerts — enable push in Settings</li>
-          <li>Tip with in-app {DROP_TOKEN_SYMBOL} or connect a wallet for on-chain tips on live streams</li>
+          <li>Tip with in-app {DROP_TOKEN_SYMBOL} from your wallet balance</li>
           <li>Track unlocks and requests spend {DROP_TOKEN_SYMBOL} — purchases are non-refundable except where required by law</li>
           <li>Report streams or chat messages that violate community guidelines</li>
         </ul>

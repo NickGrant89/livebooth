@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           <li>Account data: email, username, display name, password (hashed), profile bio and avatar</li>
           <li>Usage: streams watched, tips sent, chat messages, achievements, wallet ledger activity</li>
           <li>Technical: session cookies, push notification subscriptions, IP-derived logs (server)</li>
-          <li>Optional: linked VeChain wallet address for on-chain tips and claims</li>
+          <li>Payment: Stripe customer and Connect account identifiers for purchases and payouts</li>
         </ul>
 
         <h2 className="text-lg font-bold text-white pt-4">How we use it</h2>

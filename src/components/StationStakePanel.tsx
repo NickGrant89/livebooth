@@ -182,7 +182,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
             disabled={loading}
             className="w-full rounded-lg bg-[#53fc18] py-3 text-sm font-bold text-black disabled:opacity-50"
           >
-            {loading ? "Joining…" : `Become a ${tier} — supports the station`}
+            {loading ? "Joining…" : MEMBERSHIP_COPY.stationJoinButton}
           </button>
         </>
       ) : (
@@ -190,7 +190,7 @@ export function StationStakePanel({ slug }: { slug: string }) {
           <Link href="/login" className="text-[#53fc18] hover:underline">
             Sign in
           </Link>{" "}
-          to join
+          to {MEMBERSHIP_COPY.signInToJoin.toLowerCase()}
         </p>
       )}
 

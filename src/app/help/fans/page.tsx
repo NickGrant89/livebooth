@@ -91,15 +91,14 @@ export default function FanGuidePage() {
         </p>
         <GuideStep n={1} title="Wallet">
           Check balance at <Link href={HELP_LINKS.wallet} className="text-[#53fc18] hover:underline">/wallet</Link>.
-          Buy {DROP_TOKEN_SYMBOL} packs via Stripe checkout. Connect VeWorld or sign in with email for an embedded wallet
-          to send on-chain tips during live streams.
+          Buy {DROP_TOKEN_SYMBOL} packs via Stripe checkout, then tip, unlock tracks, and join memberships from your balance.
         </GuideStep>
         <GuideStep n={2} title="Daily login bonus">
           Claim <strong className="text-zinc-300">{DAILY_LOGIN_DROP} {DROP_TOKEN_SYMBOL}</strong> once per day from the
           banner at the top of the app when signed in.
         </GuideStep>
         <GuideStep n={3} title="Tip the DJ">
-          On a live stream, choose a tip amount or enter a custom one. Toggle on-chain tips if your wallet is connected.
+          On a live stream, choose a tip amount or enter a custom one. Tips spend from your in-app balance.
           Optional message appears in chat. Large tips can create VOD highlights.
         </GuideStep>
         <GuideStep n={4} title="Track ID unlock">

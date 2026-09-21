@@ -40,13 +40,13 @@ export const HELP_TOPICS = [
   {
     href: HELP_LINKS.wallet,
     title: "Wallet & DROP",
-    description: "Balance, Stripe packs, daily bonus, on-chain tips, and cash-out.",
+    description: "Balance, Stripe packs, daily bonus, tips, and cash-out.",
     anchor: null,
   },
   {
     href: HELP_LINKS.transparency,
     title: "Transparency",
-    description: "DROP circulation, platform fees, and on-chain treasury addresses.",
+    description: "DROP circulation, platform fees, and creator payouts.",
     anchor: null,
   },
 ] as const;

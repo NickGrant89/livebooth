@@ -152,7 +152,7 @@ export const GO_LIVE_STEPS = [
 export const FAN_WALLET_TIPS = [
   `Your balance is in ${DROP_TOKEN_SYMBOL} — the booth currency for tips, unlocks, and requests.`,
   "Buy more DROP from Wallet via Stripe checkout, or claim your daily login bonus on the home page.",
-  "Connect a wallet at /wallet for on-chain tips during live streams.",
+  "Buy DROP packs on /wallet when you need more balance for tips or membership.",
   "Track unlocks and tips appear in your transaction history.",
 ];
 

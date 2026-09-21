@@ -61,8 +61,7 @@ export default function TransparencyPage() {
           Platform transparency
         </h1>
         <p className="text-zinc-400 mt-2 text-sm max-w-2xl">
-          Public snapshot of DROP circulation, platform fees, and cash-out activity. On-chain tip fees
-          route to the TipRouter treasury wallet on VeChain.
+          Public snapshot of DROP circulation, platform fees, creator payouts, and cash-out activity.
         </p>
       </div>
 
@@ -205,12 +204,7 @@ export default function TransparencyPage() {
               </div>
               <p className="text-[10px] text-zinc-600 font-mono break-all">{stats.onChain.treasuryAddress}</p>
             </section>
-          ) : (
-            <section className="rounded-xl border border-white/10 bg-[#141416] p-5">
-              <h2 className="font-semibold text-white mb-1">On-chain treasury</h2>
-              <p className="text-sm text-zinc-500">VeChain contracts not configured on this deployment.</p>
-            </section>
-          )}
+          ) : null}
         </>
       )}
     </div>

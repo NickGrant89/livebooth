@@ -178,7 +178,7 @@ export default function HelpHubPage() {
           <Eye className="h-5 w-5 text-[#53fc18]" />
           <div>
             <p className="text-sm font-semibold text-white">DROP transparency</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Fees, circulation, and on-chain addresses</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Fees, circulation, and creator payouts</p>
           </div>
         </Link>
         <Link

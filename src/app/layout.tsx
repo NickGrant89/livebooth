@@ -17,7 +17,7 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "LiveBooth — Live DJ Streaming",
-  description: "Stream DJ sets from the booth. Earn DROP on VeChain. Tip the drop.",
+  description: "Stream DJ sets from the booth. Tip creators, grow your audience, cash out your earnings.",
 };
 
 export const viewport: Viewport = {

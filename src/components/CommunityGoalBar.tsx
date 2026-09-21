@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Target } from "lucide-react";
 import { apiFetch } from "@/lib/fetch-client";
 import { DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { MEMBERSHIP_COPY } from "@/lib/staking-ui";
 
 type GoalData = {
   label: string;
@@ -40,13 +41,13 @@ export function CommunityGoalBar({
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wider text-[#53fc18] flex items-center gap-1.5">
             <Target className="h-3.5 w-3.5" />
-            Member community goal
+            {MEMBERSHIP_COPY.communityGoalLabel}
           </p>
           <p className="text-sm font-semibold text-white mt-1">{goal.label}</p>
           <p className="text-xs text-zinc-500 mt-0.5">{goal.description}</p>
           {isHost && (
             <p className="text-[10px] text-zinc-600 mt-1">
-              Fans see this bar too — grows as station members join.
+              {MEMBERSHIP_COPY.communityGoalHostHint}
             </p>
           )}
         </div>

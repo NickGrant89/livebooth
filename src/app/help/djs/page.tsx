@@ -124,15 +124,14 @@ export default function DjGuidePage() {
         <GuideStep n={5} title="Achievements">
           Unlock DJ achievements for streaming milestones, tips, and followers at{" "}
           <Link href={HELP_LINKS.achievements} className="text-[#53fc18] hover:underline">/achievements</Link>.
-          Claim {DROP_TOKEN_SYMBOL} rewards in-app; on-chain claims are available when your wallet is connected.
+          Claim {DROP_TOKEN_SYMBOL} rewards to your wallet balance.
         </GuideStep>
-        <GuideStep n={6} title="Wallet & on-chain tips">
+        <GuideStep n={6} title="Wallet & cash-out">
           View earnings at <Link href={HELP_LINKS.wallet} className="text-[#53fc18] hover:underline">/wallet</Link>.
-          Connect VeWorld or create an embedded wallet (email login) to receive on-chain tips during live sets.
-          Link your wallet address on your DJ profile so fans can tip on-chain.
+          Connect Stripe for payouts, then request a cash-out when you have eligible earned DROP.
         </GuideStep>
         <GuideStep n={7} title="Cash-out">
-          Request fiat cash-out from the wallet page when available. Admin-approved payouts are processed manually.
+          Request fiat cash-out from the wallet page when available. Admin-approved payouts are processed manually or via Stripe Connect.
         </GuideStep>
       </GuideSection>
 

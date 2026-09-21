@@ -171,7 +171,7 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
             disabled={loading}
             className="w-full rounded-lg bg-[#53fc18] py-2.5 text-sm font-bold text-black disabled:opacity-50"
           >
-            {loading ? "Joining…" : `Join as ${tier} — supports the DJ monthly`}
+            {loading ? "Joining…" : MEMBERSHIP_COPY.djJoinButton}
           </button>
         </>
       ) : (
@@ -179,7 +179,7 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
           <Link href="/login" className="text-cyan-300 hover:underline">
             Sign in
           </Link>{" "}
-          to become a member
+          to {MEMBERSHIP_COPY.signInToJoin.toLowerCase()}
         </p>
       )}
 

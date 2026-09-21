@@ -147,7 +147,7 @@ export default async function HomePage({
             <div className="max-w-xl text-center lg:text-left">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#15CFF4]/30 bg-[#15CFF4]/10 px-3 py-1 text-xs font-semibold text-[#15CFF4] mb-5">
                 <Sparkles className="h-3 w-3" />
-                {DROP_TOKEN_SYMBOL} on VeChain
+                Creator monetization built in
               </div>
               <h1 className="text-4xl lg:text-6xl font-extrabold tracking-tight leading-[1.05]">
                 Live from the booth.

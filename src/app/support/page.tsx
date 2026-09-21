@@ -74,7 +74,7 @@ const FAQ = [
       },
       {
         q: "My tip didn't go through",
-        a: "Check your wallet balance at /wallet. Tips require enough DROP. Refresh the page and try again. For on-chain tips, ensure your wallet is connected and has enough on-chain DROP.",
+        a: "Check your wallet balance at /wallet. Tips require enough DROP. Refresh the page and try again.",
       },
       {
         q: "How do go-live notifications work?",
@@ -131,7 +131,7 @@ const FAQ = [
       },
       {
         q: "When do I get paid?",
-        a: "Tips, unlocks, and requests credit instantly to your in-app wallet. On-chain tips go to your linked VeChain wallet. Fiat cash-out is requested from /wallet and processed after admin approval.",
+        a: "Tips, unlocks, membership, and requests credit instantly to your in-app wallet. Request fiat cash-out from /wallet — payouts are processed after admin approval or via Stripe Connect.",
       },
       {
         q: "How does collab split work?",
@@ -140,19 +140,19 @@ const FAQ = [
     ],
   },
   {
-    category: "Wallet & on-chain",
+    category: "Wallet & payouts",
     items: [
       {
-        q: "How do on-chain tips work?",
-        a: "Connect VeWorld or create an embedded wallet via email at /wallet. During a live stream, enable the on-chain tip toggle in chat. DJs must link a wallet on their profile to receive on-chain tips.",
+        q: "How do I buy DROP?",
+        a: "Open /wallet and choose a Stripe pack. DROP is credited to your in-app balance for tips, unlocks, and membership.",
       },
       {
-        q: "What is DROP on-chain vs in-app?",
-        a: "In-app DROP is your platform balance for tips, unlocks, and requests. On-chain DROP is the VeChain testnet token — used for wallet tips and achievement claims when your wallet is connected.",
+        q: "How do creators get paid?",
+        a: "Tips, unlocks, requests, and membership revenue credit to your wallet. Connect Stripe on /wallet, then request a cash-out for eligible earned DROP.",
       },
       {
-        q: "How do I add DROP to VeWorld?",
-        a: "Open /wallet, connect your wallet, and copy the DROP token contract address shown on the page. In VeWorld: Manage Tokens → Custom → paste the contract (VeChain Testnet).",
+        q: "What is the welcome bonus?",
+        a: "New accounts may receive a starter DROP balance. Welcome bonus and purchased DROP cannot be cashed out — only earned creator revenue can.",
       },
     ],
   },
