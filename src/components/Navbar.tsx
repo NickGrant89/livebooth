@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   BarChart3,
   LogIn,
-  Users,
   Music,
   Menu,
   X,
@@ -37,7 +36,6 @@ const nav = [
   { href: "/go-live", label: "Go Live", icon: Radio, djOnly: true },
   { href: "/achievements", label: "Rewards", icon: Trophy },
   { href: "/leaderboard", label: "Rankings", icon: BarChart3 },
-  { href: "/collab", label: "Collab", icon: Users, djOnly: true, wideOnly: true },
   { href: "/settings", label: "Settings", icon: Settings, mobileOnly: true },
 ];
 
@@ -52,9 +50,8 @@ export function Navbar() {
   const { user, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const visibleNav = nav.filter(({ djOnly, stationOnly, mobileOnly, wideOnly }) => {
+  const visibleNav = nav.filter(({ djOnly, stationOnly, mobileOnly }) => {
     if (mobileOnly) return false;
-    if (wideOnly) return false; // desktop: Collab in mobile menu only
     if (djOnly && user?.role !== "dj" && user?.role !== "admin") return false;
     if (stationOnly && user?.role !== "station") return false;
     return true;

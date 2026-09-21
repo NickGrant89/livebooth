@@ -10,6 +10,14 @@
 set -euo pipefail
 
 REPO_RAW="${LIVEBOOTH_RAW:-https://raw.githubusercontent.com/NickGrant89/livebooth/main}"
+if [[ -z "${RTMP_DIR:-}" ]]; then
+  for candidate in /opt/livebooth/app/rtmp-server /opt/livebooth/rtmp-server; do
+    if [[ -d "${candidate}/recordings" ]]; then
+      RTMP_DIR="$candidate"
+      break
+    fi
+  done
+fi
 RTMP_DIR="${RTMP_DIR:-/opt/livebooth/rtmp-server}"
 RECORDINGS="${RTMP_DIR}/recordings"
 INGEST_KEY="${1:-}"
@@ -59,9 +67,9 @@ systemctl restart livebooth-remux.service
 
 # MediaMTX: queue remux when publisher disconnects (shared recordings volume).
 MTX_CFG="${RTMP_DIR}/mediamtx.production.yml"
-if [[ -f "${MTX_CFG}" ]] && ! grep -q 'runOnUnPublish' "${MTX_CFG}"; then
-  echo "Adding runOnUnPublish hook to mediamtx.production.yml …"
-  sed -i '/recordDeleteAfter:/a\  runOnUnPublish: sh -c '"'"'echo "$MTX_PATH $(date +%s)" >> /recordings/.remux-queue'"'"'' "${MTX_CFG}"
+if [[ -f "${MTX_CFG}" ]] && ! grep -q 'runOnUnavailable:' "${MTX_CFG}"; then
+  echo "Adding runOnUnavailable remux hook to mediamtx.production.yml …"
+  sed -i '/recordDeleteAfter:/a\  runOnUnavailable: sh -c '"'"'echo "$MTX_PATH $(date +%s)" >> /recordings/.remux-queue'"'"'' "${MTX_CFG}"
   if docker ps --format '{{.Names}}' | grep -q livebooth-rtmp; then
     cd "${RTMP_DIR}"
     docker compose -f docker-compose.production.yml restart mediamtx 2>/dev/null \

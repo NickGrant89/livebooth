@@ -57,35 +57,61 @@ export function hlsVodUrlForIngestKey(ingestKey: string): string {
   return `${RECORDINGS_CDN}/live/${encodeURIComponent(ingestKey)}/playback/index.m3u8`;
 }
 
+function isDeadLiveHlsArchiveUrl(url: string): boolean {
+  return (
+    url.includes(".m3u8") &&
+    url.includes("/live/") &&
+    !url.includes("/recordings/") &&
+    !url.includes("/api/vod/file/")
+  );
+}
+
+/** True when playlist exists and the first segment is reachable (guards partial remux). */
+export async function hlsVodPlaylistReady(playlistUrl: string): Promise<boolean> {
+  try {
+    const res = await fetch(playlistUrl, { cache: "no-store" });
+    if (!res.ok) return false;
+    const text = await res.text();
+    const firstSegment = text
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith("#"));
+    if (!firstSegment) return false;
+    const base = playlistUrl.replace(/\/[^/]+$/, "/");
+    const segUrl = firstSegment.startsWith("http")
+      ? firstSegment
+      : new URL(firstSegment, base).href;
+    const segRes = await fetch(segUrl, { method: "HEAD", cache: "no-store" });
+    return segRes.ok;
+  } catch {
+    return false;
+  }
+}
+
 export type VodPlaybackMode = "hls" | "file";
 
 /** Prefer segmented HLS VOD when the server has finished building it. */
 export async function resolveVodPlaybackMode(
   url: string,
 ): Promise<{ url: string; mode: VodPlaybackMode }> {
-  if (url.includes(".m3u8")) {
-    return { url: resolveVodPlaybackSrc(url), mode: "hls" };
-  }
-
-  const hlsCandidate = hlsVodUrlForRecording(url);
-  if (hlsCandidate) {
-    try {
-      const res = await fetch(hlsCandidate, { method: "HEAD", cache: "no-store" });
-      if (res.ok) return { url: hlsCandidate, mode: "hls" };
-    } catch {
-      // fall through to MP4
+  if (url.includes(".m3u8") && !isDeadLiveHlsArchiveUrl(url)) {
+    const src = resolveVodPlaybackSrc(url);
+    if (await hlsVodPlaylistReady(src)) {
+      return { url: src, mode: "hls" };
     }
   }
 
-  // Also try ingest-key path when URL is a same-origin proxy.
+  const hlsCandidate = hlsVodUrlForRecording(url);
+  if (hlsCandidate && (await hlsVodPlaylistReady(hlsCandidate))) {
+    return { url: hlsCandidate, mode: "hls" };
+  }
+
+  // Also try ingest-key path when URL is a same-origin proxy or dead live HLS archive.
   const ingestMatch = url.match(/\/live\/([^/]+)\//i);
   if (ingestMatch?.[1]) {
     const byKey = hlsVodUrlForIngestKey(decodeURIComponent(ingestMatch[1]));
-    try {
-      const res = await fetch(byKey, { method: "HEAD", cache: "no-store" });
-      if (res.ok) return { url: byKey, mode: "hls" };
-    } catch {
-      // fall through
+    if (await hlsVodPlaylistReady(byKey)) {
+      return { url: byKey, mode: "hls" };
     }
   }
 

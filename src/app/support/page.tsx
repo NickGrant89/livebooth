@@ -61,7 +61,7 @@ const FAQ = [
       },
       {
         q: "What's the difference between fan and DJ accounts?",
-        a: "Fans watch, tip, unlock tracks, and join DJ or station memberships. DJs can go live, earn DROP, and use the dashboard, collab, and stream tools. Radio is a third role for station owners.",
+        a: "Fans watch, tip, unlock tracks, and join DJ or station memberships. DJs can go live, earn DROP, and use the dashboard and stream tools. Radio is a third role for station owners.",
       },
     ],
   },
@@ -132,10 +132,6 @@ const FAQ = [
       {
         q: "When do I get paid?",
         a: "Tips, unlocks, membership, and requests credit instantly to your in-app wallet. Request fiat cash-out from /wallet — payouts are processed after admin approval or via Stripe Connect.",
-      },
-      {
-        q: "How does collab split work?",
-        a: "Invite a partner on /collab. When collab is active, tips split by your agreed ratio. Station residencies use a separate DJ/station/platform split — see /help/stations.",
       },
     ],
   },

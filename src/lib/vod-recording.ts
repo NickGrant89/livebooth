@@ -220,8 +220,17 @@ async function remoteHlsPlaybackReady(ingestKey: string): Promise<string | null>
     const url = getRemoteRecordingFileUrl(relativePath, base);
     if (!url) continue;
     try {
-      const res = await fetch(url, { method: "HEAD", cache: "no-store" });
-      if (res.ok) return url;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) continue;
+      const text = await res.text();
+      const firstSegment = text
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l && !l.startsWith("#"));
+      if (!firstSegment) continue;
+      const segUrl = `${url.replace(/\/[^/]+$/, "/")}${firstSegment}`;
+      const segRes = await fetch(segUrl, { method: "HEAD", cache: "no-store" });
+      if (segRes.ok) return url;
     } catch {
       // try next base
     }

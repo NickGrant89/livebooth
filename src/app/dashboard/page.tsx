@@ -24,7 +24,6 @@ import { DjSetupChecklist } from "@/components/DjSetupChecklist";
 import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { PromoteBoothPanel } from "@/components/PromoteBoothPanel";
 import { CreatorMonetizationPanel } from "@/components/CreatorMonetizationPanel";
-import { CollabDashboardPanel } from "@/components/CollabDashboardPanel";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
 import { DjWalletBanner } from "@/components/DjWalletBanner";
 import { DjDashboardOverview, type DashboardSummary } from "@/components/DjDashboardOverview";
@@ -364,7 +363,6 @@ export default function DashboardPage() {
           </div>
 
           <RequestQueue streamId={liveStream.id} />
-          <CollabDashboardPanel streamId={liveStream.id} />
           <PromoteBoothPanel streamId={liveStream.id} />
         </div>
       )}

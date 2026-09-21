@@ -96,12 +96,7 @@ export async function processTip(
     select: { stationId: true },
   });
 
-  const collab = await prisma.streamCollab.findUnique({
-    where: { streamId },
-  });
-
-  const useStationSplit =
-    stream?.stationId && collab?.status !== "active";
+  const useStationSplit = Boolean(stream?.stationId);
 
   const platformFee = useStationSplit
     ? amount * STATION_TIP_PLATFORM_SHARE
@@ -119,19 +114,7 @@ export async function processTip(
 
   const countsAsEarned = await fanPaymentCountsAsCreatorEarnings(fromUserId);
 
-  if (collab?.status === "active") {
-    const partnerShare = djAmount * collab.splitRatio;
-    const hostShare = djAmount - partnerShare;
-    await creditUser(toUserId, hostShare, "tip_received", streamId, {
-      fromUserId,
-      platformFee,
-      collabSplit: collab.splitRatio,
-    }, { countAsEarned: countsAsEarned });
-    await creditUser(collab.partnerDjId, partnerShare, "tip_received", streamId, {
-      fromUserId,
-      collabPartner: true,
-    }, { countAsEarned: countsAsEarned });
-  } else if (useStationSplit && stream?.stationId) {
+  if (useStationSplit && stream?.stationId) {
     const station = await prisma.radioStation.findUnique({
       where: { id: stream.stationId },
       select: { ownerId: true },

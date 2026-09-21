@@ -14,8 +14,6 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { isDemoPlayback } from "@/lib/streaming";
-import { resolveCollabViewerPlaybackUrl } from "@/lib/collab-compositor";
-import { getCollabPlaybackState } from "@/lib/collab-playback";
 import { RequestQueue } from "@/components/RequestQueue";
 import { StreamPageGuide } from "@/components/StreamPageGuide";
 import { QuestStreamChip } from "@/components/QuestStreamChip";
@@ -67,7 +65,6 @@ export default async function StreamPage({
     where: { djId: dj.id, status: "live" },
     include: {
       nowPlaying: true,
-      collab: { include: { partnerStream: true } },
       station: true,
     },
   });
@@ -81,22 +78,6 @@ export default async function StreamPage({
     );
   }
 
-  const playbackState = await getCollabPlaybackState(stream.id, { tryActivate: true });
-
-  const partnerUser =
-    stream.collab?.status === "active"
-      ? await prisma.user.findUnique({
-          where: { id: stream.collab.partnerDjId },
-          select: { displayName: true, username: true },
-        })
-      : null;
-
-  const playbackUrl =
-    playbackState?.playbackUrl ??
-    resolveCollabViewerPlaybackUrl(stream.status, stream.ingestKey, stream.playbackUrl, null);
-
-  const partnerLive = playbackState?.collabPartner ?? null;
-
   const achievements = await prisma.userAchievement.findMany({
     where: { userId: dj.id, unlockedAt: { not: null } },
     include: { achievement: true },
@@ -104,9 +85,6 @@ export default async function StreamPage({
   });
 
   const platform = await getPlatformSettings();
-
-  const partner = partnerUser;
-
   const isHost = session?.id === dj.id;
 
   return (
@@ -119,9 +97,9 @@ export default async function StreamPage({
               djName={dj.displayName}
               streamTitle={stream.title}
               initialPeak={stream.peakViewers}
-              playbackUrl={playbackUrl}
+              playbackUrl={stream.playbackUrl}
               startedAt={stream.startedAt?.toISOString()}
-              demoPlayback={isDemoPlayback(playbackUrl)}
+              demoPlayback={isDemoPlayback(stream.playbackUrl)}
               station={
                 stream.station
                   ? {
@@ -131,10 +109,6 @@ export default async function StreamPage({
                     }
                   : null
               }
-              collabPartner={partnerLive}
-              collabActive={stream.collab?.status === "active"}
-              compositorMixed={Boolean(playbackState?.compositorActive)}
-              compositorPending={Boolean(playbackState?.compositorPending)}
             />
             <StreamInStreamAdBanner
               enabled={platform.inStreamAdEnabled}
@@ -164,9 +138,6 @@ export default async function StreamPage({
                   <Link href={`/dj/${dj.username}`} className="font-bold text-base sm:text-lg hover:text-[#53fc18] transition-colors truncate block">
                     {dj.displayName}
                   </Link>
-                  {partner && (
-                    <span className="text-zinc-500 text-sm"> + {partner.displayName}</span>
-                  )}
                   {isHost ? (
                     <div className="mt-1">
                       <StreamDetailsEditor

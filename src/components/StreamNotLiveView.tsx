@@ -17,8 +17,7 @@ export function StreamNotLiveView({ djName, username, isHost }: Props) {
             <Radio className="h-10 w-10 text-zinc-500 mx-auto mb-4" />
             <h1 className="text-xl font-bold mb-2">{djName} isn&apos;t live yet</h1>
             <p className="text-sm text-zinc-400 mb-6">
-              The booth page opens here once the host publishes their stream. Collab studio alone
-              doesn&apos;t make the fan stream visible.
+              The booth page opens here once the host publishes their stream from Go Live.
             </p>
             {isHost ? (
               <Link

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     const stream = await prisma.stream.findUnique({
       where: { id: body.streamId },
-      include: { dj: true, collab: true },
+      include: { dj: true },
     });
     if (!stream || stream.status !== "live") return error("Stream not live", 404);
     if (!stream.dj.walletAddress?.startsWith("0x")) {
@@ -73,14 +73,7 @@ export async function POST(request: Request) {
       data: { totalTips: { increment: body.amount } },
     });
 
-    if (stream.collab?.status === "active") {
-      const partnerShare = djAmount * stream.collab.splitRatio;
-      const hostShare = djAmount - partnerShare;
-      await creditUser(stream.djId, hostShare, "tip_received_onchain", txHash);
-      await creditUser(stream.collab.partnerDjId, partnerShare, "tip_received_onchain", txHash);
-    } else {
-      await creditUser(stream.djId, djAmount, "tip_received_onchain", txHash);
-    }
+    await creditUser(stream.djId, djAmount, "tip_received_onchain", txHash);
 
     const chatMsg = await prisma.chatMessage.create({
       data: {

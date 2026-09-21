@@ -664,8 +664,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
               )}
               {liveNoSignal && isLive && (
                 <span className="mt-2 text-[10px] text-zinc-500 max-w-xs">
-                  The booth is live but no video has reached the server yet. Host: stream from OBS on Go
-                  Live, or finish the WebRTC B2B mix on /collab.
+                  The booth is live but no video has reached the server yet. Host: stream from OBS on Go Live.
                 </span>
               )}
             </div>

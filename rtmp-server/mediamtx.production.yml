@@ -42,7 +42,7 @@ pathDefaults:
   recordSegmentDuration: 4h
   recordDeleteAfter: 720h
   # Queue remux on host when publisher disconnects (processed by livebooth-remux.service)
-  runOnUnPublish: sh -c 'echo "$MTX_PATH $(date +%s)" >> /recordings/.remux-queue'
+  runOnUnavailable: sh -c 'echo "$MTX_PATH $(date +%s)" >> /recordings/.remux-queue'
 
 paths:
   all_others:
