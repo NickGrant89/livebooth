@@ -16,6 +16,8 @@ model User {
   avatar        String   @default("")
   avatarUrl     String   @default("")
   bannerUrl     String   @default("")
+  socialLinks   String   @default("{}")
+  featuredStreamId String?
   role          String   @default("fan")
   creatorType   String   @default("dj")
   walletAddress String?  @unique

@@ -13,7 +13,9 @@ import { StationOwnerSection } from "@/components/StationOwnerSection";
 import { SettingsGuide } from "@/components/SettingsGuide";
 import { ResetGuidesButton } from "@/components/ResetGuidesButton";
 import { ProfileImageField } from "@/components/ProfileImageField";
+import { ProfileSocialLinksEditor } from "@/components/ProfileSocialLinksEditor";
 import { roleGuidePath } from "@/lib/help-links";
+import { parseSocialLinks, type SocialLinks } from "@/lib/profile-social";
 
 interface ProfileData {
   displayName: string;
@@ -26,6 +28,7 @@ interface ProfileData {
   role: string;
   creatorType: string;
   genres: string[];
+  socialLinks: SocialLinks;
   station?: { slug: string; name: string } | null;
 }
 
@@ -62,6 +65,7 @@ export default function SettingsPage() {
           role: data.user.role,
           creatorType: data.user.creatorType ?? "dj",
           genres: data.user.genres ?? [],
+          socialLinks: data.user.socialLinks ?? parseSocialLinks(null),
           station: data.user.station ?? null,
         });
       })
@@ -100,6 +104,7 @@ export default function SettingsPage() {
       avatar: profile.avatar,
       avatarUrl: profile.avatarUrl,
       bannerUrl: profile.bannerUrl,
+      socialLinks: profile.socialLinks,
     };
     if (profile.role === "dj" || profile.role === "admin") {
       payload.genres = profile.genres;
@@ -259,6 +264,16 @@ export default function SettingsPage() {
               className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white resize-none"
             />
             <p className="text-[10px] text-zinc-600 mt-1">{profile.bio.length}/500</p>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-3">
+              Social links
+            </h3>
+            <ProfileSocialLinksEditor
+              value={profile.socialLinks}
+              onChange={(socialLinks) => setProfile({ ...profile, socialLinks })}
+            />
           </div>
 
           {isDj && (

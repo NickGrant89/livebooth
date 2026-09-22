@@ -4,6 +4,12 @@ import { prisma } from "@/lib/db";
 import { GENRES, CREATOR_TYPES, type CreatorType } from "@/lib/constants";
 import { json, error, requireApiUser, isApiError, serializeUser } from "@/lib/api-utils";
 import { sanitizeProfileImageUrl } from "@/lib/profile-images";
+import { serializeSocialLinks, type SocialLinks } from "@/lib/profile-social";
+
+const socialLinksSchema = z.record(
+  z.enum(["instagram", "soundcloud", "mixcloud", "twitter", "website"]),
+  z.string().max(200),
+);
 
 const updateSchema = z.object({
   displayName: z.string().min(1).max(50).optional(),
@@ -13,6 +19,8 @@ const updateSchema = z.object({
   bannerUrl: z.string().max(600_000).optional(),
   genres: z.array(z.enum(GENRES)).max(5).optional(),
   creatorType: z.enum(CREATOR_TYPES).optional(),
+  socialLinks: socialLinksSchema.optional(),
+  featuredStreamId: z.string().nullable().optional(),
   currentPassword: z.string().min(6).optional(),
   newPassword: z.string().min(6).optional(),
 });
@@ -76,6 +84,8 @@ export async function PATCH(request: Request) {
       genres?: string;
       creatorType?: string;
       passwordHash?: string;
+      socialLinks?: string;
+      featuredStreamId?: string | null;
     } = {};
 
     if (body.displayName !== undefined) data.displayName = body.displayName.trim();
@@ -106,6 +116,24 @@ export async function PATCH(request: Request) {
         return error("Only creators can set creator type");
       }
       data.creatorType = body.creatorType;
+    }
+    if (body.socialLinks !== undefined) {
+      data.socialLinks = serializeSocialLinks(body.socialLinks as SocialLinks);
+    }
+    if (body.featuredStreamId !== undefined) {
+      if (user.role !== "dj" && user.role !== "admin" && user.role !== "station") {
+        return error("Only creators can pin a featured replay");
+      }
+      if (body.featuredStreamId === null || body.featuredStreamId === "") {
+        data.featuredStreamId = null;
+      } else {
+        const stream = await prisma.stream.findFirst({
+          where: { id: body.featuredStreamId, djId: user.id, status: "ended" },
+          select: { id: true },
+        });
+        if (!stream) return error("Stream not found in your archive", 404);
+        data.featuredStreamId = stream.id;
+      }
     }
     if (body.newPassword) {
       data.passwordHash = await bcrypt.hash(body.newPassword, 10);

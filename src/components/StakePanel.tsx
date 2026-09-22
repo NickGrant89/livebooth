@@ -26,7 +26,13 @@ type MyMembership = {
   nextBillingAt: string | null;
 };
 
-export function StakePanel({ djUsername }: { djUsername: string }) {
+export function StakePanel({
+  djUsername,
+  ownerView = false,
+}: {
+  djUsername: string;
+  ownerView?: boolean;
+}) {
   const { user, refresh } = useAuth();
   const [totalMrr, setTotalMrr] = useState(0);
   const [memberCount, setMemberCount] = useState(0);
@@ -105,7 +111,11 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
         <p className="text-xs text-zinc-500 mt-1">
           {memberCount} members · {totalMrr} {DROP_TOKEN_SYMBOL}/mo supporting this DJ
         </p>
-        <p className="text-xs text-zinc-400 mt-2">{MEMBERSHIP_COPY.djHint}</p>
+        <p className="text-xs text-zinc-400 mt-2">
+          {ownerView
+            ? "Fans join from your public profile — this is your membership summary."
+            : MEMBERSHIP_COPY.djHint}
+        </p>
       </div>
 
       {communityGoal && (
@@ -138,30 +148,36 @@ export function StakePanel({ djUsername }: { djUsername: string }) {
               Renews {new Date(myMembership.nextBillingAt).toLocaleDateString()}
             </p>
           )}
-          <div className="flex flex-wrap gap-2">
-            {myMembership.tier === "member" && (
+          {!ownerView && (
+            <div className="flex flex-wrap gap-2">
+              {myMembership.tier === "member" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTier("supporter");
+                    void join();
+                  }}
+                  disabled={loading}
+                  className="text-xs font-semibold text-[#53fc18] hover:underline"
+                >
+                  Upgrade to Supporter
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setTier("supporter");
-                  void join();
-                }}
+                onClick={cancel}
                 disabled={loading}
-                className="text-xs font-semibold text-[#53fc18] hover:underline"
+                className="text-xs text-zinc-400 hover:text-white underline"
               >
-                Upgrade to Supporter
+                Cancel membership
               </button>
-            )}
-            <button
-              type="button"
-              onClick={cancel}
-              disabled={loading}
-              className="text-xs text-zinc-400 hover:text-white underline"
-            >
-              Cancel membership
-            </button>
-          </div>
+            </div>
+          )}
         </div>
+      ) : ownerView ? (
+        <p className="text-xs text-zinc-500 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
+          No members yet — share your profile and mention membership during streams.
+        </p>
       ) : user ? (
         <>
           <MembershipTierPicker selected={tier} onSelect={setTier} variant="dj" />

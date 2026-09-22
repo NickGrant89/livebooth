@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser, type SessionUser } from "./auth";
+import { parseSocialLinks } from "./profile-social";
 
 export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -46,6 +47,8 @@ export function serializeUser(user: {
   creatorType?: string;
   genres: string;
   walletAddress?: string | null;
+  socialLinks?: string;
+  featuredStreamId?: string | null;
   balance?: { balance: number; totalEarned: number } | null;
   _count?: { followers: number; following: number };
 }) {
@@ -60,6 +63,8 @@ export function serializeUser(user: {
     role: user.role,
     creatorType: user.creatorType ?? "dj",
     genres: parseGenres(user.genres),
+    socialLinks: parseSocialLinks(user.socialLinks),
+    featuredStreamId: user.featuredStreamId ?? null,
     walletAddress: user.walletAddress,
     balance: user.balance?.balance ?? 0,
     totalEarned: user.balance?.totalEarned ?? 0,

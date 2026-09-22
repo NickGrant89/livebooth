@@ -8,6 +8,7 @@ import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { hasStreamReplay } from "@/lib/playback-url";
 import { apiFetch } from "@/lib/fetch-client";
 import { SetRecordingDownloadButton } from "@/components/SetRecordingDownloadButton";
+import { PinFeaturedStreamButton } from "@/components/PinFeaturedStreamButton";
 
 export type ArchiveStream = {
   id: string;
@@ -140,11 +141,15 @@ export function DjArchiveList({
   streams,
   liveStreamId,
   canDelete = false,
+  canPin = false,
+  featuredStreamId = null,
   variant = "dj",
 }: {
   streams: ArchiveStream[];
   liveStreamId?: string;
   canDelete?: boolean;
+  canPin?: boolean;
+  featuredStreamId?: string | null;
   variant?: "dj" | "admin";
 }) {
   const router = useRouter();
@@ -274,6 +279,13 @@ export function DjArchiveList({
               )}
               {hasReplay && variant === "dj" && (
                 <SetRecordingDownloadButton streamId={s.id} variant="icon" />
+              )}
+              {canPin && hasReplay && replayState === "ready" && variant === "dj" && (
+                <PinFeaturedStreamButton
+                  streamId={s.id}
+                  streamTitle={s.title}
+                  featuredStreamId={featuredStreamId}
+                />
               )}
               {variant === "admin" && hasReplay && (
                 <Link href={`/vod/${s.id}`} className="text-xs text-[#53fc18] underline self-center shrink-0">
