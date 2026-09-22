@@ -33,7 +33,7 @@ export function upstreamHlsUrl(pathParts: string[], search = ""): string | null 
   return `${HLS_SERVER_URL}/${path}${qs ? `?${qs}` : ""}`;
 }
 
-/** Live booth ingest keys use per-URL hlsSession (supports collab dual-player). */
+/** Live booth ingest keys use per-URL hlsSession for same-origin HLS proxy. */
 export function liveStreamUsesQuerySession(pathParts: string[]): boolean {
   return liveStreamSessionKey(pathParts) !== null;
 }

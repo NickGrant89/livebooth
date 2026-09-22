@@ -289,10 +289,6 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
           </li>
           <li>Replays remux 3–5 minutes after a stream ends — fans see &quot;Preparing replay…&quot; until ready.</li>
           <li>Creator monetization: in-app DROP tips, track unlocks, requests, and monthly membership (Subscribe / Join as member).</li>
-          <li>
-            VeChain on-chain tips are optional beta — controlled by{" "}
-            <code className="bg-white/10 px-1 rounded">NEXT_PUBLIC_ONCHAIN_ENABLED</code> on Vercel.
-          </li>
         </ul>
       </section>
 

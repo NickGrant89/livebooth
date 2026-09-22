@@ -27,7 +27,6 @@ import { AdminStationResidents } from "@/components/admin/AdminStationResidents"
 import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
 import { generateInvitePassword } from "@/lib/invite-password";
 import { formatBetaInviteText, inviteRoleLabel } from "@/lib/invite-copy";
-import { formatLedgerType } from "@/lib/admin-labels";
 import { HELP_LINKS } from "@/lib/help-links";
 import { ModeratorPermissionsEditor } from "@/components/admin/ModeratorPermissionsEditor";
 import {
@@ -1326,40 +1325,8 @@ export function AdminDashboard({
             </p>
           </div>
 
-          {treasury.onChain ? (
-            <div className="rounded-xl border border-[#53fc18]/20 bg-[#53fc18]/5 p-4 text-xs text-zinc-400 space-y-1">
-              <p className="font-semibold text-[#53fc18]">On-chain treasury (optional beta)</p>
-              <p>
-                TipRouter sends 10% of on-chain tips to the platform wallet. In-app DROP ledger remains primary for fans and creators.
-              </p>
-              <p>
-                Balance: <strong className="text-white">{treasury.onChain.treasuryBalanceDrop.toLocaleString()} DROP</strong>
-                {" · "}Supply: {treasury.onChain.totalSupplyDrop.toLocaleString()} DROP
-              </p>
-              <a
-                href={treasury.onChain.explorerTreasuryUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#53fc18] hover:underline inline-block"
-              >
-                View treasury wallet on explorer →
-              </a>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs text-zinc-500">
-              <p className="font-semibold text-zinc-300">On-chain layer disabled</p>
-              <p className="mt-1">
-                Platform runs on the in-app DROP ledger. Set contract addresses and keep{" "}
-                <code className="bg-white/10 px-1 rounded">NEXT_PUBLIC_ONCHAIN_ENABLED=true</code> to show VeChain treasury stats here.
-              </p>
-            </div>
-          )}
-
           <div>
-            <h2 className="text-sm font-bold text-zinc-400 uppercase mb-2">Creator cash-out queue</h2>
-            <p className="text-xs text-zinc-600 mb-3">
-              Approve eligible earned DROP, then mark paid — Stripe Connect transfers run automatically when the DJ completed onboarding.
-            </p>
+            <h2 className="text-sm font-bold text-zinc-400 uppercase mb-2">Withdrawal queue</h2>
             {withdrawals.length === 0 ? (
               <p className="text-sm text-zinc-500">No pending withdrawal requests.</p>
             ) : (
@@ -1396,7 +1363,7 @@ export function AdminDashboard({
             <div className="space-y-1 max-h-48 overflow-y-auto text-xs text-zinc-500">
               {treasury.recentLedger.map((e) => (
                 <div key={e.id} className="flex justify-between border-b border-white/5 py-1">
-                  <span>@{e.username} · {formatLedgerType(e.type)}</span>
+                  <span>@{e.username} · {e.type.replace(/_/g, " ")}</span>
                   <span className={e.amount >= 0 ? "text-[#53fc18]" : "text-red-400"}>{e.amount >= 0 ? "+" : ""}{e.amount}</span>
                 </div>
               ))}

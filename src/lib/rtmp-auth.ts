@@ -61,22 +61,6 @@ export async function validateRtmpPublish(payload: MediaMtxAuthPayload): Promise
     return true;
   }
 
-  // Compositor mixed output (lb_*_mix) — internal FFmpeg publisher
-  if (ingestKey.endsWith("_mix")) {
-    const hostKey = ingestKey.replace(/_mix$/, "");
-    const collab = await prisma.streamCollab.findFirst({
-      where: {
-        status: "active",
-        stream: { ingestKey: hostKey, status: { in: ["preparing", "live"] } },
-      },
-      select: { id: true },
-    });
-    if (collab) {
-      cacheAllow(ingestKey);
-      return true;
-    }
-  }
-
   return false;
 }
 

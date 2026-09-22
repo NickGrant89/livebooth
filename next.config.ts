@@ -23,7 +23,6 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    // WebRTC collab on /collab requires camera + mic on this origin.
     value: "camera=(self), microphone=(self), geolocation=(), payment=()",
   },
   ...(isProd

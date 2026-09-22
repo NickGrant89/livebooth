@@ -51,7 +51,7 @@ export async function GET(
     const responseSession = readHlsSessionFromHeaders(res.headers) ?? hlsSession;
     rememberHlsSession(parts, responseSession);
     const headers = hlsResponseHeaders(contentType);
-    // Per-stream session lives in manifest/segment query params so collab dual-HLS works.
+    // Per-stream session lives in manifest/segment query params for same-origin HLS proxy.
     const useQuerySession = Boolean(responseSession && liveStreamUsesQuerySession(parts));
     if (responseSession && !useQuerySession) {
       headers["Set-Cookie"] = clientHlsSessionSetCookie(responseSession);

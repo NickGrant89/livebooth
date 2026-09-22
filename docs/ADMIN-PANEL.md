@@ -13,7 +13,7 @@ Staff access at `/admin` — full **Admin** role or **Moderator** with scoped pe
 | **Archive** | Ended sets with replay state (ready / remuxing / unavailable) — bulk delete |
 | **Radio stations** | Create, delete, tier, transfer ownership, manage residents |
 | **Promotions** | Hero / grid boosts — revenue and cancel |
-| **Treasury** | Fiat in (Stripe), balances, creator cash-out queue, promo revenue, optional on-chain treasury |
+| **Treasury** | Fiat in (Stripe), balances, withdrawal queue, promo revenue |
 | **Moderation** | AI video scan, flagged streams, chat reports, viewer reports |
 | **Support** | Ticket inbox with assignee filters and live chat replies |
 | **Settings** | Maintenance mode, welcome bonus, signup toggle, beta banner, sponsor banner, bulk CSV import, admin 2FA |
@@ -23,8 +23,7 @@ Staff access at `/admin` — full **Admin** role or **Moderator** with scoped pe
 
 - **Primary economy:** in-app DROP ledger — tips, unlocks, requests, membership billing from wallet balance
 - **Membership:** fans **Subscribe** to DJs or **Join as member** on stations (Member 25 DROP/mo · Supporter 75 DROP/mo)
-- **Creator cash-out:** earned DROP → Stripe Connect or manual admin payout from Treasury tab
-- **On-chain (optional beta):** VeChain tips when `NEXT_PUBLIC_ONCHAIN_ENABLED=true` and contracts are deployed — not required for normal operation
+- **Creator cash-out:** earned DROP → admin payout from Treasury tab (Stripe Connect when configured)
 
 ## Streaming infrastructure
 
@@ -69,10 +68,8 @@ Stored in `PlatformStats` id `platform_settings`. Maintenance mode blocks non-ad
 ## Treasury tab
 
 - Fiat in (Stripe), user balances, paid withdrawals, promo revenue
-- **Creator cash-out queue** — approve, mark paid (auto Stripe Connect transfer when DJ onboarded), reject (refunds DROP)
-- **On-chain treasury** — TipRouter platform wallet balance when VeChain contracts configured and on-chain enabled; otherwise shows disabled notice
+- **Withdrawal queue** — approve, mark paid, reject (refunds DROP)
 - Link to public **[Transparency](/transparency)** page
-- Ledger entries use membership-friendly labels (e.g. `membership_renewal` → Membership renewal)
 
 ### Stripe Connect setup (Vercel)
 
@@ -83,7 +80,3 @@ Stored in `PlatformStats` id `platform_settings`. Maintenance mode blocks non-ad
 5. Admin **Mark paid** triggers Stripe transfer when DJ is connected (`STRIPE_CONNECT_AUTO_PAYOUT=true`)
 
 Set `STRIPE_CONNECT_AUTO_PAYOUT=false` for manual bank payouts only.
-
-### On-chain treasury (optional)
-
-TipRouter sends 10% of on-chain tips to `platformTreasury`. Disabled when `NEXT_PUBLIC_ONCHAIN_ENABLED=false`. Public stats at `/transparency` and admin Treasury tab read balance via RPC when enabled. Optional override: `NEXT_PUBLIC_PLATFORM_TREASURY_ADDRESS`.
