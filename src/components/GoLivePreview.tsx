@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Loader2, MonitorPlay, Radio, WifiOff } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  HelpCircle,
+  Loader2,
+  MonitorPlay,
+  Radio,
+  Sparkles,
+  WifiOff,
+} from "lucide-react";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { RtmpCredentials } from "@/components/RtmpCredentials";
 import { hlsManifestReady, resolveClientHlsPlaybackUrl } from "@/lib/hls-playback";
@@ -28,6 +37,32 @@ type GoLivePreviewProps = {
   onPublish: () => void;
   publishing?: boolean;
 };
+
+function StatusPill({
+  label,
+  state,
+}: {
+  label: string;
+  state: "ready" | "waiting" | "error" | "checking";
+}) {
+  const styles = {
+    ready: "border-[#53fc18]/30 bg-[#53fc18]/10 text-[#53fc18]",
+    waiting: "border-amber-500/25 bg-amber-500/10 text-amber-200",
+    error: "border-red-500/30 bg-red-500/10 text-red-300",
+    checking: "border-white/10 bg-white/5 text-zinc-400",
+  }[state];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${styles}`}
+    >
+      {state === "ready" && <CheckCircle2 className="h-3 w-3" />}
+      {state === "waiting" && <WifiOff className="h-3 w-3" />}
+      {state === "checking" && <Loader2 className="h-3 w-3 animate-spin" />}
+      {label}
+    </span>
+  );
+}
 
 export function GoLivePreview({
   title,
@@ -80,156 +115,165 @@ export function GoLivePreview({
   const obsConnected = status === "ready" || isDemo;
   const canPublish = obsConnected;
   const showPlayer = obsConnected && previewPlaybackUrl;
+  const serverState =
+    rtmpOnline === false ? "error" : rtmpOnline === true ? "ready" : checks > 0 ? "checking" : "waiting";
+  const obsState = obsConnected ? "ready" : status === "checking" ? "checking" : "waiting";
+  const playerState = showPlayer ? "ready" : obsConnected ? "checking" : "waiting";
+  const showHelp =
+    !obsConnected &&
+    !isDemo &&
+    (checks > 1 || rtmpOnline === false || diagnostics?.rtmpAuthAllowed === false);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="text-center">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#15CFF4]/15 border border-[#15CFF4]/30 px-3 py-1 text-xs font-bold text-[#15CFF4] uppercase">
-          <MonitorPlay className="h-3 w-3" /> Preview mode
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#15CFF4]/25 bg-[#15CFF4]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#15CFF4]">
+          <MonitorPlay className="h-3.5 w-3.5" />
+          Private preview
         </span>
-        <h2 className="text-xl font-bold mt-3">{title}</h2>
-        <p className="text-sm text-zinc-400 mt-1">
-          Fans can&apos;t see you yet — check video and audio, then go live.
+        <h2 className="text-2xl font-bold mt-4">{title}</h2>
+        <p className="text-sm text-zinc-400 mt-2 max-w-sm mx-auto">
+          Paste credentials into OBS, start streaming, then check your picture and sound before going live.
         </p>
       </div>
 
       <RtmpCredentials rtmpUrl={rtmpUrl} ingestKey={ingestKey} demoMode={isDemo} />
 
-      <div className="rounded-xl border border-white/10 bg-black/40 p-3 space-y-3">
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="text-zinc-400">Preview checks</span>
-          {status === "checking" ? (
-            <span className="inline-flex items-center gap-1.5 text-zinc-300">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking feed…
-            </span>
-          ) : obsConnected ? (
-            <span className="inline-flex items-center gap-1.5 text-[#53fc18] font-semibold">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Signal detected
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-amber-300">
-              <WifiOff className="h-3.5 w-3.5" /> Waiting for OBS…
-            </span>
-          )}
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-3">
+          <p className="text-xs font-medium text-zinc-400">Connection status</p>
+          <div className="flex flex-wrap gap-2">
+            <StatusPill
+              label={rtmpOnline === false ? "Server offline" : "Server ready"}
+              state={serverState}
+            />
+            <StatusPill
+              label={obsConnected ? "OBS connected" : "Waiting for OBS"}
+              state={obsState}
+            />
+            <StatusPill
+              label={showPlayer ? "Preview ready" : "Preview pending"}
+              state={playerState}
+            />
+          </div>
         </div>
 
-        <ul className="space-y-1.5 text-xs text-zinc-500">
-          <li className={rtmpOnline !== false ? "text-zinc-300" : "text-red-300"}>
-            {rtmpOnline !== false ? "✓" : "✗"} HLS server reachable
-            {rtmpOnline === false && (
-              <span className="block text-[10px] text-red-300/80 mt-0.5">
-                Cannot reach streaming server — check VPS / DNS
-              </span>
-            )}
-          </li>
-          <li className={obsConnected ? "text-[#53fc18]" : ""}>
-            {obsConnected ? "✓" : "○"} OBS stream detected (HLS manifest)
-            {!obsConnected && diagnostics?.rtmpAuthAllowed === false && (
-              <span className="block text-[10px] text-red-300/90 mt-0.5">
-                This stream key is rejected — OBS will keep disconnecting. Start a new Go Live session and
-                update OBS with the new key.
-              </span>
-            )}
-            {!obsConnected && diagnostics?.rtmpAuthAllowed === true && (
-              <span className="block text-[10px] text-amber-200/70 mt-0.5">
-                Key is active in LiveBooth — ingest server still waiting for OBS on this key
-              </span>
-            )}
-          </li>
-          <li className={showPlayer ? "text-zinc-300" : ""}>
-            {showPlayer ? "✓" : "○"} Preview player {showPlayer ? "ready" : "waiting for signal"}
-          </li>
-        </ul>
-
-        {isDemo && (
-          <p className="text-xs text-amber-400/90 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-            Demo mode shows a sample HLS feed. Connect real RTMP in production to preview your OBS output.
-          </p>
+        {showPlayer ? (
+          <div className="p-3">
+            <StreamPlayer
+              key={ingestKey}
+              djName={djName}
+              streamTitle={title}
+              viewers={0}
+              playbackUrl={previewPlaybackUrl}
+              isLive
+              previewMode
+              demoPlayback={isDemo}
+            />
+          </div>
+        ) : (
+          <div className="aspect-video flex flex-col items-center justify-center gap-4 px-6 py-10 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-black/40">
+              {status === "checking" ? (
+                <Loader2 className="h-8 w-8 text-[#15CFF4] animate-spin" />
+              ) : (
+                <Radio className="h-8 w-8 text-zinc-600" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-300">
+                {status === "checking" ? "Checking your feed…" : "Preview loads when OBS connects"}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                Start streaming in OBS — this usually takes a few seconds.
+              </p>
+            </div>
+          </div>
         )}
+      </div>
 
-        {!obsConnected && !isDemo && (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-3 text-xs text-amber-100/90 space-y-2">
-            <p className="font-semibold text-amber-200">
-              OBS shows connected but LiveBooth can&apos;t see your feed yet
-            </p>
-            <ol className="list-decimal list-inside space-y-1 text-amber-100/80">
+      {isDemo && (
+        <p className="text-xs text-amber-300/90 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+          Demo mode uses a sample feed. Connect real RTMP in production to preview your OBS output.
+        </p>
+      )}
+
+      {showHelp && (
+        <details className="group rounded-xl border border-white/10 bg-white/[0.02] open:bg-white/[0.03]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white">
+            <span className="inline-flex items-center gap-2">
+              <HelpCircle className="h-4 w-4 text-zinc-500" />
+              Having trouble connecting?
+            </span>
+            <ChevronDown className="h-4 w-4 text-zinc-500 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-white/5 px-4 py-4 space-y-4 text-xs text-zinc-400">
+            <ol className="list-decimal list-inside space-y-2">
               <li>
-                Click <strong>Stop Streaming</strong> in OBS, then paste the stream key again and{" "}
-                <strong>Start Streaming</strong>
+                Click <strong className="text-zinc-300">Stop Streaming</strong> in OBS, re-paste the stream key,
+                then <strong className="text-zinc-300">Start Streaming</strong>
               </li>
               <li>
-                Server must be exactly: <code className="text-amber-200/90">{rtmpUrl}</code>
+                Server: <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono text-zinc-300">{rtmpUrl}</code>
               </li>
               <li>
-                Stream key (only in the key field):{" "}
-                <code className="font-mono text-amber-200/90">{ingestKey}</code>
+                Stream key (key field only):{" "}
+                <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono text-zinc-300">{ingestKey}</code>
               </li>
-              <li>Do not put the stream key in the server URL</li>
-              <li>Check OBS shows a bitrate number (e.g. 2500 kbps), not just &quot;Connected&quot;</li>
+              <li>Confirm OBS shows a bitrate (e.g. 2500 kbps), not just &quot;Connected&quot;</li>
             </ol>
+
+            {diagnostics?.rtmpAuthAllowed === false && (
+              <p className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-red-200">
+                This stream key was rejected — generate a new key below and update OBS.
+              </p>
+            )}
             {diagnostics?.suggestion && (
-              <p className="rounded-md bg-black/30 border border-amber-500/20 px-2.5 py-2 text-amber-100">
+              <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-amber-100">
                 {diagnostics.suggestion}
               </p>
             )}
             {diagnostics?.upstream?.hint && (
-              <p className="text-[10px] text-amber-200/60 font-mono">{diagnostics.upstream.hint}</p>
+              <p className="font-mono text-[10px] text-zinc-500">{diagnostics.upstream.hint}</p>
             )}
-            <div className="rounded-md bg-black/30 border border-red-500/20 px-2.5 py-2 space-y-1.5">
-              <p className="font-semibold text-red-200/90">
-                OBS keeps disconnecting every few seconds?
-              </p>
-              <p className="text-[10px] text-red-100/70">
-                Log pattern: <span className="font-mono">WriteN, RTMP send error 32</span> — the ingest
-                server closed your connection (often H.264 encoder settings or VPS memory).
-              </p>
-              <ul className="list-disc list-inside space-y-0.5 text-[10px] text-red-100/75">
-                {DJ_OBS_DISCONNECT_LOOP_TIPS.map((tip) => (
+
+            <div className="rounded-lg border border-white/5 bg-black/20 px-3 py-3 space-y-2">
+              <p className="font-semibold text-zinc-300">OBS keeps disconnecting?</p>
+              <ul className="list-disc list-inside space-y-1 text-zinc-500">
+                {DJ_OBS_DISCONNECT_LOOP_TIPS.slice(0, 4).map((tip) => (
                   <li key={tip}>{tip}</li>
                 ))}
               </ul>
             </div>
           </div>
-        )}
+        </details>
+      )}
 
-        {showPlayer ? (
-          <StreamPlayer
-            key={ingestKey}
-            djName={djName}
-            streamTitle={title}
-            viewers={0}
-            playbackUrl={previewPlaybackUrl}
-            isLive
-            previewMode
-            demoPlayback={isDemo}
-          />
-        ) : (
-          <div className="aspect-video rounded-lg bg-black/70 border border-white/5 flex flex-col items-center justify-center gap-3 text-center px-6">
-            <Radio className="h-10 w-10 text-zinc-600" />
-            <p className="text-sm text-zinc-400">Preview player loads when OBS signal is detected</p>
-            {!isDemo && checks > 2 && (
-              <p className="text-[11px] text-zinc-600">
-                Still waiting… double-check the stream key in OBS matches above.
-              </p>
-            )}
-          </div>
+      <div className="space-y-3 pt-1">
+        <button
+          type="button"
+          onClick={onPublish}
+          disabled={publishing || !canPublish}
+          className="w-full rounded-xl bg-gradient-to-r from-[#53fc18] to-[#15CFF4] py-3.5 text-sm font-bold text-black shadow-lg shadow-[#53fc18]/10 disabled:opacity-40 disabled:shadow-none transition-opacity"
+        >
+          {publishing ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Publishing…
+            </span>
+          ) : obsConnected ? (
+            <span className="inline-flex items-center gap-2">
+              <Sparkles className="h-4 w-4" /> Go live — notify fans
+            </span>
+          ) : (
+            "Waiting for OBS signal…"
+          )}
+        </button>
+        {!canPublish && (
+          <p className="text-[11px] text-center text-zinc-600">
+            Fans won&apos;t see you until you publish. Cancel below to discard this setup.
+          </p>
         )}
       </div>
-
-      <button
-        type="button"
-        onClick={onPublish}
-        disabled={publishing || !canPublish}
-        className="w-full rounded-lg bg-gradient-to-r from-[#53fc18] to-[#15CFF4] py-3 text-sm font-bold text-black disabled:opacity-40"
-      >
-        {publishing ? "Publishing…" : obsConnected ? "Looks good — go live" : "Waiting for OBS signal…"}
-      </button>
-
-      {!canPublish && (
-        <p className="text-[11px] text-center text-zinc-600">
-          Preview must detect your OBS feed before going live. Cancel setup above to discard without publishing.
-        </p>
-      )}
     </div>
   );
 }
