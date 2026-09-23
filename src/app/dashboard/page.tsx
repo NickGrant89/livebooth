@@ -29,7 +29,9 @@ import { DjWalletBanner } from "@/components/DjWalletBanner";
 import { DjDashboardOverview, type DashboardSummary } from "@/components/DjDashboardOverview";
 import { StationOwnerSection } from "@/components/StationOwnerSection";
 import { useIngestWatch } from "@/hooks/useIngestWatch";
+import { useLiveSessionGuard } from "@/hooks/useLiveSessionGuard";
 import { endStreamWithObsSync } from "@/lib/end-stream-client";
+import { endLiveSessionOnServer } from "@/lib/live-session-client";
 
 export default function DashboardPage() {
   const { user, refresh } = useAuth();
@@ -57,24 +59,45 @@ export default function DashboardPage() {
   } | null>(null);
   const [obsSyncNote, setObsSyncNote] = useState<string | null>(null);
 
+  const applySessionEnded = useCallback(
+    async (note: string, recap?: RecapData | null) => {
+      setLiveStream(null);
+      setLiveStats(null);
+      setObsSyncNote(note);
+      if (recap) setRecap(recap);
+      await refresh();
+      apiFetch("/api/dashboard/summary")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && setSummary(d as DashboardSummary));
+    },
+    [refresh],
+  );
+
   const handleIngestLost = useCallback(async () => {
-    const res = await apiFetch("/api/streams/go-live", { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) return;
-    setLiveStream(null);
-    setLiveStats(null);
-    setObsSyncNote("OBS stopped — your LiveBooth session was ended automatically.");
-    if (data.recap) setRecap(data.recap as RecapData);
-    await refresh();
-    apiFetch("/api/dashboard/summary")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setSummary(d as DashboardSummary));
-  }, [refresh]);
+    const result = await endLiveSessionOnServer();
+    if (!result.ok) return;
+    const note =
+      result.endedBy === "client"
+        ? "OBS stopped — your LiveBooth session was ended automatically."
+        : "Your stream ended — session synced.";
+    await applySessionEnded(note, result.recap);
+  }, [applySessionEnded]);
+
+  const handleExternalSessionEnd = useCallback(async () => {
+    const result = await endLiveSessionOnServer();
+    const recap = result.ok ? result.recap : null;
+    await applySessionEnded("Your stream session has ended.", recap);
+  }, [applySessionEnded]);
 
   useIngestWatch({
     ingestKey: liveStream?.ingestKey,
     isLive: Boolean(liveStream),
     onIngestLost: handleIngestLost,
+  });
+
+  useLiveSessionGuard({
+    hasLocalSession: Boolean(liveStream),
+    onSessionEnded: handleExternalSessionEnd,
   });
 
   useEffect(() => {
@@ -121,6 +144,7 @@ export default function DashboardPage() {
         apiFetch(`/api/stream-stats/${id}`).then((r) => r.json()),
         apiFetch(`/api/set-score/${id}`).then((r) => (r.ok ? r.json() : null)),
       ]).then(([stats, scoreData]) => {
+        if (!stats || typeof stats.totalTips !== "number") return;
         const lines: string[] = [];
         if (stats.totalTips > 0) lines.push(`${stats.totalTips} DROP tipped this set`);
         if (stats.topTippers?.[0]) lines.push(`Top tipper: ${stats.topTippers[0].displayName}`);

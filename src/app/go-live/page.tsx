@@ -23,7 +23,9 @@ import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
 import { StreamDetailsFields } from "@/components/StreamDetailsFields";
 import { useIngestWatch } from "@/hooks/useIngestWatch";
+import { useLiveSessionGuard } from "@/hooks/useLiveSessionGuard";
 import { endStreamWithObsSync } from "@/lib/end-stream-client";
+import { endLiveSessionOnServer } from "@/lib/live-session-client";
 import { genreLabels } from "@/lib/constants";
 
 type StreamInfo = {
@@ -120,20 +122,41 @@ export default function GoLivePage() {
   const [rtmpOnline, setRtmpOnline] = useState<boolean | null>(null);
   const [obsSyncNote, setObsSyncNote] = useState<string | null>(null);
 
+  const resetGoLive = useCallback(
+    async (note: string) => {
+      setStreamInfo(null);
+      setStep(1);
+      setTitle("");
+      setObsSyncNote(note);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const handleIngestLost = useCallback(async () => {
-    const res = await apiFetch("/api/streams/go-live", { method: "DELETE" });
-    if (!res.ok) return;
-    setStreamInfo(null);
-    setStep(1);
-    setTitle("");
-    setObsSyncNote("OBS stopped — your LiveBooth session was ended automatically.");
-    await refresh();
-  }, [refresh]);
+    const result = await endLiveSessionOnServer();
+    if (!result.ok) return;
+    const note =
+      result.endedBy === "client"
+        ? "OBS stopped — your LiveBooth session was ended automatically."
+        : "Your stream ended — start a new session when you're ready.";
+    await resetGoLive(note);
+  }, [resetGoLive]);
+
+  const handleExternalSessionEnd = useCallback(async () => {
+    await endLiveSessionOnServer();
+    await resetGoLive("Your stream session has ended.");
+  }, [resetGoLive]);
 
   useIngestWatch({
     ingestKey: streamInfo?.ingestKey,
     isLive: streamInfo?.status === "live",
     onIngestLost: handleIngestLost,
+  });
+
+  useLiveSessionGuard({
+    hasLocalSession: Boolean(streamInfo) || step >= 4,
+    onSessionEnded: handleExternalSessionEnd,
   });
 
   useEffect(() => {

@@ -18,6 +18,11 @@ export function useIngestWatch({
 }) {
   const missesRef = useRef(0);
   const endingRef = useRef(false);
+  const onIngestLostRef = useRef(onIngestLost);
+
+  useEffect(() => {
+    onIngestLostRef.current = onIngestLost;
+  }, [onIngestLost]);
 
   useEffect(() => {
     if (!ingestKey || !isLive) {
@@ -26,14 +31,26 @@ export function useIngestWatch({
       return;
     }
 
+    let cancelled = false;
+
     async function poll() {
-      if (endingRef.current) return;
+      if (cancelled || endingRef.current) return;
       try {
         const res = await apiFetch(
           `/api/rtmp/preview-status?ingestKey=${encodeURIComponent(ingestKey!)}`,
         );
-        if (!res.ok) return;
-        const data = (await res.json()) as { proxyReady?: boolean };
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          proxyReady?: boolean;
+          dbStream?: { status: string } | null;
+        };
+
+        if (data.dbStream?.status === "ended") {
+          endingRef.current = true;
+          await onIngestLostRef.current();
+          return;
+        }
+
         if (data.proxyReady) {
           missesRef.current = 0;
           return;
@@ -41,7 +58,7 @@ export function useIngestWatch({
         missesRef.current += 1;
         if (missesRef.current >= MISSES_BEFORE_AUTO_END) {
           endingRef.current = true;
-          await onIngestLost();
+          await onIngestLostRef.current();
         }
       } catch {
         /* ignore transient errors */
@@ -50,6 +67,9 @@ export function useIngestWatch({
 
     void poll();
     const id = window.setInterval(() => void poll(), POLL_MS);
-    return () => window.clearInterval(id);
-  }, [ingestKey, isLive, onIngestLost]);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [ingestKey, isLive]);
 }
