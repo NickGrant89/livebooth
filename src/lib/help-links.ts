@@ -40,7 +40,7 @@ export const HELP_TOPICS = [
   {
     href: HELP_LINKS.wallet,
     title: "Wallet & DROP",
-    description: "Balance, Stripe packs, daily bonus, tips, and cash-out.",
+    description: "Balance, Stripe packs, tips, quests, and cash-out.",
     anchor: null,
   },
   {

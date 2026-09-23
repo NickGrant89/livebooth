@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { creditUser } from "./ledger";
-import { DAILY_LOGIN_DROP, FIRST_TIP_BONUS } from "./constants";
+import { FIRST_TIP_BONUS } from "./constants";
 
 export function isoWeekKey(date = new Date()): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -39,26 +39,6 @@ export async function updateDjStreak(djId: string) {
     data: { streamStreak: streak, lastStreamWeek: week },
   });
   return streak;
-}
-
-export async function claimDailyLogin(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { ok: false as const, error: "User not found" };
-
-  const now = new Date();
-  const todayUtc = now.toISOString().slice(0, 10);
-  const lastUtc = user.lastDailyClaimAt?.toISOString().slice(0, 10);
-
-  if (lastUtc === todayUtc) {
-    return { ok: false as const, error: "Already claimed today", alreadyClaimed: true };
-  }
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { lastDailyClaimAt: now },
-  });
-  await creditUser(userId, DAILY_LOGIN_DROP, "daily_login", todayUtc);
-  return { ok: true as const, amount: DAILY_LOGIN_DROP };
 }
 
 export async function applyFirstTipBonus(streamId: string, djId: string) {

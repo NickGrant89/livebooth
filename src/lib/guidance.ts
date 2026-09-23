@@ -2,7 +2,6 @@ import {
   DROP_TOKEN_SYMBOL,
   TRACK_UNLOCK_COST,
   REQUEST_COST,
-  DAILY_LOGIN_DROP,
   MEMBER_TIER_PRICES,
 } from "./constants";
 import { HELP_LINKS } from "./help-links";
@@ -31,7 +30,7 @@ export const FAN_QUICK_START: GuidanceStep[] = [
   },
   {
     title: "Tip the drop",
-    body: `Send DROP during a set — tips show in chat. Claim ${DAILY_LOGIN_DROP} free ${DROP_TOKEN_SYMBOL} daily from the banner at the top.`,
+    body: `Send DROP during a set — tips show in chat. Buy ${DROP_TOKEN_SYMBOL} packs on your wallet when you need more.`,
     href: "/wallet",
     hrefLabel: "Wallet",
   },
@@ -151,7 +150,7 @@ export const GO_LIVE_STEPS = [
 
 export const FAN_WALLET_TIPS = [
   `Your balance is in ${DROP_TOKEN_SYMBOL} — the booth currency for tips, unlocks, requests, and membership.`,
-  "Buy DROP packs on /wallet via Stripe checkout, or claim your daily login bonus on the home page.",
+  "Buy DROP packs on /wallet via Stripe checkout, or earn DROP from achievements and daily quests.",
   "Tips, unlocks, and membership payments appear in your transaction history.",
   "Optional: connect a VeChain wallet on /wallet for on-chain tips when that beta is enabled — in-app DROP works everywhere by default.",
 ];

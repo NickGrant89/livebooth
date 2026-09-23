@@ -110,7 +110,7 @@ const FAQ = [
       },
       {
         q: "How do I buy more DROP?",
-        a: "Open /wallet and choose a DROP pack. Checkout is handled by Stripe. You can also earn DROP from daily login, achievements, and quests.",
+        a: "Open /wallet and choose a DROP pack. Checkout is handled by Stripe. You can also earn DROP from achievements and daily quests.",
       },
     ],
   },

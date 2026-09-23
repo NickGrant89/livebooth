@@ -146,6 +146,7 @@ model Stream {
   recapJson           String?
   startedAt           DateTime?
   endedAt             DateTime?
+  ingestLastSeenAt    DateTime?
   createdAt           DateTime  @default(now())
   dj                  User      @relation(fields: [djId], references: [id], onDelete: Cascade)
   chatMessages        ChatMessage[]

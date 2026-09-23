@@ -10,7 +10,6 @@ export const QUEST_TEMPLATES = {
   "unlock-1": { label: "Track ID", target: 1, reward: 7, metric: "unlocks" as const },
   "chat-3": { label: "In the booth", target: 3, reward: 3, metric: "chat" as const },
   "follow-1": { label: "New voice", target: 1, reward: 4, metric: "follows" as const },
-  "claim-daily": { label: "Show up", target: 1, reward: 3, metric: "daily_claim" as const },
 } as const;
 
 export type QuestKey = keyof typeof QUEST_TEMPLATES;
@@ -28,7 +27,6 @@ const DAILY_POOL: QuestKey[] = [
   "unlock-1",
   "chat-3",
   "follow-1",
-  "claim-daily",
 ];
 
 function pickDailyQuests(balance: number): QuestKey[] {
@@ -38,7 +36,7 @@ function pickDailyQuests(balance: number): QuestKey[] {
     if (i >= 0) pool.splice(i, 1);
   }
   const shuffled = pool.sort(() => Math.random() - 0.5);
-  const easy: QuestKey[] = ["watch-10", "chat-3", "claim-daily", "follow-1"];
+  const easy: QuestKey[] = ["watch-10", "chat-3", "follow-1"];
   const picked: QuestKey[] = [];
   const firstEasy = shuffled.find((k) => easy.includes(k)) ?? shuffled[0];
   picked.push(firstEasy);

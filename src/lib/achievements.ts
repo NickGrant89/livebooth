@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { ACHIEVEMENTS } from "./constants";
+import { ACHIEVEMENTS, MIN_ACHIEVEMENT_STREAM_MINUTES } from "./constants";
 
 export async function ensureAchievementCatalog() {
   const count = await prisma.achievement.count();
@@ -26,6 +26,15 @@ export async function ensureAchievementCatalog() {
   }
 }
 
+function streamDurationMinutes(startedAt: Date | null, endedAt: Date | null): number {
+  if (!startedAt || !endedAt) return 0;
+  return (endedAt.getTime() - startedAt.getTime()) / 60000;
+}
+
+function qualifiesForStreamAchievement(startedAt: Date | null, endedAt: Date | null): boolean {
+  return streamDurationMinutes(startedAt, endedAt) >= MIN_ACHIEVEMENT_STREAM_MINUTES;
+}
+
 export async function getUserMetrics(userId: string, audience: "dj" | "fan") {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -42,11 +51,11 @@ export async function getUserMetrics(userId: string, audience: "dj" | "fan") {
   });
   if (!user) return {};
 
-  const endedStreams = user.streams;
-  const genres = new Set(endedStreams.map((s) => s.genre));
+  const endedStreams = user.streams.filter((s) =>
+    qualifiesForStreamAchievement(s.startedAt, s.endedAt),
+  );
   const longestStream = endedStreams.reduce((max, s) => {
-    if (!s.startedAt || !s.endedAt) return max;
-    const mins = (s.endedAt.getTime() - s.startedAt.getTime()) / 60000;
+    const mins = streamDurationMinutes(s.startedAt, s.endedAt);
     return Math.max(max, mins);
   }, 0);
 
@@ -77,12 +86,15 @@ export async function getUserMetrics(userId: string, audience: "dj" | "fan") {
     const allStreams = await prisma.stream.findMany({
       where: { djId: userId, status: { in: ["live", "ended"] } },
     });
-    const allGenres = new Set(allStreams.map((s) => s.genre));
+    const qualifyingEnded = allStreams.filter(
+      (s) => s.status === "ended" && qualifiesForStreamAchievement(s.startedAt, s.endedAt),
+    );
+    const qualifyingGenres = new Set(qualifyingEnded.map((s) => s.genre));
 
     return {
-      streams_completed: allStreams.filter((s) => s.status === "ended").length,
+      streams_completed: qualifyingEnded.length,
       longest_stream_minutes: Math.max(longestStream, currentStreamMinutes),
-      genres_streamed: allGenres.size,
+      genres_streamed: qualifyingGenres.size,
       peak_viewers: peakViewers._max.peakViewers ?? 0,
       total_tips_received: user.tipsReceived.reduce((s, t) => s + t.amount, 0),
       followers: user.followers.length,

@@ -12,7 +12,6 @@ import {
   MEMBER_STATION_OWNER_SHARE,
   MEMBER_STATION_LIVE_DJ_SHARE,
   MEMBER_PLATFORM_SHARE,
-  DAILY_LOGIN_DROP,
   WELCOME_BONUS,
   MEMBER_PERKS_MEMBER,
   MEMBER_PERKS_SUPPORTER,
@@ -93,28 +92,24 @@ export default function FanGuidePage() {
           Check balance at <Link href={HELP_LINKS.wallet} className="text-[#53fc18] hover:underline">/wallet</Link>.
           Buy {DROP_TOKEN_SYMBOL} packs via Stripe checkout, then tip, unlock tracks, and join memberships from your balance.
         </GuideStep>
-        <GuideStep n={2} title="Daily login bonus">
-          Claim <strong className="text-zinc-300">{DAILY_LOGIN_DROP} {DROP_TOKEN_SYMBOL}</strong> once per day from the
-          banner at the top of the app when signed in.
-        </GuideStep>
-        <GuideStep n={3} title="Tip the DJ">
+        <GuideStep n={2} title="Tip the DJ">
           On a live stream, choose a tip amount or enter a custom one. Tips spend from your in-app balance.
           Optional message appears in chat. Large tips can create VOD highlights.
           When on-chain tips are enabled (beta), DJs with a linked wallet may also accept VeChain tips from your connected wallet.
         </GuideStep>
-        <GuideStep n={4} title="Track ID unlock">
+        <GuideStep n={3} title="Track ID unlock">
           Pay <strong className="text-zinc-300">{TRACK_UNLOCK_COST} {DROP_TOKEN_SYMBOL}</strong> to reveal the track
           the DJ is playing. Unlocks save to your{" "}
           <Link href="/crate" className="text-[#53fc18] hover:underline">crate</Link>.
           Members get <strong className="text-zinc-300">10% off</strong> unlocks; Supporters get{" "}
           <strong className="text-zinc-300">20% off</strong> on eligible streams.
         </GuideStep>
-        <GuideStep n={5} title="Crowd request">
+        <GuideStep n={4} title="Crowd request">
           Pay <strong className="text-zinc-300">{REQUEST_COST} {DROP_TOKEN_SYMBOL}</strong> to request a track.
           The DJ accepts or declines from their dashboard. Members get <strong className="text-zinc-300">10% off</strong> requests;
           Supporters get <strong className="text-zinc-300">15% off</strong>.
         </GuideStep>
-        <GuideStep n={6} title="Platform fees">
+        <GuideStep n={5} title="Platform fees">
           Tips keep <strong className="text-zinc-300">90%</strong> for the DJ (10% platform). Unlocks and requests keep{" "}
           <strong className="text-zinc-300">85%</strong> for the DJ (15% platform). Membership is separate — see below.
         </GuideStep>

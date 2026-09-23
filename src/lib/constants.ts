@@ -24,7 +24,6 @@ export const WELCOME_BONUS = 500;
 export const APP_NAME = "LiveBooth";
 export const APP_TAGLINE = "Tip the drop";
 
-export const DAILY_LOGIN_DROP = 5;
 export const FIRST_TIP_BONUS = 5;
 export const HIGHLIGHT_TIP_MIN = 25;
 export const STREAM_TITLE_MAX = 120;
@@ -255,6 +254,9 @@ export const PROMOTION_TIERS = {
 export const DISCOVER_GENRE_NIGHT_BOOST = 300;
 export const DISCOVER_FLAGSHIP_BOOST = 400;
 export const QUEST_DAILY_CLEAR_BONUS = 10;
+
+/** Ended sets shorter than this do not count toward DJ stream-count / genre achievements. */
+export const MIN_ACHIEVEMENT_STREAM_MINUTES = 15;
 
 /** Fiat cash-out — redeem rate below buy rate (see doc 10). Buy ~5¢/DROP via packs. */
 export const REDEEM_USD_CENTS_PER_DROP = Number(process.env.REDEEM_USD_CENTS_PER_DROP ?? "4.25");

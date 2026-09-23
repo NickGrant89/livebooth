@@ -126,6 +126,8 @@ export default function DjGuidePage() {
         <GuideStep n={5} title="Achievements">
           Unlock DJ achievements for streaming milestones, tips, and followers at{" "}
           <Link href={HELP_LINKS.achievements} className="text-[#53fc18] hover:underline">/achievements</Link>.
+          Set-count and genre badges require ended streams of at least{" "}
+          <strong className="text-zinc-300">15 minutes</strong> — quick test streams don&apos;t count.
           Claim {DROP_TOKEN_SYMBOL} rewards to your wallet balance.
         </GuideStep>
         <GuideStep n={6} title="Wallet & cash-out">

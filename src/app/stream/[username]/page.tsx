@@ -24,6 +24,7 @@ import { streamMetadata } from "@/lib/metadata-share";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { StreamInStreamAdBanner } from "@/components/StreamInStreamAdBanner";
 import { StreamNotLiveView } from "@/components/StreamNotLiveView";
+import { StreamLiveWatcher } from "@/components/StreamLiveWatcher";
 import { StreamStakerPromo } from "@/components/StreamStakerPromo";
 import { CommunityGoalBar } from "@/components/CommunityGoalBar";
 import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
@@ -88,7 +89,9 @@ export default async function StreamPage({
   const isHost = session?.id === dj.id;
 
   return (
-    <StreamPageLayout
+    <>
+      <StreamLiveWatcher username={username} />
+      <StreamPageLayout
       watch={
         <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto overscroll-y-contain lg:border-r lg:border-white/[0.06]">
           <div className="bg-black relative shrink-0">
@@ -229,5 +232,6 @@ export default async function StreamPage({
         </div>
       }
     />
+    </>
   );
 }

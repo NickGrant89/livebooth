@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { DailyLoginBanner } from "@/components/DailyLoginBanner";
 import { DemoHostBanner } from "@/components/DemoHostBanner";
 import { BetaBanner } from "@/components/BetaBanner";
 import { SupportChatWidget } from "@/components/SupportChatWidget";
@@ -40,7 +39,6 @@ export function AppShell({
         <Navbar />
         {!isLiveBooth && <BetaBanner />}
         {!isLiveBooth && <DemoHostBanner />}
-        {!isLiveBooth && <DailyLoginBanner />}
         <main
           className={`relative z-[1] flex-1 min-w-0 w-full min-h-0 ${
             isLiveBooth ? "flex flex-col overflow-hidden" : ""

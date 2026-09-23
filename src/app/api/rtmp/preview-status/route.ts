@@ -3,6 +3,7 @@ import { json, error, isApiError, requireApiUser } from "@/lib/api-utils";
 import { fetchUpstreamHls } from "@/lib/hls-proxy";
 import { hlsManifestBodyReady, localHlsPlaybackPath, upstreamIngestManifestReady } from "@/lib/hls-playback";
 import { isRtmpAuthEnabled, validateRtmpPublish } from "@/lib/rtmp-auth";
+import { markIngestHealthy } from "@/lib/live-ingest-watch";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,10 @@ export async function GET(request: Request) {
     }),
   ]);
   const feedReady = feedReadyUpstream || feedReadyProxy;
+
+  if (feedReady && stream && (stream.status === "live" || stream.status === "preparing")) {
+    void markIngestHealthy(stream.id);
+  }
 
   let suggestion: string | null = null;
   if (!feedReady) {
