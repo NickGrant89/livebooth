@@ -31,10 +31,10 @@ import { StationOwnerSection } from "@/components/StationOwnerSection";
 import { useIngestWatch } from "@/hooks/useIngestWatch";
 import { useLiveSessionGuard } from "@/hooks/useLiveSessionGuard";
 import { endStreamWithObsSync } from "@/lib/end-stream-client";
-import { endLiveSessionOnServer } from "@/lib/live-session-client";
+import { endLiveSessionOnServer, fetchLatestRecap, normalizeRecap } from "@/lib/live-session-client";
 
 export default function DashboardPage() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, loading } = useAuth();
   const [liveStream, setLiveStream] = useState<{
     id: string;
     title: string;
@@ -84,8 +84,7 @@ export default function DashboardPage() {
   }, [applySessionEnded]);
 
   const handleExternalSessionEnd = useCallback(async () => {
-    const result = await endLiveSessionOnServer();
-    const recap = result.ok ? result.recap : null;
+    const recap = await fetchLatestRecap();
     await applySessionEnded("Your stream session has ended.", recap);
   }, [applySessionEnded]);
 
@@ -98,10 +97,11 @@ export default function DashboardPage() {
   useLiveSessionGuard({
     hasLocalSession: Boolean(liveStream),
     onSessionEnded: handleExternalSessionEnd,
+    authReady: !loading,
   });
 
   useEffect(() => {
-    if (!user) return;
+    if (loading || !user) return;
     if (user.role !== "dj" && user.role !== "admin") return;
     apiFetch("/api/dashboard/summary")
       .then((r) => (r.ok ? r.json() : null))
@@ -134,7 +134,7 @@ export default function DashboardPage() {
     } else {
       setLiveStream(null);
     }
-  }, [user]);
+  }, [user, loading]);
 
   useEffect(() => {
     const id = liveStream?.id;
@@ -175,7 +175,7 @@ export default function DashboardPage() {
     }
     setLiveStream(null);
     setLiveStats(null);
-    if (data.recap) setRecap(data.recap as RecapData);
+    if (data.recap) setRecap(normalizeRecap(data.recap));
     if (obsStopped) {
       setObsSyncNote("Stream ended on LiveBooth and OBS was stopped.");
     } else if (liveStream?.ingestMode === "local") {
@@ -206,6 +206,14 @@ export default function DashboardPage() {
       const data = await res.json();
       setDashboardError(data.error ?? "Could not update track");
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center text-zinc-400">
+        Loading dashboard…
+      </div>
+    );
   }
 
   if (!user) {

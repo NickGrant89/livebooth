@@ -7,9 +7,12 @@ import { useAuth } from "@/context/AuthContext";
 export function useLiveSessionGuard({
   hasLocalSession,
   onSessionEnded,
+  authReady = true,
 }: {
   hasLocalSession: boolean;
   onSessionEnded: () => void | Promise<void>;
+  /** Wait until auth refresh finishes to avoid racing stale liveStream state. */
+  authReady?: boolean;
 }) {
   const { user, refresh } = useAuth();
   const onSessionEndedRef = useRef(onSessionEnded);
@@ -20,12 +23,12 @@ export function useLiveSessionGuard({
   }, [onSessionEnded]);
 
   useEffect(() => {
-    if (!user || user.liveStream || !hasLocalSession || syncingRef.current) return;
+    if (!authReady || !user || user.liveStream || !hasLocalSession || syncingRef.current) return;
     syncingRef.current = true;
     void Promise.resolve(onSessionEndedRef.current()).finally(() => {
       syncingRef.current = false;
     });
-  }, [user, user?.liveStream, hasLocalSession]);
+  }, [authReady, user, user?.liveStream, hasLocalSession]);
 
   useEffect(() => {
     function onVisible() {

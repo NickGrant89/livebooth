@@ -53,10 +53,10 @@ export function SessionRecapModal({
         {recap.streak != null && recap.streak > 1 && (
           <p className="text-xs text-amber-400 mt-2">🔥 {recap.streak}-week streaming streak</p>
         )}
-        {recap.topTippers.length > 0 && (
+        {(recap.topTippers?.length ?? 0) > 0 && (
           <div className="mt-4 rounded-lg bg-white/5 p-3">
             <p className="text-xs text-zinc-500 mb-2">Top tippers</p>
-            {recap.topTippers.slice(0, 3).map((t) => (
+            {(recap.topTippers ?? []).slice(0, 3).map((t) => (
               <p key={t.name} className="text-sm flex justify-between">
                 <span>{t.name}</span>
                 <span className="text-[#53fc18]">{t.total} {DROP_TOKEN_SYMBOL}</span>

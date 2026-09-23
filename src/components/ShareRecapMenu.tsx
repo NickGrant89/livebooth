@@ -15,7 +15,7 @@ export function ShareRecapMenu({ recap }: { recap: RecapData }) {
     peak: String(recap.peakViewers),
   });
 
-  const safeTitle = recap.title.replace(/[^\w\s-]/g, "").trim().slice(0, 40) || "set-recap";
+  const safeTitle = (recap.title ?? "set-recap").replace(/[^\w\s-]/g, "").trim().slice(0, 40) || "set-recap";
 
   return (
     <>
