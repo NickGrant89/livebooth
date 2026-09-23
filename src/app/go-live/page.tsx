@@ -23,7 +23,6 @@ import { ShareLiveButton } from "@/components/ShareLiveButton";
 import { ShareReminderBanner } from "@/components/ShareReminderBanner";
 import { StreamDetailsFields } from "@/components/StreamDetailsFields";
 import { useIngestWatch } from "@/hooks/useIngestWatch";
-import { useLiveSessionGuard } from "@/hooks/useLiveSessionGuard";
 import { endStreamWithObsSync } from "@/lib/end-stream-client";
 import { endLiveSessionOnServer } from "@/lib/live-session-client";
 import { genreLabels } from "@/lib/constants";
@@ -123,10 +122,13 @@ export default function GoLivePage() {
   const [obsSyncNote, setObsSyncNote] = useState<string | null>(null);
 
   const resetGoLive = useCallback(
-    async (note: string) => {
+    async (note: string, opts?: { keepForm?: boolean }) => {
       setStreamInfo(null);
       setStep(1);
-      setTitle("");
+      if (!opts?.keepForm) {
+        setTitle("");
+        setDescription("");
+      }
       setObsSyncNote(note);
       await refresh();
     },
@@ -139,13 +141,8 @@ export default function GoLivePage() {
     const note =
       result.endedBy === "client"
         ? "OBS stopped — your LiveBooth session was ended automatically."
-        : "Your stream ended — start a new session when you're ready.";
-    await resetGoLive(note);
-  }, [resetGoLive]);
-
-  const handleExternalSessionEnd = useCallback(async () => {
-    await endLiveSessionOnServer();
-    await resetGoLive("Your stream session has ended.");
+        : "Your stream ended — create a new stream key when you're ready.";
+    await resetGoLive(note, { keepForm: true });
   }, [resetGoLive]);
 
   useIngestWatch({
@@ -154,10 +151,16 @@ export default function GoLivePage() {
     onIngestLost: handleIngestLost,
   });
 
-  useLiveSessionGuard({
-    hasLocalSession: Boolean(streamInfo) || step >= 4,
-    onSessionEnded: handleExternalSessionEnd,
-  });
+  // Sync preview/live UI if server ended the session — do not run session guard here
+  // (it raced with refresh() after creating a new stream key and deleted fresh sessions).
+  useEffect(() => {
+    if (loading || submitting || !user || !streamInfo || step < 4) return;
+    if (user.liveStream?.id === streamInfo.id) return;
+    if (user.liveStream) return;
+    setStreamInfo(null);
+    setStep(3);
+    setObsSyncNote("Your last session ended. Tap below to create a fresh stream key.");
+  }, [user, user?.liveStream, streamInfo, step, loading, submitting]);
 
   useEffect(() => {
     apiFetch("/api/rtmp/health")
@@ -229,19 +232,21 @@ export default function GoLivePage() {
   async function startStream() {
     setSubmitting(true);
     setError("");
+    setObsSyncNote(null);
     const res = await apiFetch("/api/streams/go-live", {
       method: "POST",
       body: JSON.stringify({ title, genre, description: description || undefined, bpmRange: bpmRange || undefined }),
     });
     const data = await res.json();
-    setSubmitting(false);
     if (!res.ok) {
+      setSubmitting(false);
       setError(data.error ?? "Failed to create stream");
       return;
     }
-    setStreamInfo(data.stream);
     await refresh();
+    setStreamInfo(data.stream);
     setStep(data.stream.status === "live" ? 5 : 4);
+    setSubmitting(false);
   }
 
   async function regenerateStreamKey() {
@@ -409,9 +414,16 @@ export default function GoLivePage() {
             </p>
           )}
           {obsSyncNote && (
-            <p className="mb-4 rounded-lg border border-[#53fc18]/25 bg-[#53fc18]/10 px-4 py-2 text-sm text-[#53fc18] text-center">
-              {obsSyncNote}
-            </p>
+            <div className="mb-4 rounded-lg border border-[#53fc18]/25 bg-[#53fc18]/10 px-4 py-2 text-sm text-[#53fc18] flex items-start justify-between gap-3">
+              <span>{obsSyncNote}</span>
+              <button
+                type="button"
+                onClick={() => setObsSyncNote(null)}
+                className="shrink-0 text-xs text-zinc-400 hover:text-white underline"
+              >
+                Dismiss
+              </button>
+            </div>
           )}
 
           {step === 1 && (
