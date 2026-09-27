@@ -511,7 +511,7 @@ export function AdminDashboard({
         role: data.user.role,
         tempPassword: pw,
       });
-      setMsg(`Created @${data.user.username} (${inviteRoleLabel(data.user.role)})`);
+      setMsg(`Created @${data.user.username} — copy the temporary password below and share it with them (or send invite email).`);
       setCreateUserForm({
         username: "",
         email: "",
@@ -902,7 +902,7 @@ export function AdminDashboard({
           {hasPerm("users_create") && showCreateUser && (
             <form onSubmit={createUser} className="rounded-xl border border-[#53fc18]/30 bg-[#141416] p-4 grid gap-3 sm:grid-cols-2">
               <input required value={createUserForm.username} onChange={(e) => setCreateUserForm((f) => ({ ...f, username: e.target.value.toLowerCase() }))} placeholder="username" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
-              <input required type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm((f) => ({ ...f, email: e.target.value }))} placeholder="email" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
+              <input required type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))} placeholder="email" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
               <input required value={createUserForm.displayName} onChange={(e) => setCreateUserForm((f) => ({ ...f, displayName: e.target.value }))} placeholder="Display name" className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm" />
               <div className="flex gap-2">
                 <input

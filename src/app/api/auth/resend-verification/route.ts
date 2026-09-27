@@ -4,6 +4,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db";
 import { maskEmail, userNeedsEmailVerification } from "@/lib/email-verification";
 import { sendUserVerificationEmail } from "@/lib/send-verification-email";
+import { userWhereForAuthIdentifier, normalizeAuthIdentifier } from "@/lib/auth-identifier";
 
 const schema = z.object({
   email: z.string().min(1),
@@ -15,12 +16,10 @@ export async function POST(request: Request) {
 
   try {
     const body = schema.parse(await request.json());
-    const identifier = body.email.trim().toLowerCase();
+    const identifier = normalizeAuthIdentifier(body.email);
 
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { username: identifier.replace(/@.*/, "") }],
-      },
+      where: userWhereForAuthIdentifier(identifier),
       select: { id: true, email: true, displayName: true, emailVerifiedAt: true, role: true },
     });
 

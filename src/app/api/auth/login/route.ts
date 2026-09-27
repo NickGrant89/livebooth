@@ -6,6 +6,7 @@ import { json, error } from "@/lib/api-utils";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createTotpPendingToken } from "@/lib/admin-totp";
 import { maskEmail, userNeedsEmailVerification } from "@/lib/email-verification";
+import { userWhereForAuthIdentifier, normalizeAuthIdentifier } from "@/lib/auth-identifier";
 
 const schema = z.object({
   email: z.string().min(1),
@@ -18,15 +19,10 @@ export async function POST(request: Request) {
 
   try {
     const body = schema.parse(await request.json());
-    const identifier = body.email.trim().toLowerCase();
+    const identifier = normalizeAuthIdentifier(body.email);
 
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: identifier },
-          { username: identifier.replace(/@.*/, "") },
-        ],
-      },
+      where: userWhereForAuthIdentifier(identifier),
       select: {
         id: true,
         username: true,

@@ -22,6 +22,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { createPasswordResetToken, getResetUrl } from "@/lib/password-reset";
 import { sendAdminPasswordResetEmail, isEmailConfigured } from "@/lib/email";
+import { normalizeAuthIdentifier } from "@/lib/auth-identifier";
 
 export async function GET(request: Request) {
   const staff = await requireModeratorAnyPermissionApi(request, [
@@ -247,13 +248,15 @@ export async function POST(request: Request) {
 
   try {
     const body = createSchema.parse(await request.json());
+    const email = normalizeAuthIdentifier(body.email);
+    const username = body.username.trim().toLowerCase();
     if (!isFullAdmin) {
       if (!isModeratorCreatableUserRole(body.role)) {
         return error("Moderators can only create fan, DJ, and radio accounts", 403);
       }
     }
     const existing = await prisma.user.findFirst({
-      where: { OR: [{ email: body.email }, { username: body.username }] },
+      where: { OR: [{ email }, { username }] },
     });
     if (existing) return error("Email or username already taken", 409);
 
@@ -262,8 +265,8 @@ export async function POST(request: Request) {
     const welcomeBonus = await getWelcomeBonus();
     const user = await prisma.user.create({
       data: {
-        email: body.email,
-        username: body.username,
+        email,
+        username,
         displayName: body.displayName,
         passwordHash,
         role: body.role,

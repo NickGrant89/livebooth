@@ -17,6 +17,7 @@ import {
 } from "@/lib/email-verification";
 import { sendUserVerificationEmail } from "@/lib/send-verification-email";
 import type { AuthFormState } from "@/app/actions/auth-types";
+import { userWhereForAuthIdentifier } from "@/lib/auth-identifier";
 
 export type { AuthFormState } from "@/app/actions/auth-types";
 
@@ -26,11 +27,8 @@ const SIGNUP_LIMIT = 8;
 const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 
 async function findUser(identifier: string) {
-  const id = identifier.trim().toLowerCase();
   return prisma.user.findFirst({
-    where: {
-      OR: [{ email: id }, { username: id.replace(/@.*/, "") }],
-    },
+    where: userWhereForAuthIdentifier(identifier),
   });
 }
 
