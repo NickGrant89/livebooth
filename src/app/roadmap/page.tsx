@@ -42,11 +42,11 @@ const PHASES: Phase[] = [
     label: "Phase 3 — Growth",
     period: "Q4 2026",
     items: [
-      { title: "Mobile-optimised watch & chat", detail: "Theatre mode, push alerts, share flows", status: "planned" },
+      { title: "Mobile-optimised watch & chat", detail: "Watch/Chat tabs, theatre mode, unread badge, safe-area chat", status: "done" },
       { title: "Stripe card subscriptions", detail: "Member/Supporter billed directly on card (optional upgrade)", status: "planned" },
       { title: "Creator payouts & redeem", detail: "Wallet cash-out, admin treasury, Stripe Connect auto-payout", status: "done" },
       { title: "Public transparency page", detail: "/transparency — DROP circulation, fees, and payouts", status: "done" },
-      { title: "Clip export & social clips", detail: "Share highlights from replays", status: "planned" },
+      { title: "Clip export & social clips", detail: "9:16 export, share sheet, PNG cards, highlight jumps", status: "done" },
     ],
   },
   {

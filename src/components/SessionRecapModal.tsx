@@ -66,6 +66,12 @@ export function SessionRecapModal({
         )}
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Link
+            href={`/vod/${recap.streamId}#social-clip`}
+            className="text-center rounded-xl bg-[#15CFF4]/15 border border-[#15CFF4]/30 py-2.5 text-sm font-medium text-[#15CFF4] hover:bg-[#15CFF4]/20"
+          >
+            Social clip
+          </Link>
+          <Link
             href={`/vod/${recap.streamId}`}
             className="text-center rounded-xl bg-white/10 py-2.5 text-sm font-medium hover:bg-white/15"
           >

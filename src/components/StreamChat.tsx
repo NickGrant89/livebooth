@@ -5,7 +5,7 @@ import { Send, Coins, Music, Flag, Ban } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
 import { useOnChainDrop } from "@/hooks/useOnChainDrop";
-import { useStreamChat } from "@/hooks/useStreamChat";
+import { useStreamChatContext } from "@/context/StreamChatContext";
 import { TRACK_UNLOCK_COST, REQUEST_COST, HIGHLIGHT_TIP_MIN } from "@/lib/constants";
 import { onChainFeaturesAvailable, isOnChainEnabled } from "@/lib/web3/contracts";
 import { AchievementToasts, useAchievementUnlocks } from "@/components/AchievementToasts";
@@ -34,7 +34,7 @@ export function StreamChat({
   const { user, refresh } = useAuth();
   const { isConnected, contractsReady, isPending, approveTipRouter, tipOnChain, balanceWei } =
     useOnChainDrop();
-  const { messages, status } = useStreamChat(streamId);
+  const { messages, status } = useStreamChatContext();
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [tipAmount, setTipAmount] = useState("");
@@ -282,6 +282,12 @@ export function StreamChat({
     setTimeout(() => setRequestSent(""), 5000);
   }
 
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages.length]);
+
   const hasTrack = Boolean(nowPlaying?.title && nowPlaying?.artist);
 
   return (
@@ -411,8 +417,10 @@ export function StreamChat({
       </div>
 
       <div
-        className={`border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 overflow-y-auto overscroll-y-contain bg-[#0a0a0c] ${
-          showTip || showRequest ? "max-h-[min(50vh,360px)]" : "max-h-[min(34vh,260px)]"
+        className={`border-t border-white/5 p-2 sm:p-3 space-y-2 shrink-0 min-w-0 bg-[#0a0a0c] pb-[max(0.5rem,env(safe-area-inset-bottom))] ${
+          showTip || showRequest
+            ? "max-lg:overflow-y-auto max-lg:overscroll-y-contain max-lg:max-h-[min(50vh,360px)] lg:max-h-[min(50vh,360px)]"
+            : "max-lg:overflow-visible lg:overflow-y-auto lg:overscroll-y-contain lg:max-h-[min(34vh,260px)]"
         }`}
       >
         {!showTip && !showRequest && (

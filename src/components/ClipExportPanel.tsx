@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, type RefObject } from "react";
-import { Download, Film, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Download, Film, Loader2, Share2 } from "lucide-react";
 import type { StreamPlayerHandle } from "@/components/StreamPlayer";
+import { ShareMenu } from "@/components/ShareMenu";
 import { getClientSiteUrl } from "@/lib/share";
 import {
   downloadBlob,
   exportVerticalClip,
   formatClipTimestamp,
+  shareClipBlob,
 } from "@/lib/clip-export";
 
 type ClipExportPanelProps = {
@@ -18,22 +21,28 @@ type ClipExportPanelProps = {
   djUsername: string;
   startSec?: number;
   timestampLabel?: string;
+  /** Sticky bar on small screens above the fold */
+  variant?: "default" | "prominent";
 };
 
 export function ClipExportPanel({
   playerRef,
+  streamId,
   title,
   djName,
   djUsername,
   startSec = 0,
   timestampLabel,
+  variant = "default",
 }: ClipExportPanelProps) {
   const [duration, setDuration] = useState<30 | 60>(30);
   const [exporting, setExporting] = useState(false);
   const [downloadingCard, setDownloadingCard] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
+  const [lastExport, setLastExport] = useState<{ blob: Blob; filename: string } | null>(null);
 
+  const vodPath = `/vod/${streamId}`;
   const clipCardUrl = `${getClientSiteUrl()}/api/og?${new URLSearchParams({
     type: "clip",
     dj: djName,
@@ -43,8 +52,9 @@ export function ClipExportPanel({
   }).toString()}`;
 
   const safeName = title.replace(/[^\w\s-]/g, "").trim().slice(0, 30) || "clip";
+  const shareText = `${djName} on LiveBooth — "${title}"${timestampLabel ? ` @ ${timestampLabel}` : ""}\n${getClientSiteUrl()}${vodPath}`;
 
-  async function exportVideo() {
+  async function exportVideo(opts?: { shareAfter?: boolean }) {
     setError("");
     const video = playerRef.current?.getVideoElement();
     if (!video) {
@@ -69,12 +79,34 @@ export function ClipExportPanel({
         `@${djUsername}`,
         setProgress,
       );
-      downloadBlob(blob, `livebooth-${safeName}-${duration}s.webm`);
+      const filename = `livebooth-${safeName}-${duration}s.webm`;
+      setLastExport({ blob, filename });
+
+      if (opts?.shareAfter) {
+        await shareClipBlob(blob, filename, shareText);
+      } else {
+        downloadBlob(blob, filename);
+      }
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Export failed");
     } finally {
       setExporting(false);
       setProgress(0);
+    }
+  }
+
+  async function shareLastExport() {
+    if (!lastExport) {
+      await exportVideo({ shareAfter: true });
+      return;
+    }
+    setError("");
+    try {
+      await shareClipBlob(lastExport.blob, lastExport.filename, shareText);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "Share failed");
     }
   }
 
@@ -93,17 +125,32 @@ export function ClipExportPanel({
     }
   }
 
+  const shellClass =
+    variant === "prominent"
+      ? "rounded-xl border border-[#15CFF4]/30 bg-gradient-to-br from-[#15CFF4]/10 to-[#141416] p-4 space-y-4 lg:static sticky bottom-0 z-10 shadow-[0_-8px_32px_rgba(0,0,0,0.45)]"
+      : "mt-6 rounded-xl border border-white/5 bg-[#141416] p-4 space-y-4";
+
   return (
-    <div className="mt-6 rounded-xl border border-white/5 bg-[#141416] p-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <Film className="h-4 w-4 text-[#15CFF4]" />
-        <h2 className="font-semibold text-sm">Export clip (9:16)</h2>
+    <div className={shellClass}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Film className="h-4 w-4 text-[#15CFF4]" />
+            <h2 className="font-semibold text-sm">Social clip (9:16)</h2>
+          </div>
+          <p className="text-xs text-zinc-500 mt-1">
+            {timestampLabel
+              ? `From ${timestampLabel} · TikTok, Reels, Stories`
+              : "Vertical clip from replay · TikTok, Reels, Stories"}
+          </p>
+        </div>
+        <Link
+          href={vodPath}
+          className="text-[10px] text-zinc-500 hover:text-[#53fc18] shrink-0 lg:hidden"
+        >
+          Full replay →
+        </Link>
       </div>
-      <p className="text-xs text-zinc-500">
-        {timestampLabel
-          ? `Clip from ${timestampLabel} · vertical for TikTok / Reels / Stories`
-          : "Vertical clip from replay start · for TikTok / Reels / Stories"}
-      </p>
 
       <div className="flex flex-wrap gap-2">
         {([30, 60] as const).map((d) => (
@@ -139,7 +186,7 @@ export function ClipExportPanel({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={exportVideo}
+          onClick={() => exportVideo()}
           disabled={exporting}
           className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#53fc18] to-[#15CFF4] px-4 py-2 text-sm font-bold text-black disabled:opacity-50"
         >
@@ -148,7 +195,16 @@ export function ClipExportPanel({
           ) : (
             <Film className="h-4 w-4" />
           )}
-          {exporting ? "Exporting…" : `Download ${duration}s clip`}
+          {exporting ? "Exporting…" : `Download ${duration}s`}
+        </button>
+        <button
+          type="button"
+          onClick={() => void shareLastExport()}
+          disabled={exporting}
+          className="inline-flex items-center gap-2 rounded-lg border border-[#53fc18]/40 bg-[#53fc18]/10 px-4 py-2 text-sm font-semibold text-[#53fc18] hover:bg-[#53fc18]/15 disabled:opacity-50"
+        >
+          <Share2 className="h-4 w-4" />
+          Share clip
         </button>
         <button
           type="button"
@@ -161,11 +217,26 @@ export function ClipExportPanel({
           ) : (
             <Download className="h-4 w-4" />
           )}
-          Share card (PNG)
+          PNG card
         </button>
       </div>
+
+      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
+        <ShareMenu
+          kind="vod"
+          path={vodPath}
+          djName={djName}
+          setTitle={title}
+          username={djUsername}
+          label="Share replay link"
+          variant="ghost"
+          className="!p-0"
+        />
+      </div>
+
       <p className="text-[10px] text-zinc-600">
-        Video clip exports as WebM (9:16). Upload to TikTok or convert to MP4 locally if needed.
+        Clips export as WebM (9:16). On iPhone/Android, <strong className="text-zinc-500">Share clip</strong> opens
+        your camera roll / TikTok. Tap a legendary moment above to start the clip at that drop.
       </p>
     </div>
   );

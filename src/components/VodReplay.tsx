@@ -301,6 +301,7 @@ export function VodReplay({
       )}
 
       {!earlyAccessBlocked && (
+        <div id="social-clip" className="scroll-mt-20">
         <ClipExportPanel
           playerRef={playerRef}
           streamId={streamId}
@@ -309,7 +310,9 @@ export function VodReplay({
           djUsername={djUsername}
           startSec={clipStartSec}
           timestampLabel={clipLabel}
+          variant="prominent"
         />
+        </div>
       )}
     </>
   );

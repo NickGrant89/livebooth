@@ -195,3 +195,30 @@ export function formatClipTimestamp(sec: number) {
   const s = Math.floor(sec % 60);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
+
+/** Share exported clip via native share sheet (mobile) or download fallback. */
+export async function shareClipBlob(
+  blob: Blob,
+  filename: string,
+  shareText: string,
+): Promise<"shared" | "downloaded"> {
+  const file = new File([blob], filename, { type: blob.type || "video/webm" });
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: "LiveBooth clip", text: shareText, files: [file] });
+        return "shared";
+      }
+      await navigator.share({ title: "LiveBooth clip", text: shareText });
+      downloadBlob(blob, filename);
+      return "downloaded";
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        throw e;
+      }
+    }
+  }
+  downloadBlob(blob, filename);
+  return "downloaded";
+}
+
