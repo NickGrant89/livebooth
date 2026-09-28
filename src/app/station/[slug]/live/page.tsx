@@ -13,7 +13,7 @@ import { SetScorePanel } from "@/components/SetScorePanel";
 import { QuestStreamChip } from "@/components/QuestStreamChip";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { genreLabels, DROP_TOKEN_SYMBOL, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { isDemoPlayback, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { StreamPageLayout } from "@/components/StreamPageLayout";
 import { CommunityGoalBar } from "@/components/CommunityGoalBar";
@@ -45,6 +45,8 @@ export default async function StationLivePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  if (!RADIO_STATIONS_ENABLED) redirect("/");
+
   const { slug } = await params;
   const station = await getStationBySlug(slug);
   if (!station) notFound();

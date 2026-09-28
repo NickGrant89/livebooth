@@ -29,6 +29,8 @@ const RTMP_RECORDING = [
   "RTMP_AUTH_ENABLED",
 ] as const;
 
+const CLIP_EXPORT = ["RECORDINGS_CLIP_URL", "RECORDINGS_CLIP_SECRET"] as const;
+
 const NEVER_PROD = ["NEXT_PUBLIC_DEMO_MODE", "SEED_DEMO_USERS"] as const;
 
 function loadEnvFile(): Record<string, string> {
@@ -105,6 +107,14 @@ function main() {
       }
     }
     console.log("  VPS: bash scripts/setup-full-recording.sh (Caddy + remux watcher)");
+    console.log("\n--- Social MP4 clips (optional, TikTok/Reels) ---\n");
+    const clipsOk = CLIP_EXPORT.every((key) => Boolean(env[key]));
+    for (const key of CLIP_EXPORT) {
+      console.log(env[key] ? `✓ ${key}` : `○ ${key} — optional; see docs/CLIPS.md`);
+    }
+    if (clipsOk) {
+      console.log("  VPS: bash scripts/vps-install-clip-service.sh + Caddy /_clip route");
+    }
   }
 
   console.log("\n--- Do NOT set on production ---\n");

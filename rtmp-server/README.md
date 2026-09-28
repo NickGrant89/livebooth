@@ -75,6 +75,10 @@ Docker uses `host.docker.internal:3008` (see `docker-compose.yml`). The app must
 
 Test: `npm run smoke:beta` (step 8 hits the auth endpoint).
 
+### Social MP4 clips (production VPS)
+
+**clip-service** runs ffmpeg for 9:16 TikTok/Reels MP4 (live tail + VOD). See **`docs/CLIPS.md`**. Production: `docker-compose.production.yml` service `clip-service`, Caddy `/_clip` route in `Caddyfile.example`.
+
 ## Commands
 
 | Command | Description |

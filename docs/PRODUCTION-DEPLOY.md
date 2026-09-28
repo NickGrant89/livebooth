@@ -325,6 +325,17 @@ Replay **files are not on Vercel** — they live on your **RTMP VPS** (`rtmp-ser
 3. Enable **`NEXT_PUBLIC_BETA_MODE=true`** — disables auto-pruning of archive rows when a replay check fails (files stay on disk; beta mode keeps the listing)
 4. Replays may show **“Processing…”** for ~5–12 minutes after a set ends while remux/HLS builds — refresh the VOD page; the file is usually still being written
 
+### Social clips (live tail + TikTok MP4)
+
+Server-rendered **9:16 H.264 MP4** (live last 30–60s + VOD segments) needs **clip-service** on the VPS and Vercel env — full steps in **`docs/CLIPS.md`**.
+
+| Vercel | VPS |
+|--------|-----|
+| `RECORDINGS_CLIP_URL=https://hls.livebooth.uk/_clip` | `docker compose … up -d clip-service` |
+| `RECORDINGS_CLIP_SECRET` (same as VPS `.env`) | Caddy `/_clip/*` → `127.0.0.1:8093` |
+
+Without those vars, fans still get **browser WebM** clip export on replays only.
+
 **What can make a replay vanish from the site (rare):**
 
 - Auto-prune removes the **database row** (not the file) if the app thinks the recording is missing — skipped when beta mode is on

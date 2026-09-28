@@ -7,7 +7,7 @@ import { GenreNightBanner } from "@/components/GenreNightBanner";
 import { GettingStartedPanel } from "@/components/GettingStartedPanel";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { genreLabels, DROP_TOKEN_SYMBOL, APP_TAGLINE, DAY_LABELS } from "@/lib/constants";
+import { genreLabels, DROP_TOKEN_SYMBOL, APP_TAGLINE, DAY_LABELS, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { fetchDiscoverLiveStreams } from "@/lib/discover-home";
 import { fetchForYouLiveStreams } from "@/lib/discover-for-you";
 import { fetchPublicStations, fetchUpcomingStationShows, formatSlotLabel, stationPublicHref } from "@/lib/stations-discover";
@@ -33,8 +33,8 @@ async function getHomeData(genre?: string, userId?: string) {
     prisma.tip.aggregate({ _sum: { amount: true } }),
     prisma.achievement.count(),
     userId ? fetchForYouLiveStreams(userId) : Promise.resolve([]),
-    fetchUpcomingStationShows(6),
-    fetchPublicStations(4),
+    RADIO_STATIONS_ENABLED ? fetchUpcomingStationShows(6) : Promise.resolve([]),
+    RADIO_STATIONS_ENABLED ? fetchPublicStations(4) : Promise.resolve([]),
   ]);
 
   const liveStreams = liveStreamsRaw.map((s) => ({
@@ -196,11 +196,13 @@ export default async function HomePage({
         ))}
       </section>
 
-      {(upcomingStationShows.length > 0 || scheduledDjs.length > 0) && liveStreams.length === 0 && (
+      {((RADIO_STATIONS_ENABLED && upcomingStationShows.length > 0) || scheduledDjs.length > 0) &&
+        liveStreams.length === 0 && (
         <section className="mx-4 lg:mx-6 mt-4 rounded-xl border border-white/5 bg-[#141416] p-4">
           <p className="text-xs uppercase tracking-widest text-zinc-500 mb-3">Starting soon</p>
           <div className="flex flex-wrap gap-3">
-            {upcomingStationShows.map((show) => (
+            {RADIO_STATIONS_ENABLED &&
+              upcomingStationShows.map((show) => (
               <Link
                 key={`${show.stationSlug}-${show.djUsername}-${show.slotDay}`}
                 href={`/station/${show.stationSlug}`}
@@ -240,7 +242,7 @@ export default async function HomePage({
         </section>
       )}
 
-      {radioStations.length > 0 && (
+      {RADIO_STATIONS_ENABLED && radioStations.length > 0 && (
         <section className="mx-4 lg:mx-6 mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold flex items-center gap-2">

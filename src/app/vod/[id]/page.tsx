@@ -10,6 +10,7 @@ import {
   resolveEndedStreamPlaybackUrl,
   getStreamReplayState,
 } from "@/lib/vod-recording";
+import { isServerClipExportAvailable } from "@/lib/recording-clip";
 import { computeSetScore } from "@/lib/set-score";
 import { vodMetadata } from "@/lib/metadata-share";
 import { canEditStreamDetails } from "@/lib/stream-details";
@@ -167,6 +168,7 @@ export default async function VODPage({
         showStakerCta={vodAccess.allowed}
         stationSlug={stream.station?.slug ?? null}
         expectedDurationSec={expectedDurationSec}
+        serverClipsEnabled={isServerClipExportAvailable()}
       />
     </div>
   );

@@ -14,7 +14,7 @@ import {
   Eye,
   MessageCircle,
 } from "lucide-react";
-import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { APP_NAME, APP_TAGLINE, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { HELP_LINKS, HELP_TOPICS } from "@/lib/help-links";
 
 const guides = [
@@ -126,7 +126,7 @@ export default function HelpHubPage() {
 
       <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">Guides by role</h2>
       <div className="space-y-4">
-        {guides.map((g) => {
+        {guides.filter((g) => RADIO_STATIONS_ENABLED || g.href !== HELP_LINKS.stations).map((g) => {
           const Icon = g.icon;
           return (
             <Link

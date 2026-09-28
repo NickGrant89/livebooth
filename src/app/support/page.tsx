@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/fetch-client";
-import { SUPPORT_CATEGORIES } from "@/lib/constants";
+import { SUPPORT_CATEGORIES, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { SupportLiveChat } from "@/components/SupportLiveChat";
 import { HELP_LINKS } from "@/lib/help-links";
 
@@ -61,7 +61,9 @@ const FAQ = [
       },
       {
         q: "What's the difference between fan and DJ accounts?",
-        a: "Fans watch, tip, unlock tracks, and join DJ or station memberships. DJs can go live, earn DROP, and use the dashboard and stream tools. Radio is a third role for station owners.",
+        a: RADIO_STATIONS_ENABLED
+          ? "Fans watch, tip, unlock tracks, and join DJ or station memberships. DJs can go live, earn DROP, and use the dashboard and stream tools. Radio is a third role for station owners."
+          : "Fans watch, tip, unlock tracks, and join DJ memberships. DJs can go live, earn DROP, and use the dashboard and stream tools.",
       },
     ],
   },
@@ -384,7 +386,7 @@ export default function SupportPage() {
           <MessageCircle className="h-5 w-5 text-zinc-400" />
           Frequently asked questions
         </h2>
-        {FAQ.map((section) => (
+        {FAQ.filter((section) => RADIO_STATIONS_ENABLED || section.category !== "Stations").map((section) => (
           <div key={section.category} className="mb-8">
             <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-500 mb-2">
               {section.category}

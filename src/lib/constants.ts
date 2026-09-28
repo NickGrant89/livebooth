@@ -24,6 +24,9 @@ export const WELCOME_BONUS = 500;
 export const APP_NAME = "LiveBooth";
 export const APP_TAGLINE = "Tip the drop";
 
+/** Branded radio / station channels (residencies, station signup). Off = DJ-first product. */
+export const RADIO_STATIONS_ENABLED = false;
+
 export const FIRST_TIP_BONUS = 5;
 export const HIGHLIGHT_TIP_MIN = 25;
 export const STREAM_TITLE_MAX = 120;

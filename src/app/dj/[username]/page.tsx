@@ -15,7 +15,7 @@ import { enrichArchiveStreams } from "@/lib/vod-recording";
 import { getStationAffiliationForUser } from "@/lib/stations";
 import { getDjStakeTotal } from "@/lib/staking";
 import { pruneDjArchive } from "@/lib/archive-cleanup";
-import { genreLabels, DROP_TOKEN_SYMBOL, getCreatorTypeLabel } from "@/lib/constants";
+import { genreLabels, DROP_TOKEN_SYMBOL, getCreatorTypeLabel, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { ShareProfileButton } from "@/components/ShareLiveButton";
 import { djProfileMetadata } from "@/lib/metadata-share";
 import { ProfileOnChainStrip } from "@/components/ProfileOnChainStrip";
@@ -128,7 +128,7 @@ export default async function DJProfilePage({
       )
     : undefined;
   const roleLabel =
-    dj.role === "station"
+    dj.role === "station" && RADIO_STATIONS_ENABLED
       ? "Radio"
       : isDj
         ? getCreatorTypeLabel(dj.creatorType)

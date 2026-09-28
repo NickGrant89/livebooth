@@ -9,6 +9,7 @@ import { ShareMenu } from "@/components/ShareMenu";
 import { StreamLikeButton } from "@/components/StreamLikeButton";
 import { FanGradeShare } from "@/components/FanGradeShare";
 import { ClipExportPanel } from "@/components/ClipExportPanel";
+import { ServerClipPanel } from "@/components/ServerClipPanel";
 import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
 import { SetRecordingDownloadButton } from "@/components/SetRecordingDownloadButton";
 import { formatClipTimestamp } from "@/lib/clip-export";
@@ -47,6 +48,7 @@ type VodReplayProps = {
   showStakerCta?: boolean;
   stationSlug?: string | null;
   expectedDurationSec?: number;
+  serverClipsEnabled?: boolean;
 };
 
 function formatTimestamp(ms: number) {
@@ -75,6 +77,7 @@ export function VodReplay({
   showStakerCta = false,
   stationSlug = null,
   expectedDurationSec,
+  serverClipsEnabled = false,
 }: VodReplayProps) {
   const playerRef = useRef<StreamPlayerHandle>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -301,7 +304,16 @@ export function VodReplay({
       )}
 
       {!earlyAccessBlocked && (
-        <div id="social-clip" className="scroll-mt-20">
+        <div id="social-clip" className="scroll-mt-20 space-y-4">
+        {serverClipsEnabled && (
+        <ServerClipPanel
+          streamId={streamId}
+          mode="vod"
+          startSec={clipStartSec}
+          title={title}
+          djUsername={djUsername}
+        />
+        )}
         <ClipExportPanel
           playerRef={playerRef}
           streamId={streamId}

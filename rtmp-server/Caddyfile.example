@@ -18,6 +18,13 @@
 
 # HLS playback (fans watch in browser) + archive recordings at /recordings/
 hls.livebooth.uk {
+	handle /_clip/* {
+		@authorized header Authorization "Bearer {env.RECORDINGS_CLIP_SECRET}"
+		reverse_proxy @authorized 127.0.0.1:8093 {
+			uri strip_prefix /_clip
+		}
+		respond "Unauthorized" 401
+	}
 	handle /recordings/* {
 		uri strip_prefix /recordings
 		root * /opt/livebooth/rtmp-server/recordings

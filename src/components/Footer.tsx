@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { APP_TAGLINE, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { APP_TAGLINE, DROP_TOKEN_SYMBOL, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { HELP_LINKS } from "@/lib/help-links";
 
 export function Footer() {
@@ -20,7 +20,9 @@ export function Footer() {
               <p className="text-zinc-400 font-semibold mb-2">Watch</p>
               <ul className="space-y-1.5 text-zinc-500">
                 <li><Link href="/" className="hover:text-white transition-colors">Discover</Link></li>
-                <li><Link href="/residencies" className="hover:text-white transition-colors">Radio stations</Link></li>
+                {RADIO_STATIONS_ENABLED && (
+                  <li><Link href="/residencies" className="hover:text-white transition-colors">Radio stations</Link></li>
+                )}
                 <li><Link href="/leaderboard" className="hover:text-white transition-colors">Rankings</Link></li>
               </ul>
             </div>
@@ -52,7 +54,9 @@ export function Footer() {
                 <li><Link href={HELP_LINKS.hub} className="hover:text-white transition-colors">Help center</Link></li>
                 <li><Link href={HELP_LINKS.fans} className="hover:text-white transition-colors">Fan guide</Link></li>
                 <li><Link href={HELP_LINKS.djs} className="hover:text-white transition-colors">DJ guide</Link></li>
-                <li><Link href={HELP_LINKS.stations} className="hover:text-white transition-colors">Station guide</Link></li>
+                {RADIO_STATIONS_ENABLED && (
+                  <li><Link href={HELP_LINKS.stations} className="hover:text-white transition-colors">Station guide</Link></li>
+                )}
                 <li><Link href={HELP_LINKS.support} className="hover:text-white transition-colors">Support & live chat</Link></li>
               </ul>
             </div>

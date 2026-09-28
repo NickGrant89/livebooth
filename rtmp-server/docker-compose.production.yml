@@ -57,6 +57,23 @@ services:
     depends_on:
       - mediamtx
 
+  clip-service:
+    build: ./clip-service
+    container_name: livebooth-clip-service
+    restart: unless-stopped
+    networks:
+      - livebooth
+    volumes:
+      - ./recordings:/recordings
+    environment:
+      RECORDINGS_ROOT: /recordings
+      RECORDINGS_CLIP_SECRET: ${RECORDINGS_CLIP_SECRET:-}
+      CLIP_SERVICE_PORT: 8093
+    ports:
+      - "127.0.0.1:8093:8093"
+    depends_on:
+      - mediamtx
+
   redis:
     image: redis:7-alpine
     container_name: livebooth-redis

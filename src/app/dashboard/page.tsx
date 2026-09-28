@@ -32,6 +32,7 @@ import { useIngestWatch } from "@/hooks/useIngestWatch";
 import { useLiveSessionGuard } from "@/hooks/useLiveSessionGuard";
 import { endStreamWithObsSync } from "@/lib/end-stream-client";
 import { endLiveSessionOnServer, fetchLatestRecap, normalizeRecap } from "@/lib/live-session-client";
+import { LiveClipBar } from "@/components/LiveClipBar";
 
 export default function DashboardPage() {
   const { user, refresh, loading } = useAuth();
@@ -338,6 +339,14 @@ export default function DashboardPage() {
             setTitle={liveStream.title}
           />
           <SetScorePanel streamId={liveStream.id} variant="dj" />
+          {summary?.serverClipsEnabled && (
+          <LiveClipBar
+            streamId={liveStream.id}
+            isHost
+            setTitle={liveStream.title}
+            djUsername={user.username}
+          />
+          )}
           <SessionGoals streamId={liveStream.id} />
           {liveActivity.length > 0 && (
             <div className="rounded-lg border border-white/5 bg-white/[0.02] px-4 py-2 text-xs text-zinc-400">

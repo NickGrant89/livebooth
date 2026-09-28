@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { APP_TAGLINE, DROP_TOKEN_SYMBOL, CREATOR_TYPES, creatorTypeLabels } from "@/lib/constants";
+import { APP_TAGLINE, DROP_TOKEN_SYMBOL, CREATOR_TYPES, creatorTypeLabels, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { signupAction } from "@/app/actions/auth";
 import type { AuthFormState } from "@/app/actions/auth-types";
 
@@ -67,7 +67,7 @@ export function SignupForm() {
             placeholder="Password (min 6 chars)"
             className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-white"
           />
-          <div className="flex gap-2">
+          <div className={RADIO_STATIONS_ENABLED ? "flex gap-2" : "grid grid-cols-2 gap-2"}>
             <label className="flex-1 cursor-pointer">
               <input
                 type="radio"
@@ -93,6 +93,7 @@ export function SignupForm() {
                 Creator
               </span>
             </label>
+            {RADIO_STATIONS_ENABLED && (
             <label className="flex-1 cursor-pointer">
               <input
                 type="radio"
@@ -105,6 +106,7 @@ export function SignupForm() {
                 Radio
               </span>
             </label>
+            )}
           </div>
           {creatorRole === "dj" && (
             <div>
@@ -130,12 +132,14 @@ export function SignupForm() {
               </p>
             </div>
           )}
+          {RADIO_STATIONS_ENABLED && (
           <p className="text-[11px] text-zinc-600 text-center -mt-2">
             Radio = branded channel for resident creators ·{" "}
             <Link href="/help/stations" className="text-zinc-500 hover:text-[#53fc18] underline">
               Learn more
             </Link>
           </p>
+          )}
 
           {state?.error && (
             <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">

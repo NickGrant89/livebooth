@@ -51,8 +51,10 @@ export const HELP_TOPICS = [
   },
 ] as const;
 
+import { RADIO_STATIONS_ENABLED } from "@/lib/constants";
+
 export function roleGuidePath(role: string): string {
-  if (role === "station") return HELP_LINKS.stations;
+  if (role === "station" && RADIO_STATIONS_ENABLED) return HELP_LINKS.stations;
   if (role === "dj" || role === "admin") return HELP_LINKS.djs;
   return HELP_LINKS.fans;
 }

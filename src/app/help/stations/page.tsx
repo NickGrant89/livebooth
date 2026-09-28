@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { HelpGuideLayout, GuideSection, GuideStep } from "@/components/HelpGuideLayout";
 import { HelpQuickStart } from "@/components/HelpQuickStart";
 import { HELP_LINKS } from "@/lib/help-links";
@@ -13,6 +14,7 @@ import {
   MEMBER_STATION_LIVE_DJ_SHARE,
   MEMBER_PLATFORM_SHARE,
   DROP_TOKEN_SYMBOL,
+  RADIO_STATIONS_ENABLED,
 } from "@/lib/constants";
 
 const SECTIONS = [
@@ -25,6 +27,10 @@ const SECTIONS = [
 ];
 
 export default function StationGuidePage() {
+  if (!RADIO_STATIONS_ENABLED) {
+    redirect(HELP_LINKS.hub);
+  }
+
   return (
     <HelpGuideLayout
       title="Station guide"

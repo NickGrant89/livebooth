@@ -1,8 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { EmbedPlayer } from "@/components/EmbedPlayer";
 import { getStationBySlug, getLiveStreamForStation, getTierMeta } from "@/lib/stations";
 import { stationAllowsEmbed } from "@/lib/schedule-import";
 import { resolveLivePlaybackUrl } from "@/lib/streaming";
+import { RADIO_STATIONS_ENABLED } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ export default async function EmbedStationPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  if (!RADIO_STATIONS_ENABLED) redirect("/");
+
   const { slug } = await params;
   const station = await getStationBySlug(slug);
   if (!station || !stationAllowsEmbed(station.tier)) notFound();

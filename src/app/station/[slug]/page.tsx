@@ -11,7 +11,7 @@ import {
   Trophy,
   TrendingUp,
 } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { StationFollowButton } from "@/components/StationFollowButton";
 import { StationFollowerCount } from "@/components/StationFollowerCount";
 import { StationEmbedSection } from "@/components/StationEmbedSection";
@@ -29,7 +29,7 @@ import {
   getNextScheduledResident,
   getLiveResidentUsernames,
 } from "@/lib/stations";
-import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, genreLabels } from "@/lib/constants";
+import { DAY_LABELS, DROP_TOKEN_SYMBOL, RADIO_TIERS, genreLabels, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { stationMetadata } from "@/lib/metadata-share";
 import { stationAllowsEmbed } from "@/lib/schedule-import";
 
@@ -58,6 +58,8 @@ export default async function StationPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  if (!RADIO_STATIONS_ENABLED) redirect("/");
+
   const { slug } = await params;
   const station = await getStationBySlug(slug);
   if (!station) notFound();

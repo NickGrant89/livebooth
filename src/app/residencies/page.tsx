@@ -1,11 +1,17 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2, Radio, Users, ChevronRight } from "lucide-react";
 import { StationBrandAvatar } from "@/components/StationBrandAvatar";
 import { fetchPublicStations, formatSlotLabel, stationPublicHref } from "@/lib/stations-discover";
+import { RADIO_STATIONS_ENABLED } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
 export default async function ResidenciesPage() {
+  if (!RADIO_STATIONS_ENABLED) {
+    redirect("/");
+  }
+
   const stations = await fetchPublicStations(48);
 
   return (

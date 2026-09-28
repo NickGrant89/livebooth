@@ -7,13 +7,14 @@ import {
   DJ_QUICK_START,
   STATION_QUICK_START,
 } from "@/lib/guidance";
+import { RADIO_STATIONS_ENABLED } from "@/lib/constants";
 
 export function GettingStartedPanel() {
   const { user, loading } = useAuth();
 
   if (loading || !user) return null;
 
-  if (user.role === "station") {
+  if (user.role === "station" && RADIO_STATIONS_ENABLED) {
     return (
       <div className="mx-4 lg:mx-6 mt-4">
         <GuidanceCard

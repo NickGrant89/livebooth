@@ -28,6 +28,8 @@ import { StreamLiveWatcher } from "@/components/StreamLiveWatcher";
 import { StreamStakerPromo } from "@/components/StreamStakerPromo";
 import { CommunityGoalBar } from "@/components/CommunityGoalBar";
 import { StreamDetailsEditor } from "@/components/StreamDetailsEditor";
+import { LiveClipBar } from "@/components/LiveClipBar";
+import { isServerClipExportAvailable } from "@/lib/recording-clip";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +89,7 @@ export default async function StreamPage({
 
   const platform = await getPlatformSettings();
   const isHost = session?.id === dj.id;
+  const serverClipsEnabled = isServerClipExportAvailable();
 
   return (
     <>
@@ -205,6 +208,14 @@ export default async function StreamPage({
               <div className="mt-3 lg:hidden">
                 <SetScorePanel streamId={stream.id} variant="fan" />
               </div>
+            )}
+            {serverClipsEnabled && session && (
+              <LiveClipBar
+                streamId={stream.id}
+                isHost={isHost}
+                setTitle={stream.title}
+                djUsername={dj.username}
+              />
             )}
           </div>
         </div>

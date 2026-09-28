@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { onChainFeaturesAvailable } from "@/lib/web3/contracts";
 import { enrichArchiveStreams } from "@/lib/vod-recording";
+import { isServerClipExportAvailable } from "@/lib/recording-clip";
 
 export async function GET() {
   const auth = await requireApiUser();
@@ -80,6 +81,7 @@ export async function GET() {
     walletLinked,
     canReceiveOnChainTips: walletLinked,
     contractsConfigured: onChainFeaturesAvailable(),
+    serverClipsEnabled: isServerClipExportAvailable(),
     liveStream,
     recentSets: recentSets.map((s) => ({
       ...s,

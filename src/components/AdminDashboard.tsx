@@ -28,6 +28,7 @@ import { DjArchiveList, type ArchiveStream } from "@/components/DjArchiveList";
 import { generateInvitePassword } from "@/lib/invite-password";
 import { formatBetaInviteText, inviteRoleLabel } from "@/lib/invite-copy";
 import { HELP_LINKS } from "@/lib/help-links";
+import { RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { ModeratorPermissionsEditor } from "@/components/admin/ModeratorPermissionsEditor";
 import {
   DEFAULT_MODERATOR_PERMISSIONS,
@@ -248,7 +249,9 @@ export function AdminDashboard({
     { id: "audit", label: "Audit log", icon: ScrollText },
   ];
 
-  const tabs = isFullAdmin ? allTabs : allTabs.filter((t) => canAccessTab(t.id));
+  const tabs = (isFullAdmin ? allTabs : allTabs.filter((t) => canAccessTab(t.id))).filter(
+    (t) => RADIO_STATIONS_ENABLED || t.id !== "stations",
+  );
 
   async function runAiScanAll() {
     setMsg("");

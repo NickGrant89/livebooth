@@ -10,11 +10,12 @@ import {
   MEMBER_TIER_PRICES,
   MEMBER_DJ_CREATOR_SHARE,
   MEMBER_PLATFORM_SHARE,
+  RADIO_STATIONS_ENABLED,
 } from "@/lib/constants";
 
 const RTMP_SERVER = "rtmp://rtmp.livebooth.uk:1935/live";
 
-const SECTIONS = [
+const SECTIONS_BASE = [
   { id: "getting-started", title: "Getting started" },
   { id: "going-live", title: "Going live" },
   { id: "obs", title: "OBS setup" },
@@ -24,6 +25,10 @@ const SECTIONS = [
   { id: "growth", title: "Growth tips" },
   { id: "support", title: "Support" },
 ];
+
+const SECTIONS = RADIO_STATIONS_ENABLED
+  ? SECTIONS_BASE
+  : SECTIONS_BASE.filter((s) => s.id !== "residencies");
 
 export default function DjGuidePage() {
   return (
@@ -159,6 +164,7 @@ export default function DjGuidePage() {
         </GuideStep>
       </GuideSection>
 
+      {RADIO_STATIONS_ENABLED && (
       <GuideSection id="residencies" title="Station residencies">
         <GuideStep n={1} title="Join a station lineup">
           Radio stations can add you as a resident. Your shows appear on their channel and tips may split{" "}
@@ -167,6 +173,7 @@ export default function DjGuidePage() {
           See the <Link href={HELP_LINKS.stations} className="text-[#53fc18] hover:underline">station guide</Link> for owners.
         </GuideStep>
       </GuideSection>
+      )}
 
       <GuideSection id="growth" title="Growth tips">
         <ul className="text-sm text-zinc-400 space-y-2 list-disc list-inside">

@@ -26,6 +26,7 @@ export type DashboardSummary = {
   weeklySlotHour: number | null;
   weeklySlotLabel: string | null;
   achievementCount: number;
+  serverClipsEnabled?: boolean;
   liveStream: {
     id: string;
     title: string;

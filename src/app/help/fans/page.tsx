@@ -21,6 +21,7 @@ import {
   DJ_STAKER_VOD_EARLY_HOURS,
   STATION_MILESTONES,
   DJ_MILESTONES,
+  RADIO_STATIONS_ENABLED,
 } from "@/lib/constants";
 
 const SECTIONS = [
@@ -117,7 +118,7 @@ export default function FanGuidePage() {
 
       <GuideSection id="membership" title="Membership">
         <p className="text-sm text-zinc-400 mb-4">
-          Monthly membership supports a DJ or station with recurring {DROP_TOKEN_SYMBOL} from your wallet.
+          Monthly membership supports a DJ{RADIO_STATIONS_ENABLED ? " or station" : ""} with recurring {DROP_TOKEN_SYMBOL} from your wallet.
           Choose <strong className="text-zinc-300">Member</strong> ({MEMBER_TIER_PRICES.member} {DROP_TOKEN_SYMBOL}/mo) or{" "}
           <strong className="text-zinc-300">Supporter</strong> ({MEMBER_TIER_PRICES.supporter} {DROP_TOKEN_SYMBOL}/mo).
           Billed every {MEMBER_BILLING_DAYS} days. Cancel anytime from the membership panel.
@@ -140,6 +141,8 @@ export default function FanGuidePage() {
             <li key={perk}>{perk}</li>
           ))}
         </ul>
+        {RADIO_STATIONS_ENABLED && (
+        <>
         <GuideStep n={2} title="Join station membership">
           On a station page (<code className="text-xs bg-white/10 px-1 rounded">/station/slug#membership</code>),
           tap <strong className="text-zinc-300">Join as member</strong>.{" "}
@@ -159,12 +162,14 @@ export default function FanGuidePage() {
             <li key={perk}>{perk}</li>
           ))}
         </ul>
+        </>
+        )}
         <GuideStep n={3} title="Community goals">
-          Live DJ and station pages show a <strong className="text-zinc-300">community goal bar</strong> — collective monthly member
+          Live DJ{RADIO_STATIONS_ENABLED ? " and station" : ""} pages show a <strong className="text-zinc-300">community goal bar</strong> — collective monthly member
           revenue (MRR) toward unlockable perks like extended replay vaults for all members.
         </GuideStep>
         <GuideStep n={4} title="Milestone rewards">
-          When a DJ or station hits growth goals, current members share a <strong className="text-zinc-300">DROP reward pool</strong> split
+          When a DJ{RADIO_STATIONS_ENABLED ? " or station" : ""} hits growth goals, current members share a <strong className="text-zinc-300">DROP reward pool</strong> split
           proportionally by monthly tier (Supporter counts higher than Member). Progress bars show on each membership panel.
         </GuideStep>
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-400 space-y-3">
@@ -176,6 +181,8 @@ export default function FanGuidePage() {
               </li>
             ))}
           </ul>
+          {RADIO_STATIONS_ENABLED && (
+          <>
           <p className="font-semibold text-zinc-300 pt-2">Station milestone examples</p>
           <ul className="space-y-1">
             {STATION_MILESTONES.map((m) => (
@@ -184,11 +191,15 @@ export default function FanGuidePage() {
               </li>
             ))}
           </ul>
+          </>
+          )}
         </div>
+        {RADIO_STATIONS_ENABLED && (
         <GuideStep n={5} title="Find stations">
           Browse <Link href={HELP_LINKS.residencies} className="text-[#53fc18] hover:underline">radio stations</Link> for branded channels.
           Follow a station, join as member, and see top members on the station page.
         </GuideStep>
+        )}
       </GuideSection>
 
       <GuideSection id="replays" title="Replays & VOD">
@@ -201,7 +212,9 @@ export default function FanGuidePage() {
         <GuideStep n={2} title="Early replay access">
           Members get replay access before everyone else:
           <ul className="mt-2 space-y-1 list-disc list-inside">
+            {RADIO_STATIONS_ENABLED && (
             <li>Station members — first <strong className="text-zinc-300">{STAKER_VOD_EARLY_HOURS}h</strong> after a station show ends</li>
+            )}
             <li>DJ members — first <strong className="text-zinc-300">{DJ_STAKER_VOD_EARLY_HOURS}h</strong> after that DJ&apos;s set ends</li>
           </ul>
           After the window, the replay is public. Subscribe or join membership from the blocked replay screen or the post-set CTA on the VOD page.
