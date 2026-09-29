@@ -5,7 +5,9 @@ import type { ChatMessagePayload } from "@/lib/chat-hub";
 
 export type ChatConnectionStatus = "connecting" | "live" | "reconnecting" | "offline";
 
-const POLL_MS = 4000;
+/** Primary backfill on Vercel (in-memory SSE hub is per-instance). */
+const POLL_MS_LIVE = 2000;
+const POLL_MS_SSE_BACKUP = 10000;
 
 function isNearDuplicate(a: ChatMessagePayload, b: ChatMessagePayload): boolean {
   if (a.id === b.id) return true;
@@ -22,14 +24,26 @@ function mergeChatMessages(
 ): ChatMessagePayload[] {
   if (incoming.length === 0) return prev;
   const merged = [...prev];
+  let appendedOnly = merged.length > 0;
+  const lastPrevMs =
+    merged.length > 0 ? new Date(merged[merged.length - 1]!.createdAt).getTime() : 0;
+
   for (const msg of incoming) {
     const dupeIdx = merged.findIndex((existing) => isNearDuplicate(existing, msg));
     if (dupeIdx >= 0) {
       merged[dupeIdx] = msg;
+      appendedOnly = false;
       continue;
     }
+    const msgMs = new Date(msg.createdAt).getTime();
+    if (appendedOnly && msgMs < lastPrevMs - 1000) appendedOnly = false;
     merged.push(msg);
   }
+
+  if (appendedOnly && incoming.length > 0) {
+    return merged.slice(-100);
+  }
+
   return merged
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     .slice(-100);
@@ -122,12 +136,26 @@ export function useStreamChat(streamId: string) {
     setMessages([]);
     setStatus("connecting");
     connect();
-    void pollMessages();
-    pollRef.current = setInterval(() => {
+
+    const runPoll = () => {
       void pollMessages();
-    }, POLL_MS);
+    };
+
+    // SSE sends history on connect — avoid a duplicate full history fetch on mount.
+    const fallbackHistory = setTimeout(runPoll, 1500);
+
+    const schedulePoll = () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      const ms = sseHealthyRef.current ? POLL_MS_SSE_BACKUP : POLL_MS_LIVE;
+      pollRef.current = setInterval(runPoll, ms);
+    };
+
+    schedulePoll();
+    const pollCadence = setInterval(schedulePoll, 5000);
 
     return () => {
+      clearTimeout(fallbackHistory);
+      clearInterval(pollCadence);
       sourceRef.current?.close();
       if (retryRef.current) clearTimeout(retryRef.current);
       if (pollRef.current) clearInterval(pollRef.current);

@@ -11,6 +11,7 @@ import { onChainFeaturesAvailable, isOnChainEnabled } from "@/lib/web3/contracts
 import { AchievementToasts, useAchievementUnlocks } from "@/components/AchievementToasts";
 import { StakerBadge, tierFromBadgeLabel } from "@/components/StakerBadge";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import type { ChatMessagePayload } from "@/lib/chat-hub";
 
 interface StreamChatProps {
   streamId: string;
@@ -34,7 +35,7 @@ export function StreamChat({
   const { user, refresh } = useAuth();
   const { isConnected, contractsReady, isPending, approveTipRouter, tipOnChain, balanceWei } =
     useOnChainDrop();
-  const { messages, status } = useStreamChatContext();
+  const { messages, status, appendMessage } = useStreamChatContext();
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [tipAmount, setTipAmount] = useState("");
@@ -144,12 +145,6 @@ export function StreamChat({
     return () => clearInterval(interval);
   }, [user, streamId]);
 
-  useEffect(() => {
-    const el = messagesRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages]);
-
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || !user || sending) return;
@@ -162,11 +157,16 @@ export function StreamChat({
         method: "POST",
         body: JSON.stringify({ message: text }),
       });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        message?: ChatMessagePayload;
+      };
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string }).error ?? "Could not send message");
+        setError(data.error ?? "Could not send message");
         setInput(text);
+        return;
       }
+      if (data.message) appendMessage(data.message);
     } finally {
       setSending(false);
     }
@@ -285,8 +285,10 @@ export function StreamChat({
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages.length]);
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+    if (!nearBottom) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   const hasTrack = Boolean(nowPlaying?.title && nowPlaying?.artist);
 
