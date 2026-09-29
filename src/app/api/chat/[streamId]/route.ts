@@ -25,9 +25,9 @@ export async function GET(
   const messages = await prisma.chatMessage.findMany({
     where: {
       streamId,
-      ...(since ? { createdAt: { gt: new Date(since) } } : {}),
+      ...(since ? { createdAt: { gte: new Date(since) } } : {}),
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: 100,
   });
 
