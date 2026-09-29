@@ -84,10 +84,15 @@ export function getRtmpIngestUrl(_ingestKey?: string | null): string {
 }
 
 export function getHlsPlaybackUrl(ingestKey: string): string {
+  const encoded = encodeURIComponent(ingestKey);
+  // Production HTTPS HLS: browser pulls segments from the VPS/CDN (fast). LAN http stays on /api/hls proxy.
+  if (HLS_SERVER_URL?.startsWith("https://")) {
+    return `${HLS_SERVER_URL}/live/${encoded}/index.m3u8`;
+  }
   const proxied = getProxiedHlsPlaybackUrl(ingestKey);
   if (proxied) return proxied;
   if (HLS_SERVER_URL) {
-    return `${HLS_SERVER_URL}/live/${ingestKey}/index.m3u8`;
+    return `${HLS_SERVER_URL}/live/${encoded}/index.m3u8`;
   }
   return DEMO_HLS;
 }

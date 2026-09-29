@@ -47,13 +47,15 @@ export function createMediaMtxHlsConfig() {
   } as const;
 }
 
-/** Safari plays MediaMTX HLS natively; hls.js LL-HLS mode is for Chrome/Firefox. */
+/** Safari on iPhone/iPad can use native HLS; desktop macOS Safari often stalls on MediaMTX LL-HLS — prefer hls.js. */
 export function preferNativeMediaMtxHls(): boolean {
   if (typeof window === "undefined") return false;
   if (isIPadLike()) return false;
+  const ua = navigator.userAgent;
   const video = document.createElement("video");
   if (!video.canPlayType("application/vnd.apple.mpegurl")) return false;
-  const ua = navigator.userAgent;
+  const isMacDesktop = /Macintosh|Mac OS X/i.test(ua) && navigator.maxTouchPoints === 0;
+  if (isMacDesktop) return false;
   return /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox/i.test(ua);
 }
 
@@ -64,6 +66,10 @@ export function resolveClientHlsPlaybackUrl(
 ): string {
   if (ingestMode === "demo" && playbackUrl) return playbackUrl;
   if (ingestKey?.startsWith("lb_") || ingestKey?.startsWith("st_")) {
+    const hls = process.env.NEXT_PUBLIC_HLS_SERVER_URL?.replace(/\/$/, "");
+    if (typeof window !== "undefined" && hls?.startsWith("https://")) {
+      return `${hls}/live/${encodeURIComponent(ingestKey)}/index.m3u8`;
+    }
     return localHlsPlaybackPath(ingestKey);
   }
   if (playbackUrl?.startsWith("/api/hls/")) return playbackUrl;
