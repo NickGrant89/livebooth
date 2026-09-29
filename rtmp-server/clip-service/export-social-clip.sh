@@ -36,7 +36,12 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT")"
 
-VF="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1"
+CROP_MODE="${CLIP_CROP_MODE:-fit}"
+if [[ "$CROP_MODE" == "center" ]]; then
+  VF="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1"
+else
+  VF="scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x030304,setsar=1"
+fi
 
 FFMPEG_ARGS=(-nostdin -y -loglevel warning)
 

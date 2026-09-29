@@ -53,5 +53,6 @@ Response includes `downloadUrl` (MP4 attachment).
 ## Notes
 
 - Live tail needs an active recording under `recordings/live/{ingestKey}/` (OBS publishing).
+- Default export **letterboxes** the full OBS frame into 9:16 (best for wide browser/desktop captures). Set `CLIP_CROP_MODE=center` on clip-service for center zoom crop instead.
 - Clips on disk are purged after ~24h by clip-service.
 - Client-side WebM export in the replay UI still works when server export is unavailable.

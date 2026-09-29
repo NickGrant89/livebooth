@@ -92,8 +92,8 @@ export function ServerClipPanel({
       </div>
       <p className="text-xs text-zinc-500">
         {mode === "live_tail"
-          ? "9:16 vertical clip from your OBS feed only (not this page layout). MP4 for TikTok & Reels."
-          : "Server-rendered 9:16 MP4 — better for TikTok upload limits than browser WebM."}
+          ? "9:16 vertical clip from your OBS feed — full wide scene with letterbox bars (not a center zoom). MP4 for TikTok & Reels."
+          : "Server-rendered 9:16 MP4 — full frame letterboxed for wide sets."}
       </p>
 
       <div className="flex flex-wrap gap-2">
