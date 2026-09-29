@@ -8,7 +8,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
 import { DROP_TOKEN_SYMBOL } from "@/lib/constants";
 import { apiFetch } from "@/lib/fetch-client";
 
@@ -56,7 +55,11 @@ export function AuthProvider({
 }) {
   const [user, setUser] = useState<AuthUser | null>(initialUser);
   const [loading, setLoading] = useState(initialUser === null);
-  const pathname = usePathname();
+
+  useEffect(() => {
+    setUser(initialUser);
+    if (initialUser !== null) setLoading(false);
+  }, [initialUser]);
 
   const refresh = useCallback(async () => {
     try {
@@ -69,10 +72,17 @@ export function AuthProvider({
     }
   }, []);
 
-  // Re-sync session after server-action login/logout navigations
+  // One client check when the server had no session cookie; avoid re-fetching /me on every Link click.
   useEffect(() => {
-    refresh().finally(() => setLoading(false));
-  }, [pathname, refresh]);
+    if (initialUser !== null) return;
+    let cancelled = false;
+    refresh().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialUser, refresh]);
 
   const logout = async () => {
     await apiFetch("/api/auth/logout", { method: "POST" });

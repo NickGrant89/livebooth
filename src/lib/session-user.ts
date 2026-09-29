@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getOrCreateBalance } from "@/lib/ledger";
@@ -6,7 +7,7 @@ import { parseGenres } from "@/lib/api-utils";
 import type { AuthUser } from "@/context/AuthContext";
 
 /** Full auth user payload — shared by /api/auth/me and server layout bootstrap. */
-export async function getAuthUserForClient(): Promise<AuthUser | null> {
+export const getAuthUserForClient = cache(async function getAuthUserForClient(): Promise<AuthUser | null> {
   const session = await getSessionUser();
   if (!session) return null;
 
@@ -19,7 +20,9 @@ export async function getAuthUserForClient(): Promise<AuthUser | null> {
   });
 
   if (!user) return null;
-  await getOrCreateBalance(user.id);
+  if (!user.balance) {
+    await getOrCreateBalance(user.id);
+  }
 
   const liveStream = await prisma.stream.findFirst({
     where: { djId: user.id, status: { in: ["preparing", "live"] } },
@@ -52,4 +55,4 @@ export async function getAuthUserForClient(): Promise<AuthUser | null> {
         }
       : null,
   };
-}
+});

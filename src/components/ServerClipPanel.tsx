@@ -62,13 +62,11 @@ export function ServerClipPanel({
           : new Blob([blob], { type: "video/mp4" });
 
       try {
-        const result = await shareClipBlob(mp4, filename, shareText);
-        if (result === "shared") return;
+        await shareClipBlob(mp4, filename, shareText);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
+        downloadBlob(mp4, filename);
       }
-
-      downloadBlob(mp4, filename);
     } catch {
       setError("Clip export failed — try again in a moment");
     } finally {
