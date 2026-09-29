@@ -31,13 +31,17 @@ export function StreamMobileTabs({
   const [theatre, setTheatre] = useState(false);
   const [lastSeenCount, setLastSeenCount] = useState(0);
   const isLg = useIsLgViewport();
-  const { messages } = useStreamChatContext();
+  const { messages, syncChat } = useStreamChatContext();
 
   useEffect(() => {
     if (tab === "chat") {
       setLastSeenCount(messages.length);
     }
   }, [tab, messages.length]);
+
+  useEffect(() => {
+    if (tab === "chat") syncChat();
+  }, [tab, syncChat]);
 
   const unread = tab === "watch" ? Math.max(0, messages.length - lastSeenCount) : 0;
 

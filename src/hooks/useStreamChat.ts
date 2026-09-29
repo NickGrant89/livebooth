@@ -8,30 +8,16 @@ export type ChatConnectionStatus = "connecting" | "live" | "reconnecting" | "off
 /** Incremental backfill — SSE live fan-out is unreliable on multi-instance serverless. */
 const POLL_MS = 2500;
 
-function isNearDuplicate(a: ChatMessagePayload, b: ChatMessagePayload): boolean {
-  if (a.id === b.id) return true;
-  if (!a.userId || !b.userId || a.userId !== b.userId) return false;
-  if (a.username !== b.username || a.message !== b.message) return false;
-  return (
-    Math.abs(new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) <= 3000
-  );
-}
-
 function mergeChatMessages(
   prev: ChatMessagePayload[],
   incoming: ChatMessagePayload[],
 ): ChatMessagePayload[] {
   if (incoming.length === 0) return prev;
-  const merged = [...prev];
+  const byId = new Map(prev.map((m) => [m.id, m]));
   for (const msg of incoming) {
-    const dupeIdx = merged.findIndex((existing) => isNearDuplicate(existing, msg));
-    if (dupeIdx >= 0) {
-      merged[dupeIdx] = msg;
-      continue;
-    }
-    merged.push(msg);
+    byId.set(msg.id, msg);
   }
-  return merged
+  return [...byId.values()]
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     .slice(-100);
 }
@@ -42,13 +28,14 @@ export function useStreamChat(streamId: string) {
   const sourceRef = useRef<EventSource | null>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastMessageAtRef = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+  const pollMessagesRef = useRef<() => void>(() => {});
 
   const mergeMessages = useCallback((incoming: ChatMessagePayload[]) => {
     setMessages((prev) => {
       const merged = mergeChatMessages(prev, incoming);
       if (merged.length > 0) {
-        lastMessageAtRef.current = merged[merged.length - 1]!.createdAt;
+        lastMessageIdRef.current = merged[merged.length - 1]!.id;
       }
       return merged;
     });
@@ -62,13 +49,17 @@ export function useStreamChat(streamId: string) {
   );
 
   const pollMessages = useCallback(async () => {
-    const since = lastMessageAtRef.current;
-    const url = since
-      ? `/api/chat/${streamId}?since=${encodeURIComponent(since)}`
+    const afterId = lastMessageIdRef.current;
+    const url = afterId
+      ? `/api/chat/${streamId}?afterId=${encodeURIComponent(afterId)}`
       : `/api/chat/${streamId}`;
 
     try {
-      const res = await fetch(url, { credentials: "same-origin" });
+      const res = await fetch(url, {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
       if (!res.ok) return;
       const data = (await res.json()) as { messages?: ChatMessagePayload[] };
       if (data.messages?.length) {
@@ -79,6 +70,10 @@ export function useStreamChat(streamId: string) {
       /* polling is best-effort */
     }
   }, [streamId, mergeMessages]);
+
+  pollMessagesRef.current = () => {
+    void pollMessages();
+  };
 
   const connect = useCallback(() => {
     sourceRef.current?.close();
@@ -116,16 +111,28 @@ export function useStreamChat(streamId: string) {
   }, [streamId, appendMessage, mergeMessages]);
 
   useEffect(() => {
-    lastMessageAtRef.current = null;
+    lastMessageIdRef.current = null;
     setMessages([]);
     setStatus("connecting");
     connect();
     void pollMessages();
     pollRef.current = setInterval(() => {
-      void pollMessages();
+      pollMessagesRef.current();
     }, POLL_MS);
 
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        pollMessagesRef.current();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    window.addEventListener("pageshow", onVisible);
+
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener("pageshow", onVisible);
       sourceRef.current?.close();
       if (retryRef.current) clearTimeout(retryRef.current);
       if (pollRef.current) clearInterval(pollRef.current);
@@ -133,5 +140,5 @@ export function useStreamChat(streamId: string) {
     };
   }, [connect, pollMessages]);
 
-  return { messages, status, appendMessage };
+  return { messages, status, appendMessage, syncChat: pollMessages };
 }

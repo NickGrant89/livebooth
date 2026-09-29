@@ -371,6 +371,16 @@ export function StreamChat({
                 }`}
               >
                 {msg.displayName ?? msg.username}
+                {msg.staffRole === "admin" && (
+                  <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-red-300/90">
+                    Admin
+                  </span>
+                )}
+                {msg.staffRole === "moderator" && (
+                  <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-300/90">
+                    Mod
+                  </span>
+                )}
                 {msg.stakerBadge && (
                   <StakerBadge label={msg.stakerBadge} tier={tierFromBadgeLabel(msg.stakerBadge)} />
                 )}

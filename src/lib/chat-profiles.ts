@@ -12,7 +12,7 @@ export async function attachChatProfiles(
 
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
-    select: { id: true, avatar: true, avatarUrl: true, displayName: true },
+    select: { id: true, avatar: true, avatarUrl: true, displayName: true, role: true },
   });
   const profileMap = new Map(users.map((u) => [u.id, u]));
 
@@ -25,6 +25,10 @@ export async function attachChatProfiles(
       avatar: profile.avatar,
       avatarUrl: profile.avatarUrl,
       displayName: profile.displayName,
+      staffRole:
+        profile.role === "admin" || profile.role === "moderator"
+          ? (profile.role as "admin" | "moderator")
+          : undefined,
     };
   });
 }

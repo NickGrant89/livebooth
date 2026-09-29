@@ -8,6 +8,7 @@ type StreamChatContextValue = {
   messages: ChatMessagePayload[];
   status: ChatConnectionStatus;
   appendMessage: (msg: ChatMessagePayload) => void;
+  syncChat: () => void;
 };
 
 const StreamChatContext = createContext<StreamChatContextValue | null>(null);

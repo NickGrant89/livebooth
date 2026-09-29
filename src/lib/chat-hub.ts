@@ -9,6 +9,8 @@ export interface ChatMessagePayload {
   isTip?: boolean;
   tipAmount?: number;
   stakerBadge?: string | null;
+  /** Present for platform admin / moderator senders */
+  staffRole?: "admin" | "moderator";
   createdAt: string;
 }
 
