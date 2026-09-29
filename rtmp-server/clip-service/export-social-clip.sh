@@ -36,12 +36,12 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT")"
 
-VF="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+VF="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1"
 
-FFMPEG_ARGS=(-nostdin -y -loglevel error)
+FFMPEG_ARGS=(-nostdin -y -loglevel warning)
 
 if [[ "$LIVE_TAIL" == "1" ]]; then
-  FFMPEG_ARGS+=(-sseof "-${DURATION}" -i "$INPUT" -t "$DURATION")
+  FFMPEG_ARGS+=(-fflags +genpts -sseof "-${DURATION}" -i "$INPUT" -t "$DURATION")
 elif [[ -n "$START" ]]; then
   FFMPEG_ARGS+=(-ss "$START" -t "$DURATION" -i "$INPUT")
 else
@@ -58,6 +58,14 @@ ffmpeg "${FFMPEG_ARGS[@]}" \
 if [[ ! -s "$OUTPUT" ]]; then
   echo "Clip export produced empty file" >&2
   exit 1
+fi
+
+if command -v ffprobe >/dev/null 2>&1; then
+  dims=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$OUTPUT" 2>/dev/null || true)
+  if [[ -n "$dims" && "$dims" != "1080,1920" ]]; then
+    echo "Clip dimensions unexpected ($dims), expected 1080,1920" >&2
+    exit 1
+  fi
 fi
 
 echo "$OUTPUT"

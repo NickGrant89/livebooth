@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Film, Loader2, Share2, Smartphone } from "lucide-react";
 import { apiFetch } from "@/lib/fetch-client";
-import { getClientSiteUrl } from "@/lib/share";
+import { downloadBlob, shareClipBlob } from "@/lib/clip-export";
 
 type ServerClipPanelProps = {
   streamId: string;
@@ -45,25 +45,30 @@ export function ServerClipPanel({
         return;
       }
       const downloadUrl = data.downloadUrl as string;
+      const filename = (data.filename as string) || "livebooth-clip.mp4";
       setLastDownloadUrl(downloadUrl);
 
-      const fullUrl = `${getClientSiteUrl()}${downloadUrl}`;
       const shareText = `@${djUsername} — ${title} · LiveBooth clip`;
 
-      if (typeof navigator !== "undefined" && navigator.share) {
-        try {
-          await navigator.share({
-            title: "LiveBooth clip",
-            text: shareText,
-            url: fullUrl,
-          });
-          return;
-        } catch (e) {
-          if (e instanceof DOMException && e.name === "AbortError") return;
-        }
+      const fileRes = await apiFetch(downloadUrl);
+      if (!fileRes.ok) {
+        setError("Clip rendered but download failed — use Download again");
+        return;
+      }
+      const blob = await fileRes.blob();
+      const mp4 =
+        blob.type === "video/mp4"
+          ? blob
+          : new Blob([blob], { type: "video/mp4" });
+
+      try {
+        const result = await shareClipBlob(mp4, filename, shareText);
+        if (result === "shared") return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
       }
 
-      window.location.href = downloadUrl;
+      downloadBlob(mp4, filename);
     } catch {
       setError("Clip export failed — try again in a moment");
     } finally {
@@ -87,7 +92,7 @@ export function ServerClipPanel({
       </div>
       <p className="text-xs text-zinc-500">
         {mode === "live_tail"
-          ? "Server cuts the last 30–60s from your OBS recording — H.264 MP4 for TikTok & Reels (no WebM conversion)."
+          ? "9:16 vertical clip from your OBS feed only (not this page layout). MP4 for TikTok & Reels."
           : "Server-rendered 9:16 MP4 — better for TikTok upload limits than browser WebM."}
       </p>
 
