@@ -38,7 +38,7 @@ let accountCurrency: string | null = null;
 /** Settlement currency on the Stripe account. UK accounts reject USD charges. */
 export async function getStripeAccountCurrency(): Promise<string> {
   if (accountCurrency) return accountCurrency;
-  const account = await getStripe().accounts.retrieve();
+  const account = await getStripe().accounts.retrieve(null);
   accountCurrency = (account.default_currency || "gbp").toLowerCase();
   return accountCurrency;
 }
