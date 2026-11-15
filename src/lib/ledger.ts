@@ -161,7 +161,7 @@ export async function processTip(
   });
 
   const tipCount = await prisma.tip.count({ where: { streamId } });
-  if (tipCount === 1) {
+  if (tipCount === 1 && countsAsEarned) {
     await applyFirstTipBonus(streamId, toUserId);
   }
 
@@ -287,7 +287,9 @@ export async function resolveCrowdRequest(
   }
 
   const refund = request.amount - 1;
-  await creditUser(request.fanId, refund, "request_refund", requestId);
+  await creditUser(request.fanId, refund, "request_refund", requestId, undefined, {
+    countAsEarned: false,
+  });
   return prisma.crowdRequest.update({
     where: { id: requestId },
     data: { status: "declined" },
@@ -373,6 +375,8 @@ export async function claimAchievementReward(userId: string, achievementId: stri
     ua.achievement.rewardTokens,
     "achievement_claim",
     achievementId,
+    undefined,
+    { countAsEarned: false },
   );
 
   return prisma.userAchievement.update({

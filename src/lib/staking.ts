@@ -184,7 +184,7 @@ export async function evaluateDjMilestones(djId: string) {
       await creditUser(fanId, reward, "dj_milestone", djId, {
         milestone: milestone.key,
         label: milestone.label,
-      });
+      }, { countAsEarned: false });
       await notifyUser(
         fanId,
         "dj_milestone",

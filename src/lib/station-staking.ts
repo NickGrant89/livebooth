@@ -223,7 +223,7 @@ export async function evaluateStationMilestones(stationId: string) {
       await creditUser(fanId, reward, "station_milestone", stationId, {
         milestone: milestone.key,
         label: milestone.label,
-      });
+      }, { countAsEarned: false });
       await notifyUser(
         fanId,
         "station_milestone",

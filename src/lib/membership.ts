@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { creditUser, debitUser } from "./ledger";
+import { fanPaymentCountsAsCreatorEarnings } from "./withdrawable-earnings";
 import { notifyUser } from "./notifications";
 import {
   MEMBER_BILLING_DAYS,
@@ -50,11 +51,12 @@ export async function creditDjMembershipRevenue(
   monthlyAmount: number,
 ) {
   const creatorShare = Math.floor(monthlyAmount * MEMBER_DJ_CREATOR_SHARE);
+  const countsAsEarned = await fanPaymentCountsAsCreatorEarnings(fanId);
   if (creatorShare > 0) {
     await creditUser(djId, creatorShare, "membership_earned", fanId, {
       monthlyAmount,
       share: MEMBER_DJ_CREATOR_SHARE,
-    });
+    }, { countAsEarned: countsAsEarned });
   }
 }
 
@@ -71,19 +73,20 @@ export async function creditStationMembershipRevenue(
       ? Math.floor(monthlyAmount * MEMBER_STATION_LIVE_DJ_SHARE)
       : 0;
 
+  const countsAsEarned = await fanPaymentCountsAsCreatorEarnings(fanId);
   if (ownerShare > 0) {
     await creditUser(ownerId, ownerShare, "station_membership_earned", stationId, {
       fanId,
       monthlyAmount,
       share: MEMBER_STATION_OWNER_SHARE,
-    });
+    }, { countAsEarned: countsAsEarned });
   }
   if (liveDjShare > 0 && liveDjId) {
     await creditUser(liveDjId, liveDjShare, "station_membership_artist", stationId, {
       fanId,
       monthlyAmount,
       share: MEMBER_STATION_LIVE_DJ_SHARE,
-    });
+    }, { countAsEarned: countsAsEarned });
   }
 }
 

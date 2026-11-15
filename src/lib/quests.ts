@@ -127,10 +127,14 @@ export async function claimQuest(userId: string, questId: string, streamId?: str
     claimedStreamId = presence?.streamId;
   }
 
-  await creditUser(userId, quest.reward, "quest_reward", quest.id, {
-    questKey: quest.questKey,
-    streamId: claimedStreamId,
-  });
+  await creditUser(
+    userId,
+    quest.reward,
+    "quest_reward",
+    quest.id,
+    { questKey: quest.questKey, streamId: claimedStreamId },
+    { countAsEarned: false },
+  );
   await prisma.fanQuestProgress.update({
     where: { id: quest.id },
     data: { claimedAt: new Date(), claimedStreamId: claimedStreamId ?? null },
@@ -152,7 +156,9 @@ export async function claimQuest(userId: string, questId: string, streamId?: str
     });
     if (!already) {
       dailyClearBonus = QUEST_DAILY_CLEAR_BONUS;
-      await creditUser(userId, dailyClearBonus, "quest_daily_clear", questDate);
+      await creditUser(userId, dailyClearBonus, "quest_daily_clear", questDate, undefined, {
+        countAsEarned: false,
+      });
     }
   }
 
