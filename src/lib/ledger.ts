@@ -8,6 +8,7 @@ import {
   STATION_TIP_DJ_SHARE,
   STATION_TIP_STATION_SHARE,
   STATION_TIP_PLATFORM_SHARE,
+  WELCOME_BONUS,
 } from "./constants";
 import { applyFirstTipBonus, createStreamHighlight } from "./retention";
 import { getStakerBadgeForStream } from "./staker-perks";
@@ -318,40 +319,44 @@ export async function buyDropFromStripe(
     return getOrCreateBalance(userId);
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.stripePurchase.upsert({
-      where: { stripeSessionId },
-      create: {
-        userId,
-        stripeSessionId,
-        dropAmount,
-        amountCents,
-        status: "completed",
-        completedAt: new Date(),
-      },
-      update: {
-        status: "completed",
-        completedAt: new Date(),
-      },
-    });
+  await prisma.$transaction(
+    async (tx) => {
+      const claimed = await tx.stripePurchase.updateMany({
+        where: { stripeSessionId, status: { not: "completed" } },
+        data: { status: "completed", completedAt: new Date(), amountCents, dropAmount },
+      });
+      if (claimed.count === 0) {
+        const row = await tx.stripePurchase.findUnique({ where: { stripeSessionId } });
+        if (row) return;
+        await tx.stripePurchase.create({
+          data: {
+            userId,
+            stripeSessionId,
+            dropAmount,
+            amountCents,
+            status: "completed",
+            completedAt: new Date(),
+          },
+        });
+      }
 
-    await getOrCreateBalance(userId);
-    await tx.beatBalance.update({
-      where: { userId },
-      data: {
-        balance: { increment: dropAmount },
-      },
-    });
-    await tx.ledgerEntry.create({
-      data: {
-        userId,
-        amount: dropAmount,
-        type: "stripe_purchase",
-        reference: stripeSessionId,
-        metadata: JSON.stringify({ amountCents, stripeSessionId }),
-      },
-    });
-  });
+      await tx.beatBalance.upsert({
+        where: { userId },
+        create: { userId, balance: WELCOME_BONUS + dropAmount, totalEarned: 0 },
+        update: { balance: { increment: dropAmount } },
+      });
+      await tx.ledgerEntry.create({
+        data: {
+          userId,
+          amount: dropAmount,
+          type: "stripe_purchase",
+          reference: stripeSessionId,
+          metadata: JSON.stringify({ amountCents, stripeSessionId }),
+        },
+      });
+    },
+    { timeout: 15000 },
+  );
 
   return getOrCreateBalance(userId);
 }

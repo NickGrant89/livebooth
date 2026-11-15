@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { buyDrop, getOrCreateBalance } from "@/lib/ledger";
+import { reconcilePaidStripePurchases } from "@/lib/stripe-credit";
 import { isStripeConfigured } from "@/lib/stripe";
 import { json, error, requireApiUser, isApiError } from "@/lib/api-utils";
 import { z } from "zod";
@@ -8,6 +9,7 @@ export async function GET() {
   const auth = await requireApiUser();
   if (isApiError(auth)) return auth;
 
+  const creditedDrop = await reconcilePaidStripePurchases(auth.id);
   const balance = await getOrCreateBalance(auth.id);
   const entries = await prisma.ledgerEntry.findMany({
     where: { userId: auth.id },
@@ -18,6 +20,7 @@ export async function GET() {
   return json({
     balance: balance.balance,
     totalEarned: balance.totalEarned,
+    creditedDrop,
     entries: entries.map((e) => ({
       id: e.id,
       amount: e.amount,

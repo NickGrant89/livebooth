@@ -82,7 +82,15 @@ function WalletContent() {
     if (!user) return;
     apiFetch("/api/wallet")
       .then((r) => r.json())
-      .then((d) => setEntries(d.entries ?? []));
+      .then(async (d) => {
+        setEntries(d.entries ?? []);
+        if (d.creditedDrop > 0) {
+          setPurchaseMsg(
+            `Payment received — ${Number(d.creditedDrop).toLocaleString()} DROP added to your balance.`,
+          );
+          await refresh();
+        }
+      });
     apiFetch("/api/stripe/checkout")
       .then((r) => r.json())
       .then((d) => {
