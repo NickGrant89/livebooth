@@ -69,6 +69,7 @@ services:
       RECORDINGS_ROOT: /recordings
       RECORDINGS_CLIP_SECRET: ${RECORDINGS_CLIP_SECRET:-}
       CLIP_SERVICE_PORT: 8093
+      MEDIAMTX_RTMP_URL: rtmp://mediamtx:1935
     ports:
       - "127.0.0.1:8093:8093"
     depends_on:

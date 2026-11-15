@@ -161,8 +161,16 @@ export function AdminDashboard({
     recentReports: unknown[];
     chatMessageReports?: unknown[];
     aiScans?: unknown[];
-    ai?: { provider: string; configured: boolean; stopThreshold: number; flagThreshold: number };
+    ai?: {
+      provider: string;
+      configured: boolean;
+      stopThreshold: number;
+      flagThreshold: number;
+      frameGrab?: boolean;
+    };
+    liveNow?: Array<{ id: string; title: string; username: string; displayName: string }>;
   } | null>(null);
+  const [frameTick, setFrameTick] = useState(0);
   const [tickets, setTickets] = useState<Array<Record<string, unknown>>>([]);
   const [supportAdmins, setSupportAdmins] = useState<
     Array<{ id: string; username: string; displayName: string }>
@@ -311,7 +319,10 @@ export function AdminDashboard({
 
   async function loadModeration() {
     const res = await apiFetch("/api/admin/moderation");
-    if (res.ok) setModeration(await res.json());
+    if (res.ok) {
+      setModeration(await res.json());
+      setFrameTick(Date.now());
+    }
   }
 
   async function loadTickets(
@@ -1392,14 +1403,36 @@ export function AdminDashboard({
               </button>
             </div>
             <p className="text-xs text-zinc-400">
-              Provider: <strong className="text-zinc-200">{moderation.ai?.provider ?? "mock"}</strong>
-              {moderation.ai?.configured ? "" : " — built-in checker until a review provider is connected"}
-              {" · "}Stop ≥ {Math.round((moderation.ai?.stopThreshold ?? 0.85) * 100)}% risk
-              {" · "}Flag ≥ {Math.round((moderation.ai?.flagThreshold ?? 0.55) * 100)}% risk
+              {moderation.ai?.provider === "hive"
+                ? "Hive scores a still from each live booth."
+                : moderation.ai?.provider === "rekognition"
+                  ? "AWS Rekognition scores a still from each live booth."
+                  : moderation.ai?.frameGrab
+                    ? "Built-in check grabs a still from each live booth. A black picture is flagged. Adult-content scoring starts when Hive or Rekognition is connected."
+                    : "Picture grab is not connected yet, so scans cannot see the booth."}
+              {" "}Stop at {Math.round((moderation.ai?.stopThreshold ?? 0.85) * 100)}% risk
+              {" · "}flag at {Math.round((moderation.ai?.flagThreshold ?? 0.55) * 100)}%.
             </p>
+            {(moderation.liveNow ?? []).length > 0 && moderation.ai?.frameGrab && (
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(moderation.liveNow ?? []).map((s) => (
+                  <figure key={s.id} className="rounded-lg border border-white/10 overflow-hidden bg-black">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/admin/moderation/frame?streamId=${encodeURIComponent(s.id)}&t=${frameTick}`}
+                      alt=""
+                      className="aspect-video w-full object-cover bg-zinc-900"
+                    />
+                    <figcaption className="px-2 py-1 text-[10px] text-zinc-400 truncate">
+                      @{s.username} · {s.title}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
             <div className="space-y-2 mt-3 max-h-48 overflow-y-auto">
               {(moderation.aiScans ?? []).length === 0 ? (
-                <p className="text-xs text-zinc-600">No AI scans yet — runs every 2 min on admin load + on viewer reports</p>
+                <p className="text-xs text-zinc-600">No scans yet. A still is checked about every 2 minutes while someone is live, and again when a viewer reports the booth.</p>
               ) : (
                 (moderation.aiScans ?? []).map((scan: unknown) => {
                   const sc = scan as {

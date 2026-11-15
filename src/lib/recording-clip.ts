@@ -42,6 +42,32 @@ export function isServerClipExportAvailable(): boolean {
   return clipServiceConfigured() && (isRemoteRecordingEnabled() || isLocalRecordingEnabled());
 }
 
+export type LiveFrame = { jpeg: Buffer; blackPercent: number | null };
+
+/** One JPEG from the live RTMP path, via the VPS clip service. */
+export async function fetchLiveSnapshot(ingestKey: string): Promise<LiveFrame | null> {
+  const baseUrl = process.env.RECORDINGS_CLIP_URL?.replace(/\/$/, "");
+  const secret = process.env.RECORDINGS_CLIP_SECRET;
+  if (!baseUrl || !secret) return null;
+  if (!ingestKey.startsWith("lb_") && !ingestKey.startsWith("st_")) return null;
+
+  const res = await fetch(`${baseUrl}/snapshot`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ ingestKey }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) return null;
+  const jpeg = Buffer.from(await res.arrayBuffer());
+  if (jpeg.length < 200) return null;
+  const raw = res.headers.get("x-frame-black");
+  const blackPercent = raw != null && raw !== "" && Number.isFinite(Number(raw)) ? Number(raw) : null;
+  return { jpeg, blackPercent };
+}
+
 /** Request MP4 clip from VPS ffmpeg service. */
 export async function requestServerClipExport(
   req: ClipExportRequest,

@@ -23,7 +23,16 @@ fi
 
 echo "Building clip-service…"
 docker compose -f "$COMPOSE" build clip-service
-docker compose -f "$COMPOSE" up -d clip-service
+docker compose -f "$COMPOSE" up -d --no-deps clip-service
+
+# MediaMTX may be on the compose default network while this file puts clip-service on `livebooth`.
+# Attach so rtmp://mediamtx:1935 resolves. Does not restart MediaMTX.
+if docker inspect livebooth-rtmp >/dev/null 2>&1; then
+  MTX_NET="$(docker inspect livebooth-rtmp --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' | head -1)"
+  if [[ -n "${MTX_NET}" ]]; then
+    docker network connect "${MTX_NET}" livebooth-clip-service 2>/dev/null || true
+  fi
+fi
 
 echo ""
 echo "Clip service: http://127.0.0.1:8093/health"

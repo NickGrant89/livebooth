@@ -5,7 +5,8 @@ import {
 } from "./constants";
 import { prisma } from "./db";
 import { forceEndStream } from "./moderation";
-import { isDemoPlayback } from "./streaming";
+import { fetchLiveSnapshot } from "./recording-clip";
+import { isDemoPlayback, isLiveBoothIngestKey } from "./streaming";
 
 export type ModerationProvider = "mock" | "hive" | "rekognition";
 
@@ -67,12 +68,16 @@ async function fetchImageBytes(url: string): Promise<Buffer | null> {
   }
 }
 
-async function scanWithHive(mediaUrl: string): Promise<AiScanResult> {
+async function scanWithHive(mediaUrl: string, jpeg?: Buffer): Promise<AiScanResult> {
   const apiKey = process.env.HIVE_API_KEY;
   if (!apiKey) throw new Error("HIVE_API_KEY not set");
 
   const form = new FormData();
-  form.append("url", mediaUrl);
+  if (jpeg) {
+    form.append("media", new Blob([new Uint8Array(jpeg)], { type: "image/jpeg" }), "frame.jpg");
+  } else {
+    form.append("url", mediaUrl);
+  }
 
   const res = await fetch("https://api.thehive.ai/api/v2/task/sync", {
     method: "POST",
@@ -103,8 +108,8 @@ async function scanWithHive(mediaUrl: string): Promise<AiScanResult> {
   return buildResult("hive", riskScore, flags, mediaUrl);
 }
 
-async function scanWithRekognition(mediaUrl: string): Promise<AiScanResult> {
-  const bytes = await fetchImageBytes(mediaUrl);
+async function scanWithRekognition(mediaUrl: string, jpeg?: Buffer): Promise<AiScanResult> {
+  const bytes = jpeg ?? (await fetchImageBytes(mediaUrl));
   if (!bytes) {
     return buildResult("rekognition", 0, ["no_frame"], mediaUrl);
   }
@@ -140,8 +145,13 @@ async function scanWithRekognition(mediaUrl: string): Promise<AiScanResult> {
   return buildResult("rekognition", riskScore, flags, mediaUrl);
 }
 
-async function scanWithMock(mediaUrl: string): Promise<AiScanResult> {
-  return buildResult("mock", 0.05, ["mock_pass"], mediaUrl);
+function scanBuiltIn(mediaUrl: string, blackPercent: number | null): AiScanResult {
+  if (blackPercent != null && blackPercent >= 98) {
+    return buildResult("mock", 0.6, [`mostly_black (${Math.round(blackPercent)}%)`], mediaUrl);
+  }
+  const flags = ["picture_ok"];
+  if (blackPercent != null) flags.push(`black ${Math.round(blackPercent)}%`);
+  return buildResult("mock", 0.05, flags, mediaUrl);
 }
 
 function buildResult(
@@ -162,25 +172,39 @@ export async function runAiModerationScan(streamId: string): Promise<AiScanResul
   if (!stream || stream.status !== "live") return null;
 
   const mediaUrl = getModerationMediaUrl(stream.playbackUrl);
-  if (!mediaUrl) return null;
+  if (!mediaUrl && !isLiveBoothIngestKey(stream.ingestKey)) return null;
+
+  const snapshotOn = Boolean(process.env.RECORDINGS_CLIP_URL && process.env.RECORDINGS_CLIP_SECRET);
+  const ingestKey = stream.ingestKey ?? "";
+  const frame =
+    snapshotOn && isLiveBoothIngestKey(ingestKey)
+      ? await fetchLiveSnapshot(ingestKey).catch(() => null)
+      : null;
+  const scanUrl = mediaUrl ?? stream.playbackUrl ?? ingestKey;
 
   const provider = getConfiguredProvider();
   let result: AiScanResult;
 
   try {
-    switch (provider) {
-      case "hive":
-        result = await scanWithHive(mediaUrl);
-        break;
-      case "rekognition":
-        result = await scanWithRekognition(mediaUrl);
-        break;
-      default:
-        result = await scanWithMock(mediaUrl);
+    if (snapshotOn && isLiveBoothIngestKey(ingestKey) && !frame) {
+      result = buildResult(provider, 0.6, ["no_picture"], scanUrl);
+    } else if (frame && provider === "mock") {
+      result = scanBuiltIn(scanUrl, frame.blackPercent);
+    } else {
+      switch (provider) {
+        case "hive":
+          result = await scanWithHive(scanUrl, frame?.jpeg);
+          break;
+        case "rekognition":
+          result = await scanWithRekognition(scanUrl, frame?.jpeg);
+          break;
+        default:
+          result = buildResult("mock", 0.05, ["no_frame_source"], scanUrl);
+      }
     }
   } catch (err) {
     console.error(`AI moderation scan failed (${provider}):`, err);
-    result = buildResult(provider, 0, ["scan_error"], mediaUrl);
+    result = buildResult(provider, 0, ["scan_error"], scanUrl);
   }
 
   await prisma.streamAiScan.create({
@@ -217,12 +241,14 @@ export async function runAiModerationScan(streamId: string): Promise<AiScanResul
   return result;
 }
 
-export async function scanLiveStreamsDue() {
+export async function scanLiveStreamsDue(opts?: { force?: boolean }) {
   const cutoff = new Date(Date.now() - AI_MODERATION_SCAN_INTERVAL_MS);
   const live = await prisma.stream.findMany({
     where: {
       status: "live",
-      OR: [{ aiLastScanAt: null }, { aiLastScanAt: { lt: cutoff } }],
+      ...(opts?.force
+        ? {}
+        : { OR: [{ aiLastScanAt: null }, { aiLastScanAt: { lt: cutoff } }] }),
     },
     select: { id: true },
   });

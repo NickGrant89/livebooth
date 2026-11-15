@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * VPS clip export — ffmpeg vertical MP4 for TikTok/Reels (live tail + VOD segments).
- * POST /export with Authorization: Bearer $RECORDINGS_CLIP_SECRET
+ * POST /export and POST /snapshot with Authorization: Bearer $RECORDINGS_CLIP_SECRET
  */
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
@@ -14,6 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.CLIP_SERVICE_PORT ?? 8093);
 const ROOT = process.env.RECORDINGS_ROOT ?? "/recordings";
 const SECRET = process.env.RECORDINGS_CLIP_SECRET ?? "";
+const RTMP_BASE = (process.env.MEDIAMTX_RTMP_URL ?? "rtmp://mediamtx:1935").replace(/\/$/, "");
 const SCRIPT = path.join(__dirname, "export-social-clip.sh");
 const MAX_DURATION = 90;
 const CLIP_TTL_MS = 24 * 60 * 60 * 1000;
@@ -71,6 +72,57 @@ function runExport(args) {
   });
 }
 
+function validIngestKey(ingestKey) {
+  return ingestKey.startsWith("lb_") || ingestKey.startsWith("st_");
+}
+
+/** One JPEG from the live RTMP path, plus a black-frame percentage when ffmpeg reports it. */
+function grabLiveFrame(ingestKey) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "-hide_banner",
+      "-loglevel",
+      "info",
+      "-rw_timeout",
+      "8000000",
+      "-i",
+      `${RTMP_BASE}/live/${ingestKey}`,
+      "-frames:v",
+      "1",
+      "-vf",
+      "scale=480:-1,blackframe=amount=80:threshold=32",
+      "-q:v",
+      "5",
+      "-f",
+      "image2pipe",
+      "-vcodec",
+      "mjpeg",
+      "pipe:1",
+    ];
+    const proc = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
+    const chunks = [];
+    let err = "";
+    const timer = setTimeout(() => {
+      proc.kill("SIGKILL");
+      reject(new Error("snapshot timed out"));
+    }, 12000);
+    proc.stdout.on("data", (d) => chunks.push(d));
+    proc.stderr.on("data", (d) => {
+      err += d.toString();
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      const jpeg = Buffer.concat(chunks);
+      if (code !== 0 || jpeg.length < 200) {
+        reject(new Error(err.trim().split("\n").slice(-3).join(" ") || "no live frame"));
+        return;
+      }
+      const black = err.match(/pblack:(\d+(?:\.\d+)?)/);
+      resolve({ jpeg, blackPercent: black ? Number(black[1]) : null });
+    });
+  });
+}
+
 function purgeOldClips() {
   const clipsDir = path.join(ROOT, "clips");
   if (!fs.existsSync(clipsDir)) return;
@@ -93,7 +145,8 @@ createServer(async (req, res) => {
     return;
   }
 
-  if (req.url !== "/export" || req.method !== "POST") {
+  const snapshot = req.url === "/snapshot" && req.method === "POST";
+  if (!snapshot && (req.url !== "/export" || req.method !== "POST")) {
     res.writeHead(404);
     res.end("not found");
     return;
@@ -105,6 +158,29 @@ createServer(async (req, res) => {
     return;
   }
 
+  if (snapshot) {
+    try {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const ingestKey = String(body.ingestKey ?? "").trim();
+      if (!validIngestKey(ingestKey)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid ingest key" }));
+        return;
+      }
+      const frame = await grabLiveFrame(ingestKey);
+      res.writeHead(200, {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "no-store",
+        "X-Frame-Black": frame.blackPercent == null ? "" : String(frame.blackPercent),
+      });
+      res.end(frame.jpeg);
+    } catch (e) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e instanceof Error ? e.message : "No live frame" }));
+    }
+    return;
+  }
+
   try {
     const body = JSON.parse((await readBody(req)) || "{}");
     const ingestKey = String(body.ingestKey ?? "").trim();
@@ -113,7 +189,7 @@ createServer(async (req, res) => {
     const mode = body.mode === "live_tail" ? "live_tail" : "vod";
     let startSec = body.startSec != null ? Number(body.startSec) : null;
 
-    if (!ingestKey.startsWith("lb_") && !ingestKey.startsWith("st_")) {
+    if (!validIngestKey(ingestKey)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid ingest key" }));
       return;

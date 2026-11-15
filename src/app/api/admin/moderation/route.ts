@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const staff = await requireModeratorPermissionApi(request, "moderation");
   if (isApiError(staff)) return staff;
 
-  const [queue, recentReports, chatMessageReports, aiScans] = await Promise.all([
+  const [queue, recentReports, chatMessageReports, aiScans, liveNow] = await Promise.all([
     getModerationQueue(),
     prisma.streamReport.findMany({
       take: 30,
@@ -44,6 +44,17 @@ export async function GET(request: Request) {
       },
     }),
     getRecentAiScans(25),
+    prisma.stream.findMany({
+      where: { status: "live" },
+      orderBy: { startedAt: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        title: true,
+        ingestKey: true,
+        dj: { select: { username: true, displayName: true } },
+      },
+    }),
   ]);
 
   return json({
@@ -53,7 +64,15 @@ export async function GET(request: Request) {
       stopThreshold: AI_MODERATION_RISK_STOP,
       flagThreshold: AI_MODERATION_RISK_FLAG,
       scanIntervalMs: AI_MODERATION_SCAN_INTERVAL_MS,
+      frameGrab: Boolean(process.env.RECORDINGS_CLIP_URL && process.env.RECORDINGS_CLIP_SECRET),
     },
+    liveNow: liveNow.map((s) => ({
+      id: s.id,
+      title: s.title,
+      username: s.dj.username,
+      displayName: s.dj.displayName,
+      hasKey: Boolean(s.ingestKey),
+    })),
     flagged: queue.map((s) => ({
       id: s.id,
       title: s.title,
@@ -122,7 +141,7 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "scan_all") {
-    const results = await scanLiveStreamsDue();
+    const results = await scanLiveStreamsDue({ force: true });
     await logAdminAction(staff.id, "ai_scan_all", "live_streams", { count: results.length }, request);
     return json({ ok: true, scanned: results.length, results });
   }
