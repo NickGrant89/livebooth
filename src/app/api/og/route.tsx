@@ -26,6 +26,7 @@ export async function GET(request: Request) {
     : type === "recap" ? "✓ SET COMPLETE"
     : type === "clip" ? "🎬 CLIP"
     : type === "station" ? "📻 RADIO"
+    : type === "home" ? "OPEN"
     : "DJ";
 
   const size = isClip ? { width: 1080, height: 1920 } : { width: 1200, height: 630 };
