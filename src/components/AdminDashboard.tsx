@@ -804,7 +804,7 @@ export function AdminDashboard({
               { label: "Reports (24h)", value: stats.reportsToday },
               ...(isFullAdmin
                 ? [
-                    { label: "Stations", value: stats.stations },
+                    ...(RADIO_STATIONS_ENABLED ? [{ label: "Stations", value: stats.stations }] : []),
                     { label: "Active promos", value: stats.activePromotions ?? 0 },
                   ]
                 : []),
@@ -875,9 +875,10 @@ export function AdminDashboard({
               )}
             </div>
           )}
-          {isFullAdmin && emailConfiguredState === true && signupEnabled !== false && (
+          {isFullAdmin && signupEnabled !== false && (
             <p className="text-xs text-zinc-500">
-              Invite emails ready (Resend configured). Turn off signup in Settings for a closed beta.
+              Public signup is on. New accounts get the welcome bonus. Card packs are charged in pounds.
+              {emailConfiguredState === true ? " Invite email is ready if you add someone by hand." : ""}
             </p>
           )}
           <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -1298,7 +1299,7 @@ export function AdminDashboard({
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Fiat in (Stripe)", value: `£${(treasury.inflow.fiatInCents / 100).toFixed(0)}` },
+              { label: "Card sales", value: `£${(treasury.inflow.fiatInCents / 100).toFixed(2)}` },
               { label: "User balances", value: `${treasury.liabilities.userBalanceDrop.toLocaleString()} DROP` },
               { label: "Paid out", value: `£${(treasury.outflow.paidUsdCents / 100).toFixed(2)}` },
               { label: "Promo revenue", value: `${treasury.revenue.promotionDrop} DROP` },
@@ -1320,7 +1321,9 @@ export function AdminDashboard({
               {" · "}Approved: {treasury.queue.approvedCount}
               {" · "}This month paid: £{(treasury.outflow.paidThisMonthUsdCents / 100).toFixed(2)}
             </p>
-            <p>Dev top-ups: {Math.round(treasury.inflow.devTopUpDrop)} DROP (demo)</p>
+            {treasury.inflow.devTopUpDrop > 0 && (
+              <p>Old unpaid top-ups still on the books: {Math.round(treasury.inflow.devTopUpDrop)} DROP. These cannot be cashed out.</p>
+            )}
             <p>
               <Link href="/transparency" className="text-[#53fc18] hover:underline">
                 Public transparency page →
@@ -1390,7 +1393,7 @@ export function AdminDashboard({
             </div>
             <p className="text-xs text-zinc-400">
               Provider: <strong className="text-zinc-200">{moderation.ai?.provider ?? "mock"}</strong>
-              {moderation.ai?.configured ? "" : " (set HIVE_API_KEY or AWS credentials in .env)"}
+              {moderation.ai?.configured ? "" : " — built-in checker until a review provider is connected"}
               {" · "}Stop ≥ {Math.round((moderation.ai?.stopThreshold ?? 0.85) * 100)}% risk
               {" · "}Flag ≥ {Math.round((moderation.ai?.flagThreshold ?? 0.55) * 100)}% risk
             </p>
@@ -1490,7 +1493,7 @@ export function AdminDashboard({
             </div>
           </div>
           <p className="text-xs text-zinc-600">
-            Auto-stop: 3+ viewer reports in 15 min · demo feed 45+ min without encoder · AI risk score above threshold (Hive or AWS Rekognition).
+            Auto-stop: 3+ viewer reports in 15 min · a feed with no encoder for 45+ min · risk score above the review threshold.
           </p>
         </div>
       ) : tab === "support" ? (

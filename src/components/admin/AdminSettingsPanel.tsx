@@ -173,7 +173,7 @@ export function AdminSettingsPanel({ onMsg }: { onMsg: (m: string) => void }) {
             checked={settings.betaBannerEnabled}
             onChange={(e) => saveSettings({ betaBannerEnabled: e.target.checked })}
           />
-          Beta banner visible
+          Early access banner on the site
         </label>
         <label className="flex items-center gap-3 text-sm text-zinc-300">
           <input

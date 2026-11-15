@@ -27,7 +27,7 @@ export function formatBetaInviteText(opts: {
   const roleLabel = inviteRoleLabel(opts.role);
   const guide = `${appUrl}${guideUrlForRole(opts.role)}`;
 
-  return `You're invited to the LiveBooth beta (${roleLabel}).
+  return `You're invited to LiveBooth (${roleLabel}).
 
 Login: ${appUrl}/login
 Email: ${opts.email}

@@ -131,11 +131,11 @@ export async function sendBetaInviteEmail(opts: {
   const guideUrl = `${appUrl}${guidePath}`;
   const loginUrl = `${appUrl}/login`;
 
-  const subject = `You're invited to LiveBooth beta (${roleLabel})`;
+  const subject = `You're invited to LiveBooth (${roleLabel})`;
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:480px;color:#111;line-height:1.5">
       <p>Hi ${opts.displayName},</p>
-      <p>You've been invited to the <strong>LiveBooth beta</strong> as a <strong>${roleLabel}</strong> account.</p>
+      <p>You've been invited to <strong>LiveBooth</strong> as a <strong>${roleLabel}</strong> account.</p>
       <table style="margin:20px 0;font-size:15px;border-collapse:collapse">
         <tr><td style="padding:4px 12px 4px 0;color:#666">Login</td><td><a href="${loginUrl}">${loginUrl}</a></td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#666">Email</td><td><strong>${opts.to}</strong></td></tr>
@@ -148,7 +148,7 @@ export async function sendBetaInviteEmail(opts: {
       <p style="color:#666;font-size:14px"><a href="${guideUrl}">Read the ${roleLabel} guide</a> · <a href="${appUrl}/support">Get support</a></p>
     </div>
   `.trim();
-  const text = `You're invited to LiveBooth beta (${roleLabel}).
+  const text = `You're invited to LiveBooth (${roleLabel}).
 
 Login: ${loginUrl}
 Email: ${opts.to}
