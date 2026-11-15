@@ -26,12 +26,12 @@ export function quoteWithdrawal(dropAmount: number): WithdrawQuote {
     netDrop,
     usdCents,
     netUsdCents,
-    redeemRateLabel: `$${(REDEEM_USD_CENTS_PER_DROP / 100).toFixed(4)}/DROP`,
+    redeemRateLabel: `£${(REDEEM_USD_CENTS_PER_DROP / 100).toFixed(4)}/DROP`,
     feePercent: WITHDRAWAL_FEE_BPS / 100,
     minDrop: effectiveWithdrawMinDrop(),
   };
 }
 
 export function formatUsd(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `£${(cents / 100).toFixed(2)}`;
 }

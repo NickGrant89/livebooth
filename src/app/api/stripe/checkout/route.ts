@@ -15,14 +15,7 @@ import { z } from "zod";
 const schema = z.object({ packId: z.string() });
 
 export async function GET() {
-  let currency = "usd";
-  if (isStripeConfigured()) {
-    try {
-      currency = await getStripeAccountCurrency();
-    } catch (e) {
-      console.error("stripe currency:", e);
-    }
-  }
+  const currency = getStripeAccountCurrency();
 
   return json({
     configured: isStripeConfigured(),
@@ -51,7 +44,7 @@ export async function POST(request: Request) {
 
     const stripe = getStripe();
     const base = appBaseUrl();
-    const currency = await getStripeAccountCurrency();
+    const currency = getStripeAccountCurrency();
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

@@ -1298,9 +1298,9 @@ export function AdminDashboard({
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Fiat in (Stripe)", value: `$${(treasury.inflow.fiatInCents / 100).toFixed(0)}` },
+              { label: "Fiat in (Stripe)", value: `£${(treasury.inflow.fiatInCents / 100).toFixed(0)}` },
               { label: "User balances", value: `${treasury.liabilities.userBalanceDrop.toLocaleString()} DROP` },
-              { label: "Paid out", value: `$${(treasury.outflow.paidUsdCents / 100).toFixed(2)}` },
+              { label: "Paid out", value: `£${(treasury.outflow.paidUsdCents / 100).toFixed(2)}` },
               { label: "Promo revenue", value: `${treasury.revenue.promotionDrop} DROP` },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-xl border border-white/10 bg-[#141416] p-4">
@@ -1312,13 +1312,13 @@ export function AdminDashboard({
 
           <div className="rounded-xl border border-white/10 bg-[#141416] p-4 text-xs text-zinc-400 space-y-1">
             <p>
-              Redeem rate: <strong className="text-zinc-200">${(treasury.redeem.usdCentsPerDrop / 100).toFixed(4)}/DROP</strong>
+              Redeem rate: <strong className="text-zinc-200">£{(treasury.redeem.usdCentsPerDrop / 100).toFixed(4)}/DROP</strong>
               {" · "}Fee: {treasury.redeem.feeBps / 100}%{" · "}Min: {treasury.redeem.minDrop} DROP
             </p>
             <p>
-              Pending queue: {treasury.queue.pendingCount} ({`$${(treasury.queue.pendingUsdCents / 100).toFixed(2)}`})
+              Pending queue: {treasury.queue.pendingCount} ({`£${(treasury.queue.pendingUsdCents / 100).toFixed(2)}`})
               {" · "}Approved: {treasury.queue.approvedCount}
-              {" · "}This month paid: ${(treasury.outflow.paidThisMonthUsdCents / 100).toFixed(2)}
+              {" · "}This month paid: £{(treasury.outflow.paidThisMonthUsdCents / 100).toFixed(2)}
             </p>
             <p>Dev top-ups: {Math.round(treasury.inflow.devTopUpDrop)} DROP (demo)</p>
             <p>
@@ -1341,7 +1341,7 @@ export function AdminDashboard({
                         {w.user.displayName} <span className="text-zinc-500 font-normal">@{w.user.username}</span>
                       </p>
                       <p className="text-xs text-zinc-500">
-                        {w.dropAmount} DROP · fee {w.feeDrop} · net ${(w.netUsdCents / 100).toFixed(2)} · {w.user.email}
+                        {w.dropAmount} DROP · fee {w.feeDrop} · net £{(w.netUsdCents / 100).toFixed(2)} · {w.user.email}
                         {w.user.stripeConnectOnboarded ? (
                           <span className="text-sky-400/80"> · Stripe connected</span>
                         ) : (

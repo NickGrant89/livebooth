@@ -36,7 +36,7 @@ type Stats = {
 };
 
 function fmtUsd(cents: number) {
-  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `£${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function TransparencyPage() {
@@ -125,7 +125,7 @@ export default function TransparencyPage() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-zinc-500">Redeem rate</dt>
-                <dd className="text-zinc-200">${(stats.redeem.usdCentsPerDrop / 100).toFixed(4)}/DROP</dd>
+                <dd className="text-zinc-200">£{(stats.redeem.usdCentsPerDrop / 100).toFixed(4)}/DROP</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-zinc-500">Cash-out fee</dt>

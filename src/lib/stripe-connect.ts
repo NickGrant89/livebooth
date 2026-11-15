@@ -4,8 +4,8 @@ export function isStripeConnectEnabled(): boolean {
   return isStripeConfigured() && process.env.STRIPE_CONNECT_ENABLED !== "false";
 }
 
-/** Cash-out transfers use the same currency card charges settle in. */
-export async function stripePayoutCurrency(): Promise<string> {
+/** Cash-out transfers are pounds, matching card charges. */
+export function stripePayoutCurrency(): string {
   return getStripeAccountCurrency();
 }
 
@@ -75,7 +75,7 @@ export async function transferWithdrawalPayout(opts: {
   const stripe = getStripe();
   const transfer = await stripe.transfers.create({
     amount: opts.amountCents,
-    currency: await stripePayoutCurrency(),
+    currency: stripePayoutCurrency(),
     destination: opts.accountId,
     metadata: {
       withdrawalRequestId: opts.withdrawalRequestId,

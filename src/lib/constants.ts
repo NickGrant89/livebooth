@@ -11,7 +11,7 @@ export const VIP_DISCOUNT = 0.3;
 export const VIP_REQUEST_COST = Math.ceil(REQUEST_COST * (1 - VIP_DISCOUNT));
 export const VIP_TRACK_UNLOCK_COST = Math.ceil(TRACK_UNLOCK_COST * (1 - VIP_DISCOUNT));
 
-/** Stripe test-mode packs — 1 DROP ≈ $0.05 */
+/** Stripe packs — 1 DROP ≈ £0.05 */
 export const DROP_PACKS = [
   { id: "drop_100", dropAmount: 100, priceCents: 499, label: "100 DROP", popular: false },
   { id: "drop_500", dropAmount: 500, priceCents: 1999, label: "500 DROP", popular: true },
@@ -261,7 +261,7 @@ export const QUEST_DAILY_CLEAR_BONUS = 10;
 /** Ended sets shorter than this do not count toward DJ stream-count / genre achievements. */
 export const MIN_ACHIEVEMENT_STREAM_MINUTES = 15;
 
-/** Fiat cash-out — redeem rate below buy rate (see doc 10). Buy ~5¢/DROP via packs. */
+/** Fiat cash-out — redeem rate below buy rate. Buy ~5p/DROP via packs. */
 export const REDEEM_USD_CENTS_PER_DROP = Number(process.env.REDEEM_USD_CENTS_PER_DROP ?? "4.25");
 export const WITHDRAWAL_FEE_BPS = 200;
 export const WITHDRAWAL_MIN_DROP = Number(process.env.WITHDRAWAL_MIN_DROP ?? "500");

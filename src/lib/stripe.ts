@@ -22,25 +22,22 @@ export function getDropPack(packId: string) {
   return DROP_PACKS.find((p) => p.id === packId);
 }
 
-export function formatPackPrice(cents: number, currency = "usd"): string {
+/** LiveBooth charges and pays out in pounds. */
+export const STRIPE_CURRENCY = "gbp";
+
+export function formatPackPrice(cents: number, currency = STRIPE_CURRENCY): string {
   try {
     return new Intl.NumberFormat("en-GB", {
       style: "currency",
       currency: currency.toUpperCase(),
     }).format(cents / 100);
   } catch {
-    return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+    return `£${(cents / 100).toFixed(2)}`;
   }
 }
 
-let accountCurrency: string | null = null;
-
-/** Settlement currency on the Stripe account. UK accounts reject USD charges. */
-export async function getStripeAccountCurrency(): Promise<string> {
-  if (accountCurrency) return accountCurrency;
-  const account = await getStripe().accounts.retrieve(null);
-  accountCurrency = (account.default_currency || "gbp").toLowerCase();
-  return accountCurrency;
+export function getStripeAccountCurrency(): string {
+  return STRIPE_CURRENCY;
 }
 
 export function appBaseUrl(): string {
