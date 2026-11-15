@@ -1,4 +1,5 @@
 import { error, json } from "@/lib/api-utils";
+import { scanLiveStreamsDue } from "@/lib/ai-moderation";
 import { processLiveIngestWatch } from "@/lib/live-ingest-watch";
 
 export const dynamic = "force-dynamic";
@@ -13,5 +14,12 @@ export async function GET(request: Request) {
   if (auth !== `Bearer ${secret}`) return error("Unauthorized", 401);
 
   const result = await processLiveIngestWatch();
-  return json({ ok: true, ...result });
+  let scanned = 0;
+  try {
+    const scans = await scanLiveStreamsDue();
+    scanned = scans.length;
+  } catch (err) {
+    console.error("Live picture scan failed:", err);
+  }
+  return json({ ok: true, ...result, scanned });
 }
