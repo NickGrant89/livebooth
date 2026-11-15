@@ -232,7 +232,7 @@ function WalletContent() {
           </div>
         ) : (
           <p className="text-sm text-zinc-500 mb-4">
-            Add Stripe test keys to enable card checkout. Until then, use dev top-up below.
+            Card checkout is unavailable right now. Try again in a moment.
           </p>
         )}
 

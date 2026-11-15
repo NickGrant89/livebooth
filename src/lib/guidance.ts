@@ -150,9 +150,9 @@ export const GO_LIVE_STEPS = [
 
 export const FAN_WALLET_TIPS = [
   `Your balance is in ${DROP_TOKEN_SYMBOL} — the booth currency for tips, unlocks, requests, and membership.`,
-  "Buy DROP packs on /wallet via Stripe checkout, or earn DROP from achievements and daily quests.",
+  "Buy DROP packs on /wallet with a card. Prices are in pounds (£). You can also earn DROP from achievements and daily quests.",
   "Tips, unlocks, and membership payments appear in your transaction history.",
-  "Optional: connect a VeChain wallet on /wallet for on-chain tips when that beta is enabled — in-app DROP works everywhere by default.",
+  "DROP you buy, and the welcome bonus, stay in your wallet. Only DROP a creator earns can be cashed out, in pounds.",
 ];
 
 export const STATION_QUICK_START: GuidanceStep[] = [

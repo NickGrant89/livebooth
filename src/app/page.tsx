@@ -154,7 +154,7 @@ export default async function HomePage({
                 <span className="block text-gradient mt-1">{APP_TAGLINE}.</span>
               </h1>
               <p className="text-zinc-400 mt-4 text-base lg:text-lg max-w-md mx-auto lg:mx-0">
-                Stream DJ sets, earn {DROP_TOKEN_SYMBOL}, unlock track IDs, and tip your favorite artists in real time.
+                Watch live DJ sets, tip artists in {DROP_TOKEN_SYMBOL}, and unlock track IDs. Creators keep 90% of tips. Packs and payouts are in pounds.
               </p>
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-8">
                 <Link href="/go-live" className="btn-primary inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm">
@@ -171,7 +171,7 @@ export default async function HomePage({
             </div>
             <div className="hidden lg:flex flex-col items-center gap-4">
               <LogoMarkOnly className="h-28 w-28 rounded-2xl shadow-2xl shadow-[#15CFF4]/20" />
-              <p className="text-xs text-zinc-600 font-mono tracking-widest uppercase">livebooth.fm</p>
+              <p className="text-xs text-zinc-600 font-mono tracking-widest uppercase">livebooth.uk</p>
             </div>
           </div>
         </section>
@@ -182,7 +182,7 @@ export default async function HomePage({
           { icon: Radio, label: "Live Now", value: liveStreams.length, color: "text-red-400" },
           { icon: Coins, label: "DROP Tipped", value: Math.round(totalTips).toLocaleString(), color: "text-[#53fc18]" },
           { icon: Trophy, label: "Achievements", value: achievementCount, color: "text-yellow-400" },
-          { icon: Zap, label: "Creator Split", value: "90/10", color: "text-[#15CFF4]" },
+          { icon: Zap, label: "Tip split", value: "90/10", color: "text-[#15CFF4]" },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="glass rounded-xl p-3 sm:p-4 flex items-center gap-2 sm:gap-3 min-w-0">
             <div className={`p-1.5 sm:p-2 rounded-lg bg-white/5 ${color} shrink-0`}>

@@ -93,8 +93,8 @@ export function WithdrawPanel() {
       </h2>
       <p className="text-xs text-zinc-400 mb-4 flex items-start gap-1.5">
         <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-        Request a payout when you&apos;re ready — eligible earnings from tips, unlocks, membership, and requests convert to real money via Stripe.
-        Welcome bonus and card purchases stay in your booth wallet. Rate: {quote?.redeemRateLabel ?? "~£0.0425/DROP"} minus {quote?.feePercent ?? 2}% fee.
+        Eligible earnings from tips, unlocks, membership, and requests pay out in pounds (£) through Stripe after you request a cash-out.
+        Welcome bonus and card purchases stay in your booth wallet. Rate: {quote?.redeemRateLabel ?? "~£0.0425/DROP"} minus a {quote?.feePercent ?? 2}% fee.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-3">

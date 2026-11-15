@@ -5,7 +5,7 @@ export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 prose prose-invert prose-sm">
       <h1 className="text-3xl font-bold text-white not-prose mb-2">Terms of Service</h1>
-      <p className="text-zinc-500 not-prose text-sm mb-8">Last updated: June 2026</p>
+      <p className="text-zinc-500 not-prose text-sm mb-8">Last updated: November 2026</p>
 
       <section className="space-y-4 text-zinc-300 text-sm leading-relaxed">
         <p>
@@ -31,9 +31,10 @@ export default function TermsPage() {
         <h2 className="text-lg font-bold text-white pt-4">{DROP_TOKEN_SYMBOL} &amp; payments</h2>
         <p>
           {DROP_TOKEN_SYMBOL} is platform credit for tips, unlocks, membership, and in-app features — not
-          an investment product. Purchases and tips are generally non-refundable except where required by
-          law. Platform fees apply as disclosed at checkout and in the DJ dashboard. Creators may request
-          cash-out of eligible earned {DROP_TOKEN_SYMBOL} via Stripe Connect, subject to review.
+          an investment product. Card purchases are charged in pounds (£) through Stripe. Purchases and tips
+          are generally non-refundable except where required by law. Creators keep 90% of tips and 85% of
+          unlocks, requests, and membership. Creators may cash out eligible earned {DROP_TOKEN_SYMBOL} in
+          pounds via Stripe, subject to review. Welcome bonus and purchased {DROP_TOKEN_SYMBOL} cannot be cashed out.
         </p>
 
         <h2 className="text-lg font-bold text-white pt-4">Moderation</h2>

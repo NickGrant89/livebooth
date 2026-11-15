@@ -87,7 +87,7 @@ export default function PoliciesPage() {
         <h2 className="text-xl font-bold text-white">Fan procedures</h2>
         <ul className="list-disc list-inside space-y-2 text-zinc-400">
           <li>Follow DJs for go-live alerts — enable push in Settings</li>
-          <li>Tip with in-app {DROP_TOKEN_SYMBOL} from your wallet balance (optional VeChain tips when on-chain beta is enabled)</li>
+          <li>Buy {DROP_TOKEN_SYMBOL} in pounds (£) on Wallet, then tip from that balance</li>
           <li>Subscribe to creators or join station membership for perks — billed monthly from your wallet</li>
           <li>Track unlocks and requests spend {DROP_TOKEN_SYMBOL} — purchases are non-refundable except where required by law</li>
           <li>Report streams or chat messages that violate community guidelines</li>

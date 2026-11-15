@@ -81,7 +81,7 @@ export default function TransparencyPage() {
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
             {[
-              { label: "Fiat purchased (Stripe)", value: fmtUsd(stats.inflow.fiatInCents), icon: Wallet },
+              { label: "Card purchases", value: fmtUsd(stats.inflow.fiatInCents), icon: Wallet },
               { label: "DROP in circulation", value: `${stats.circulation.userBalanceDrop.toLocaleString()} ${DROP_TOKEN_SYMBOL}`, icon: Coins },
               { label: "Platform fees earned", value: `${stats.platformRevenue.feeDrop.toLocaleString()} ${DROP_TOKEN_SYMBOL}`, icon: TrendingUp },
               { label: "Paid to creators", value: fmtUsd(stats.withdrawals.paidFiatCents), icon: Landmark },

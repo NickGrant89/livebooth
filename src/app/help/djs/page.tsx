@@ -138,7 +138,7 @@ export default function DjGuidePage() {
         <GuideStep n={6} title="Wallet & cash-out">
           View earnings at <Link href={HELP_LINKS.wallet} className="text-[#53fc18] hover:underline">/wallet</Link>.
           Connect Stripe for payouts, then request a cash-out when you have eligible earned DROP.
-          Admin-approved payouts are processed manually or via Stripe Connect.
+          Approved payouts are sent to your bank in pounds (£). Welcome bonus and DROP you bought yourself cannot be cashed out.
         </GuideStep>
       </GuideSection>
 

@@ -91,12 +91,11 @@ export default function FanGuidePage() {
         </p>
         <GuideStep n={1} title="Wallet">
           Check balance at <Link href={HELP_LINKS.wallet} className="text-[#53fc18] hover:underline">/wallet</Link>.
-          Buy {DROP_TOKEN_SYMBOL} packs via Stripe checkout, then tip, unlock tracks, and join memberships from your balance.
+          Buy {DROP_TOKEN_SYMBOL} packs with a card. Prices are in pounds (£). Then tip, unlock tracks, and join memberships from your balance.
         </GuideStep>
         <GuideStep n={2} title="Tip the DJ">
           On a live stream, choose a tip amount or enter a custom one. Tips spend from your in-app balance.
-          Optional message appears in chat. Large tips can create VOD highlights.
-          When on-chain tips are enabled (beta), DJs with a linked wallet may also accept VeChain tips from your connected wallet.
+          An optional message appears in chat. Large tips can create VOD highlights.
         </GuideStep>
         <GuideStep n={3} title="Track ID unlock">
           Pay <strong className="text-zinc-300">{TRACK_UNLOCK_COST} {DROP_TOKEN_SYMBOL}</strong> to reveal the track

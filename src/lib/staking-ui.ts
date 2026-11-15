@@ -46,7 +46,7 @@ export const CREATOR_MONETIZATION_COPY = {
   tipsTitle: "Live tips & unlocks",
   tipsBody: `Fans tip during sets and pay to unlock tracks or requests. You keep most of each tip; earnings land in your wallet instantly.`,
   payoutTitle: "Get paid out",
-  payoutBody: "Connect Stripe on your wallet page, then request a payout when you're ready — eligible earnings convert to real money.",
+  payoutBody: "Connect Stripe on your wallet page, then request a payout when you're ready. Eligible earnings pay out in pounds (£).",
   brandTitle: "Brand placement",
   brandLive: "Use Promote booth below to feature your stream on Discover — hero or grid spots.",
   brandOffline: "Go live, then use Promote booth for hero or grid spots on Discover.",

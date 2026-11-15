@@ -63,7 +63,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-8 pt-6 border-t border-white/[0.04] flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-600">
-          <span>© {new Date().getFullYear()} LiveBooth · livebooth.fm</span>
+          <span>© {new Date().getFullYear()} LiveBooth · livebooth.uk</span>
           <div className="flex gap-4">
             <Link href={HELP_LINKS.transparency} className="hover:text-zinc-400">Transparency</Link>
             <Link href={HELP_LINKS.roadmap} className="hover:text-zinc-400">Roadmap</Link>

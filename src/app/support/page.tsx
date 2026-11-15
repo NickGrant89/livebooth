@@ -112,7 +112,7 @@ const FAQ = [
       },
       {
         q: "How do I buy more DROP?",
-        a: "Open /wallet and choose a DROP pack. Checkout is handled by Stripe. You can also earn DROP from achievements and daily quests.",
+        a: "Open /wallet and choose a DROP pack. Prices are in pounds (£) and checkout is handled by Stripe. You can also earn DROP from achievements and daily quests.",
       },
     ],
   },
@@ -141,7 +141,7 @@ const FAQ = [
       },
       {
         q: "When do I get paid?",
-        a: "Tips, unlocks, membership, and requests credit instantly to your in-app wallet. Connect Stripe on /wallet, then request a cash-out for eligible earned DROP — processed after admin approval or via Stripe Connect.",
+        a: "Tips, unlocks, membership, and requests credit instantly to your in-app wallet. Connect Stripe on /wallet, then request a cash-out. Approved payouts are paid in pounds (£). Purchased DROP and the welcome bonus cannot be cashed out.",
       },
     ],
   },
@@ -150,11 +150,11 @@ const FAQ = [
     items: [
       {
         q: "How do I buy DROP?",
-        a: "Open /wallet and choose a Stripe pack. DROP is credited to your in-app balance for tips, unlocks, and membership.",
+        a: "Open /wallet and choose a pack. You pay in pounds (£) by card. DROP is added to your in-app balance for tips, unlocks, and membership.",
       },
       {
         q: "How do creators get paid?",
-        a: "Tips, unlocks, requests, and membership revenue credit to your wallet. Connect Stripe on /wallet, then request a cash-out for eligible earned DROP.",
+        a: "Tips, unlocks, requests, and membership credit your wallet. Connect Stripe on /wallet, then request a cash-out. Payouts are in pounds (£). Only earned DROP can be cashed out.",
       },
       {
         q: "What is the welcome bonus?",
