@@ -46,17 +46,32 @@ export async function POST(request: Request) {
 
     if (session.payment_status === "paid" && userId && dropAmount > 0 && session.id) {
       const amountCents = session.amount_total ?? 0;
-      await buyDropFromStripe(userId, dropAmount, session.id, amountCents);
+      try {
+        await buyDropFromStripe(userId, dropAmount, session.id, amountCents);
+      } catch (err) {
+        console.error("stripe webhook credit:", err);
+        return NextResponse.json({ error: "Could not credit purchase" }, { status: 500 });
+      }
     }
   }
 
   const accountId = connectAccountId(event);
   if (accountId && (event.type === "account.updated" || event.type.startsWith("v2.core.account"))) {
-    const onboarded = await syncConnectAccountStatus(accountId);
-    await prisma.user.updateMany({
+    const linked = await prisma.user.findFirst({
       where: { stripeConnectAccountId: accountId },
-      data: { stripeConnectOnboarded: onboarded },
+      select: { id: true },
     });
+    if (linked) {
+      try {
+        const onboarded = await syncConnectAccountStatus(accountId);
+        await prisma.user.update({
+          where: { id: linked.id },
+          data: { stripeConnectOnboarded: onboarded },
+        });
+      } catch (err) {
+        console.error("stripe connect status:", err);
+      }
+    }
   }
 
   return NextResponse.json({ received: true });
