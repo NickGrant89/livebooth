@@ -22,8 +22,25 @@ export function getDropPack(packId: string) {
   return DROP_PACKS.find((p) => p.id === packId);
 }
 
-export function formatPackPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+export function formatPackPrice(cents: number, currency = "usd"): string {
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+  }
+}
+
+let accountCurrency: string | null = null;
+
+/** Settlement currency on the Stripe account. UK accounts reject USD charges. */
+export async function getStripeAccountCurrency(): Promise<string> {
+  if (accountCurrency) return accountCurrency;
+  const account = await getStripe().accounts.retrieve();
+  accountCurrency = (account.default_currency || "gbp").toLowerCase();
+  return accountCurrency;
 }
 
 export function appBaseUrl(): string {

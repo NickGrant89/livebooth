@@ -5,20 +5,32 @@ import {
   formatPackPrice,
   getDropPack,
   getStripe,
+  getStripeAccountCurrency,
   isStripeConfigured,
 } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
+import Stripe from "stripe";
 import { z } from "zod";
 
 const schema = z.object({ packId: z.string() });
 
 export async function GET() {
+  let currency = "usd";
+  if (isStripeConfigured()) {
+    try {
+      currency = await getStripeAccountCurrency();
+    } catch (e) {
+      console.error("stripe currency:", e);
+    }
+  }
+
   return json({
     configured: isStripeConfigured(),
+    currency,
     packs: DROP_PACKS.map((p) => ({
       id: p.id,
       dropAmount: p.dropAmount,
-      priceLabel: formatPackPrice(p.priceCents),
+      priceLabel: formatPackPrice(p.priceCents, currency),
       popular: p.popular,
     })),
   });
@@ -39,14 +51,15 @@ export async function POST(request: Request) {
 
     const stripe = getStripe();
     const base = appBaseUrl();
+    const currency = await getStripeAccountCurrency();
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["card"],
+      customer_email: auth.email,
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency,
             unit_amount: pack.priceCents,
             product_data: {
               name: `${pack.label} — LiveBooth`,
@@ -65,24 +78,30 @@ export async function POST(request: Request) {
       cancel_url: `${base}/wallet?purchase=cancelled`,
     });
 
-    if (!session.id) return error("Checkout failed", 500);
+    if (!session.url) return error("Checkout failed", 500);
 
-    await prisma.stripePurchase.upsert({
-      where: { stripeSessionId: session.id },
-      create: {
-        userId: auth.id,
-        stripeSessionId: session.id,
-        dropAmount: pack.dropAmount,
-        amountCents: pack.priceCents,
-        status: "pending",
-      },
-      update: {},
-    });
+    try {
+      await prisma.stripePurchase.upsert({
+        where: { stripeSessionId: session.id },
+        create: {
+          userId: auth.id,
+          stripeSessionId: session.id,
+          dropAmount: pack.dropAmount,
+          amountCents: pack.priceCents,
+          status: "pending",
+        },
+        update: {},
+      });
+    } catch (e) {
+      console.error("stripe purchase record:", e);
+    }
 
     return json({ url: session.url, sessionId: session.id });
   } catch (e) {
     if (e instanceof z.ZodError) return error("Invalid pack");
     console.error("stripe checkout:", e);
-    return error("Checkout failed", 500);
+    const message =
+      e instanceof Stripe.errors.StripeError ? e.message : "Checkout failed";
+    return error(message, 500);
   }
 }

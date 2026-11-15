@@ -1,14 +1,12 @@
-import { getStripe, isStripeConfigured, appBaseUrl } from "./stripe";
+import { getStripe, getStripeAccountCurrency, isStripeConfigured, appBaseUrl } from "./stripe";
 
 export function isStripeConnectEnabled(): boolean {
   return isStripeConfigured() && process.env.STRIPE_CONNECT_ENABLED !== "false";
 }
 
-/** Cash-out quotes and card charges are USD cents. Transfers must use usd so they
- *  draw the balance those charges create. A GBP transfer fails with an empty GBP balance.
- */
-export function stripePayoutCurrency(): string {
-  return "usd";
+/** Cash-out transfers use the same currency card charges settle in. */
+export async function stripePayoutCurrency(): Promise<string> {
+  return getStripeAccountCurrency();
 }
 
 export function isStripeAutoPayoutEnabled(): boolean {
@@ -77,7 +75,7 @@ export async function transferWithdrawalPayout(opts: {
   const stripe = getStripe();
   const transfer = await stripe.transfers.create({
     amount: opts.amountCents,
-    currency: stripePayoutCurrency(),
+    currency: await stripePayoutCurrency(),
     destination: opts.accountId,
     metadata: {
       withdrawalRequestId: opts.withdrawalRequestId,
