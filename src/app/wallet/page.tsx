@@ -36,13 +36,47 @@ function WalletContent() {
 
   useEffect(() => {
     const purchase = searchParams.get("purchase");
-    if (purchase === "success") {
-      setPurchaseMsg("Payment received — DROP credited to your balance.");
-      refresh();
-    } else if (purchase === "cancelled") {
+    const sessionId = searchParams.get("session_id");
+    if (purchase === "cancelled") {
       setPurchaseMsg("Checkout cancelled.");
+      return;
     }
-  }, [searchParams, refresh]);
+    if (purchase !== "success" || !sessionId || !user) return;
+
+    let cancelled = false;
+    setPurchaseMsg("Confirming payment…");
+    apiFetch("/api/stripe/checkout/confirm", {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setPurchaseMsg(
+            (data as { error?: string }).error ??
+              "Payment received. If your balance does not update, refresh this page.",
+          );
+          return;
+        }
+        const credited = (data as { dropAmount?: number }).dropAmount;
+        setPurchaseMsg(
+          credited
+            ? `Payment received — ${credited.toLocaleString()} DROP added to your balance.`
+            : "Payment received — DROP added to your balance.",
+        );
+        await refresh();
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPurchaseMsg("Payment received. If your balance does not update, refresh this page.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, user, refresh]);
 
   useEffect(() => {
     if (!user) return;

@@ -4,8 +4,11 @@ export function isStripeConnectEnabled(): boolean {
   return isStripeConfigured() && process.env.STRIPE_CONNECT_ENABLED !== "false";
 }
 
+/** Cash-out quotes and card charges are USD cents. Transfers must use usd so they
+ *  draw the balance those charges create. A GBP transfer fails with an empty GBP balance.
+ */
 export function stripePayoutCurrency(): string {
-  return (process.env.STRIPE_PAYOUT_CURRENCY ?? "gbp").toLowerCase();
+  return "usd";
 }
 
 export function isStripeAutoPayoutEnabled(): boolean {

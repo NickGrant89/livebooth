@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const userId = session.metadata?.userId;
     const dropAmount = Number(session.metadata?.dropAmount ?? 0);
 
-    if (userId && dropAmount > 0 && session.id) {
+    if (session.payment_status === "paid" && userId && dropAmount > 0 && session.id) {
       const amountCents = session.amount_total ?? 0;
       await buyDropFromStripe(userId, dropAmount, session.id, amountCents);
     }
