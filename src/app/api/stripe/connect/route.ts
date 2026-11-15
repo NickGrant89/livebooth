@@ -79,6 +79,7 @@ export async function POST() {
     return json({ onboarded: false, url });
   } catch (e) {
     console.error("stripe connect onboard:", e);
-    return error("Could not start payout setup", 500);
+    const detail = e instanceof Error ? e.message.split("\n")[0]?.trim() : "";
+    return error(detail ? detail.slice(0, 240) : "Could not start payout setup", 500);
   }
 }

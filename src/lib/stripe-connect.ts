@@ -17,6 +17,14 @@ export function stripeConnectCountry(): string {
   return (process.env.STRIPE_CONNECT_COUNTRY ?? "GB").toUpperCase();
 }
 
+function connectReturnUrls() {
+  const base = appBaseUrl();
+  return {
+    refresh_url: `${base}/wallet?connect=refresh`,
+    return_url: `${base}/wallet?connect=return`,
+  };
+}
+
 export async function getOrCreateConnectAccount(user: {
   id: string;
   email: string;
@@ -25,14 +33,27 @@ export async function getOrCreateConnectAccount(user: {
   if (user.stripeConnectAccountId) return user.stripeConnectAccountId;
 
   const stripe = getStripe();
-  const account = await stripe.accounts.create({
-    type: "express",
-    country: stripeConnectCountry(),
-    email: user.email,
-    capabilities: {
-      transfers: { requested: true },
+  const account = await stripe.v2.core.accounts.create({
+    contact_email: user.email,
+    dashboard: "express",
+    identity: { country: stripeConnectCountry() },
+    defaults: {
+      responsibilities: {
+        fees_collector: "application",
+        losses_collector: "application",
+      },
+    },
+    configuration: {
+      recipient: {
+        capabilities: {
+          stripe_balance: {
+            stripe_transfers: { requested: true },
+          },
+        },
+      },
     },
     metadata: { liveboothUserId: user.id },
+    include: ["configuration.recipient"],
   });
 
   return account.id;
@@ -40,12 +61,15 @@ export async function getOrCreateConnectAccount(user: {
 
 export async function createConnectOnboardingLink(accountId: string): Promise<string> {
   const stripe = getStripe();
-  const base = appBaseUrl();
-  const link = await stripe.accountLinks.create({
+  const link = await stripe.v2.core.accountLinks.create({
     account: accountId,
-    refresh_url: `${base}/wallet?connect=refresh`,
-    return_url: `${base}/wallet?connect=return`,
-    type: "account_onboarding",
+    use_case: {
+      type: "account_onboarding",
+      account_onboarding: {
+        configurations: ["recipient"],
+        ...connectReturnUrls(),
+      },
+    },
   });
   return link.url;
 }
@@ -53,7 +77,16 @@ export async function createConnectOnboardingLink(accountId: string): Promise<st
 export async function createConnectDashboardLink(accountId: string): Promise<string | null> {
   try {
     const stripe = getStripe();
-    const link = await stripe.accounts.createLoginLink(accountId);
+    const link = await stripe.v2.core.accountLinks.create({
+      account: accountId,
+      use_case: {
+        type: "account_update",
+        account_update: {
+          configurations: ["recipient"],
+          ...connectReturnUrls(),
+        },
+      },
+    });
     return link.url;
   } catch {
     return null;
@@ -62,8 +95,12 @@ export async function createConnectDashboardLink(accountId: string): Promise<str
 
 export async function syncConnectAccountStatus(accountId: string): Promise<boolean> {
   const stripe = getStripe();
-  const account = await stripe.accounts.retrieve(accountId);
-  return Boolean(account.details_submitted && account.payouts_enabled);
+  const account = await stripe.v2.core.accounts.retrieve(accountId, {
+    include: ["configuration.recipient"],
+  });
+  const transfers =
+    account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status;
+  return transfers === "active";
 }
 
 export async function transferWithdrawalPayout(opts: {

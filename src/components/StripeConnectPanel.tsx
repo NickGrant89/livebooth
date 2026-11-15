@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch-client";
 
 export function StripeConnectPanel() {
+  const searchParams = useSearchParams();
+  const refreshLink = searchParams.get("connect") === "refresh";
+  const restarted = useRef(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [configured, setConfigured] = useState(false);
@@ -26,6 +30,12 @@ export function StripeConnectPanel() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (restarted.current || loading || !refreshLink || !configured || onboarded) return;
+    restarted.current = true;
+    void startOnboarding();
+  }, [loading, refreshLink, configured, onboarded]);
 
   async function startOnboarding() {
     setBusy(true);

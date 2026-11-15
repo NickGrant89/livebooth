@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { buyDropFromStripe } from "@/lib/ledger";
 import { prisma } from "@/lib/db";
+import { syncConnectAccountStatus } from "@/lib/stripe-connect";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
+
+function connectAccountId(event: Stripe.Event): string | null {
+  const object = event.data.object as { id?: string; related_object?: { id?: string } };
+  if (object.id?.startsWith("acct_")) return object.id;
+  if (object.related_object?.id?.startsWith("acct_")) return object.related_object.id;
+  return null;
+}
 
 export const runtime = "nodejs";
 
@@ -41,18 +50,13 @@ export async function POST(request: Request) {
     }
   }
 
-  if (event.type === "account.updated") {
-    const account = event.data.object;
-    const user = await prisma.user.findFirst({
-      where: { stripeConnectAccountId: account.id },
+  const accountId = connectAccountId(event);
+  if (accountId && (event.type === "account.updated" || event.type.startsWith("v2.core.account"))) {
+    const onboarded = await syncConnectAccountStatus(accountId);
+    await prisma.user.updateMany({
+      where: { stripeConnectAccountId: accountId },
+      data: { stripeConnectOnboarded: onboarded },
     });
-    if (user) {
-      const onboarded = Boolean(account.details_submitted && account.payouts_enabled);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { stripeConnectOnboarded: onboarded },
-      });
-    }
   }
 
   return NextResponse.json({ received: true });
