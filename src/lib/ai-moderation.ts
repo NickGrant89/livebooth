@@ -8,7 +8,7 @@ import { forceEndStream } from "./moderation";
 import { fetchLiveSnapshot } from "./recording-clip";
 import { isDemoPlayback, isLiveBoothIngestKey } from "./streaming";
 
-export type ModerationProvider = "mock" | "hive" | "rekognition";
+export type ModerationProvider = "mock" | "hive" | "rekognition" | "openai";
 
 export interface AiScanResult {
   provider: ModerationProvider;
@@ -20,9 +20,10 @@ export interface AiScanResult {
 
 function getConfiguredProvider(): ModerationProvider {
   const explicit = process.env.MODERATION_PROVIDER as ModerationProvider | undefined;
-  if (explicit === "hive" || explicit === "rekognition" || explicit === "mock") {
+  if (explicit === "hive" || explicit === "rekognition" || explicit === "mock" || explicit === "openai") {
     return explicit;
   }
+  if (process.env.OPENAI_API_KEY) return "openai";
   if (process.env.HIVE_API_KEY) return "hive";
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) return "rekognition";
   return "mock";
@@ -155,6 +156,58 @@ async function scanWithRekognition(mediaUrl: string, jpeg?: Buffer): Promise<AiS
   return buildResult("rekognition", riskScore, flags, mediaUrl);
 }
 
+async function scanWithOpenAI(mediaUrl: string, jpeg?: Buffer): Promise<AiScanResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY not set");
+  if (!jpeg) return buildResult("openai", 0.6, ["no_picture"], mediaUrl);
+
+  const res = await fetch("https://api.openai.com/v1/moderations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "omni-moderation-latest",
+      input: [
+        {
+          type: "image_url",
+          image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` },
+        },
+      ],
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`OpenAI moderation error ${res.status}: ${text.slice(0, 200)}`);
+  }
+
+  const data = (await res.json()) as {
+    results?: Array<{
+      category_scores?: Record<string, number>;
+      category_applied_input_types?: Record<string, string[]>;
+    }>;
+  };
+  const result = data.results?.[0];
+  const scores = result?.category_scores ?? {};
+  const applied = result?.category_applied_input_types ?? {};
+  const imageScores = Object.entries(scores).filter(([name, score]) => {
+    if (!Number.isFinite(score)) return false;
+    const kinds = applied[name];
+    if (kinds) return kinds.includes("image");
+    return name !== "sexual/minors";
+  });
+
+  const flags = imageScores
+    .filter(([, score]) => score >= 0.4)
+    .map(([name, score]) => `${name} (${Math.round(score * 100)}%)`);
+  const riskScore = imageScores.length > 0 ? Math.max(...imageScores.map(([, score]) => score)) : 0;
+
+  return buildResult("openai", riskScore, flags, mediaUrl);
+}
+
 function scanBuiltIn(mediaUrl: string, blackPercent: number | null): AiScanResult {
   if (blackPercent != null && blackPercent >= 98) {
     return buildResult("mock", 0.6, [`mostly_black (${Math.round(blackPercent)}%)`], mediaUrl);
@@ -207,6 +260,9 @@ export async function runAiModerationScan(streamId: string): Promise<AiScanResul
           break;
         case "rekognition":
           result = await scanWithRekognition(scanUrl, frame?.jpeg);
+          break;
+        case "openai":
+          result = await scanWithOpenAI(scanUrl, frame?.jpeg);
           break;
         default:
           result = buildResult("mock", 0.05, ["no_frame_source"], scanUrl);

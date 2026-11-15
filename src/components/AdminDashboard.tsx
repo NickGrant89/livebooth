@@ -1403,12 +1403,14 @@ export function AdminDashboard({
               </button>
             </div>
             <p className="text-xs text-zinc-400">
-              {moderation.ai?.provider === "hive"
-                ? "Hive scores a still from each live booth."
-                : moderation.ai?.provider === "rekognition"
-                  ? "AWS Rekognition scores a still from each live booth."
+              {moderation.ai?.provider === "openai"
+                ? "OpenAI scores a still from each live booth for sexual content, violence, and self-harm."
+                : moderation.ai?.provider === "hive"
+                  ? "Hive scores a still from each live booth."
+                  : moderation.ai?.provider === "rekognition"
+                    ? "AWS Rekognition scores a still from each live booth."
                   : moderation.ai?.frameGrab
-                    ? "Built-in check grabs a still from each live booth. A black picture is flagged. Adult-content scoring starts when Hive or Rekognition is connected."
+                    ? "Built-in check grabs a still from each live booth. A black picture is flagged. Content scoring starts when a review provider is connected."
                     : "Picture grab is not connected yet, so scans cannot see the booth."}
               {" "}Stop at {Math.round((moderation.ai?.stopThreshold ?? 0.85) * 100)}% risk
               {" · "}flag at {Math.round((moderation.ai?.flagThreshold ?? 0.55) * 100)}%.
