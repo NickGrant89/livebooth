@@ -68,6 +68,15 @@ async function fetchImageBytes(url: string): Promise<Buffer | null> {
   }
 }
 
+/** Hive also returns high scores for "safe", "natural", and "no nudity". Those are not violations. */
+function hiveClassIsClear(name: string): boolean {
+  const n = name.toLowerCase();
+  if (n.startsWith("no_") || n.startsWith("not_")) return true;
+  if (n.includes("_not_") || n.includes("not_nsfw") || n.includes("not_suggestive")) return true;
+  if (n === "natural" || n === "animated" || n === "hybrid" || n === "yes_overlay_text") return true;
+  return false;
+}
+
 async function scanWithHive(mediaUrl: string, jpeg?: Buffer): Promise<AiScanResult> {
   const apiKey = process.env.HIVE_API_KEY;
   if (!apiKey) throw new Error("HIVE_API_KEY not set");
@@ -97,13 +106,14 @@ async function scanWithHive(mediaUrl: string, jpeg?: Buffer): Promise<AiScanResu
 
   const classes =
     data.status?.[0]?.response?.output?.flatMap((o) => o.classes ?? []) ?? [];
+  const violations = classes.filter((c) => !hiveClassIsClear(c.class));
 
-  const flags = classes
+  const flags = violations
     .filter((c) => c.score >= 0.4)
     .map((c) => `${c.class} (${Math.round(c.score * 100)}%)`);
 
   const riskScore =
-    classes.length > 0 ? Math.max(...classes.map((c) => c.score)) : 0;
+    violations.length > 0 ? Math.max(...violations.map((c) => c.score)) : 0;
 
   return buildResult("hive", riskScore, flags, mediaUrl);
 }
