@@ -44,7 +44,6 @@ export async function POST(
     select: { id: true, djId: true },
   });
   if (!stream) return error("Stream not found", 404);
-  if (stream.djId === auth.id) return error("Cannot like your own stream", 400);
 
   await prisma.streamLike.upsert({
     where: { streamId_userId: { streamId, userId: auth.id } },

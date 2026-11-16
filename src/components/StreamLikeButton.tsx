@@ -17,6 +17,7 @@ export function StreamLikeButton({
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     apiFetch(`/api/streams/${streamId}/likes`)
@@ -34,18 +35,27 @@ export function StreamLikeButton({
       return;
     }
     setLoading(true);
-    const res = await apiFetch(`/api/streams/${streamId}/likes`, {
-      method: liked ? "DELETE" : "POST",
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (res.ok) {
-      setLiked(data.liked);
-      setCount(data.count ?? count);
+    setError("");
+    try {
+      const res = await apiFetch(`/api/streams/${streamId}/likes`, {
+        method: liked ? "DELETE" : "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Could not save that like");
+        return;
+      }
+      setLiked(Boolean(data.liked));
+      setCount(typeof data.count === "number" ? data.count : count);
+    } catch {
+      setError("Could not save that like");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
+    <span className="inline-flex flex-col items-stretch">
     <button
       type="button"
       onClick={toggle}
@@ -61,5 +71,7 @@ export function StreamLikeButton({
       <Heart className={`h-4 w-4 shrink-0 ${liked ? "fill-current" : ""}`} />
       <span>{!checked ? "…" : count > 0 ? count.toLocaleString() : "Like"}</span>
     </button>
+    {error ? <span className="mt-1 text-[10px] text-red-300">{error}</span> : null}
+    </span>
   );
 }
