@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   const users = await prisma.user.findMany({
     where: {
-      role: "dj",
+      role: { in: ["dj", "admin"] },
       ...(live === "true"
         ? { streams: { some: { status: "live" } } }
         : {}),

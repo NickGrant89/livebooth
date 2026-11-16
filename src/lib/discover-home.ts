@@ -9,12 +9,16 @@ import {
 import { attachLikeCounts } from "./stream-likes";
 
 export async function fetchDiscoverLiveStreams(genre?: string) {
-  const [djs, flagships] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: "dj" },
-      include: {
-        streams: { where: { status: "live" }, take: 1 },
+  const [streams, flagships] = await Promise.all([
+    prisma.stream.findMany({
+      where: {
+        status: "live",
+        ...(genre ? { genre } : {}),
       },
+      include: {
+        dj: { select: { id: true, username: true, displayName: true, avatar: true } },
+      },
+      orderBy: { startedAt: "desc" },
     }),
     prisma.radioStation.findMany({
       where: { flagshipDjId: { not: null } },
@@ -27,32 +31,29 @@ export async function fetchDiscoverLiveStreams(genre?: string) {
   );
   const genreNight = getTodayGenreNight();
 
-  let liveStreams: DiscoverLiveStream[] = djs
-    .filter((d) => d.streams.length > 0)
-    .map((d) => ({
-      id: d.streams[0].id,
-      title: d.streams[0].title,
-      genre: d.streams[0].genre,
-      viewers: d.streams[0].peakViewers,
-      sessionTips: Math.round(d.streams[0].totalTips),
-      bpmRange: d.streams[0].bpmRange,
-      startedAt: d.streams[0].startedAt,
-      promotionTier: d.streams[0].promotionTier,
-      promotedUntil: d.streams[0].promotedUntil,
-      djUserId: d.id,
-      dj: {
-        username: d.username,
-        displayName: d.displayName,
-        avatar: d.avatar,
-      },
-    }));
+  let liveStreams: Array<DiscoverLiveStream & { playbackUrl: string | null }> = streams.map((s) => ({
+    id: s.id,
+    title: s.title,
+    genre: s.genre,
+    viewers: s.peakViewers,
+    sessionTips: Math.round(s.totalTips),
+    bpmRange: s.bpmRange,
+    startedAt: s.startedAt,
+    promotionTier: s.promotionTier,
+    promotedUntil: s.promotedUntil,
+    playbackUrl: s.playbackUrl,
+    djUserId: s.dj.id,
+    dj: {
+      username: s.dj.username,
+      displayName: s.dj.displayName,
+      avatar: s.dj.avatar,
+    },
+  }));
 
   liveStreams = rankForDiscover(liveStreams, {
     genreNightGenre: genreNight?.genre,
     flagshipDjIds,
   });
-
-  if (genre) liveStreams = liveStreams.filter((s) => s.genre === genre);
 
   const withLikes = await attachLikeCounts(liveStreams);
 

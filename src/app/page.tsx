@@ -14,6 +14,8 @@ import { fetchPublicStations, fetchUpcomingStationShows, formatSlotLabel, statio
 import { getHeroLabel, isGridPromoted } from "@/lib/discover-ranking";
 import { QuestPanel } from "@/components/QuestPanel";
 import { HomeDiscoverRefresh } from "@/components/HomeDiscoverRefresh";
+import { LivePreviewVideo } from "@/components/LivePreviewVideo";
+import { isDemoPlayback } from "@/lib/playback-url";
 import { StationBrandAvatar } from "@/components/StationBrandAvatar";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +25,7 @@ async function getHomeData(genre?: string, userId?: string) {
     await Promise.all([
     fetchDiscoverLiveStreams(genre),
     prisma.user.findMany({
-      where: { role: "dj" },
+      where: { role: { in: ["dj", "admin"] } },
       include: {
         balance: true,
         streams: { where: { status: "live" }, take: 1 },
@@ -74,6 +76,8 @@ export default async function HomePage({
   const featured = liveStreams[0];
   const rest = liveStreams.slice(1);
   const heroLabel = featured ? getHeroLabel(featured) : "Trending";
+  const heroVideo =
+    featured?.playbackUrl && !isDemoPlayback(featured.playbackUrl) ? featured.playbackUrl : null;
 
   return (
     <div className="mx-auto max-w-[1600px] w-full min-w-0 overflow-x-hidden">
@@ -83,9 +87,12 @@ export default async function HomePage({
       <QuestPanel />
       {featured ? (
         <section className="relative mx-4 lg:mx-6 mt-4 rounded-2xl overflow-hidden aspect-[21/9] min-h-[280px] max-h-[480px] glass-hover transition-all">
+          {heroVideo ? <LivePreviewVideo src={heroVideo} /> : null}
           <Link href={`/stream/${featured.dj.username}`} className="absolute inset-0 block">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#12121a] to-[#0a0a0f]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+            {heroVideo ? null : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#12121a] to-[#0a0a0f]" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_30%,rgba(83,252,24,0.12),transparent_60%)]" />
 
             <div className="absolute top-5 left-5 flex items-center gap-2">
