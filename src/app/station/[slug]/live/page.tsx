@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { Coins } from "lucide-react";
 import { StreamLiveStats } from "@/components/StreamLiveStats";
 import { StreamTheater } from "@/components/StreamTheater";
 import { StreamChat } from "@/components/StreamChat";
@@ -13,7 +12,7 @@ import { SetScorePanel } from "@/components/SetScorePanel";
 import { QuestStreamChip } from "@/components/QuestStreamChip";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { genreLabels, DROP_TOKEN_SYMBOL, RADIO_STATIONS_ENABLED } from "@/lib/constants";
+import { genreLabels, RADIO_STATIONS_ENABLED } from "@/lib/constants";
 import { isDemoPlayback, resolveLivePlaybackUrl } from "@/lib/streaming";
 import { StreamPageLayout } from "@/components/StreamPageLayout";
 import { CommunityGoalBar } from "@/components/CommunityGoalBar";
@@ -159,10 +158,11 @@ export default async function StationLivePage({
                     </>
                   )}
                   <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-zinc-500">
-                    <StreamLiveStats streamId={stream.id} initialPeak={stream.peakViewers} />
-                    <span className="flex items-center gap-1 text-[#53fc18]">
-                      <Coins className="h-3 w-3 shrink-0" /> {stream.totalTips} {DROP_TOKEN_SYMBOL}
-                    </span>
+                    <StreamLiveStats
+                      streamId={stream.id}
+                      initialPeak={stream.peakViewers}
+                      initialTips={stream.totalTips}
+                    />
                     <span>{genreLabels[stream.genre as keyof typeof genreLabels] ?? stream.genre}</span>
                   </div>
                 </div>

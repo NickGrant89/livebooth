@@ -9,6 +9,7 @@ import { useStreamChatContext } from "@/context/StreamChatContext";
 import { TRACK_UNLOCK_COST, REQUEST_COST, HIGHLIGHT_TIP_MIN } from "@/lib/constants";
 import { onChainFeaturesAvailable, isOnChainEnabled } from "@/lib/web3/contracts";
 import { AchievementToasts, useAchievementUnlocks } from "@/components/AchievementToasts";
+import { notifyStreamStatsRefresh } from "@/components/StreamLiveStats";
 import { StakerBadge, tierFromBadgeLabel } from "@/components/StakerBadge";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import type { ChatMessagePayload } from "@/lib/chat-hub";
@@ -57,6 +58,8 @@ export function StreamChat({
   const [unlockedTrack, setUnlockedTrack] = useState<string | null>(null);
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
   const messagesRef = useRef<HTMLDivElement>(null);
+  const seenTipIds = useRef<Set<string>>(new Set());
+  const tipBaselineReady = useRef(false);
 
   const canUseOnChain =
     isOnChainEnabled() &&
@@ -121,6 +124,23 @@ export function StreamChat({
         }
       });
   }, [user, streamId]);
+
+  useEffect(() => {
+    if (!tipBaselineReady.current) {
+      for (const msg of messages) {
+        if (msg.isTip) seenTipIds.current.add(msg.id);
+      }
+      if (messages.length > 0) tipBaselineReady.current = true;
+      return;
+    }
+    let sawNewTip = false;
+    for (const msg of messages) {
+      if (!msg.isTip || seenTipIds.current.has(msg.id)) continue;
+      seenTipIds.current.add(msg.id);
+      sawNewTip = true;
+    }
+    if (sawNewTip) notifyStreamStatsRefresh(streamId);
+  }, [messages, streamId]);
 
   useEffect(() => {
     if (!startedAt) return;
@@ -207,6 +227,7 @@ export function StreamChat({
         setTipAmount("");
         setShowTip(false);
         setTipOnChainMode(false);
+        notifyStreamStatsRefresh(streamId, amount);
         await refresh();
         return;
       } catch (err) {
@@ -234,6 +255,7 @@ export function StreamChat({
       return;
     }
     if (data.unlockedAchievements?.length) pushUnlocks(data.unlockedAchievements);
+    notifyStreamStatsRefresh(streamId, amount);
     await refresh();
     setTipAmount("");
     setShowTip(false);

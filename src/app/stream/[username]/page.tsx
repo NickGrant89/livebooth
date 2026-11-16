@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Coins } from "lucide-react";
 import { StreamLiveStats } from "@/components/StreamLiveStats";
 import { StreamTheater } from "@/components/StreamTheater";
 import { StreamChat } from "@/components/StreamChat";
@@ -12,7 +11,7 @@ import { SubscribeButton } from "@/components/SubscribeButton";
 import { NowPlayingBar } from "@/components/NowPlayingBar";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { genreLabels, DROP_TOKEN_SYMBOL } from "@/lib/constants";
+import { genreLabels } from "@/lib/constants";
 import { isDemoPlayback } from "@/lib/streaming";
 import { RequestQueue } from "@/components/RequestQueue";
 import { StreamPageGuide } from "@/components/StreamPageGuide";
@@ -166,10 +165,11 @@ export default async function StreamPage({
                     </>
                   )}
                   <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-zinc-500">
-                    <StreamLiveStats streamId={stream.id} initialPeak={stream.peakViewers} />
-                    <span className="flex items-center gap-1 text-[#53fc18]">
-                      <Coins className="h-3 w-3 shrink-0" /> {stream.totalTips} {DROP_TOKEN_SYMBOL}
-                    </span>
+                    <StreamLiveStats
+                      streamId={stream.id}
+                      initialPeak={stream.peakViewers}
+                      initialTips={stream.totalTips}
+                    />
                     <span>{genreLabels[stream.genre]}</span>
                   </div>
                 </div>

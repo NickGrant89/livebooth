@@ -6,6 +6,8 @@ import { bumpQuestProgress } from "@/lib/quests";
 
 const PRESENCE_TTL_MS = 60_000;
 
+export const dynamic = "force-dynamic";
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ streamId: string }> },
@@ -66,5 +68,11 @@ export async function GET(
     where: { streamId, lastSeen: { gte: cutoff } },
   });
 
-  return json({ viewers, peakViewers: stream.peakViewers });
+  const res = json({
+    viewers,
+    peakViewers: stream.peakViewers,
+    totalTips: stream.totalTips,
+  });
+  res.headers.set("Cache-Control", "private, no-store, max-age=0");
+  return res;
 }
