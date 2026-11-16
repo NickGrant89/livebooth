@@ -48,7 +48,7 @@ export function LivePreviewVideo({ src }: { src: string }) {
       muted
       autoPlay
       playsInline
-      className="absolute inset-0 h-full w-full object-cover"
+      className="pointer-events-none absolute inset-0 h-full w-full object-cover"
     />
   );
 }

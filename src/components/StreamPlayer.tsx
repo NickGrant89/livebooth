@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import Hls from "hls.js";
-import { Disc3, FastForward, Radio, Rewind, Users, Volume2, VolumeX } from "lucide-react";
+import { Disc3, FastForward, Play, Radio, Rewind, Users, Volume2, VolumeX } from "lucide-react";
 import { StreamVideoWatermark } from "@/components/StreamVideoWatermark";
 import {
   createMediaMtxHlsConfig,
@@ -88,6 +88,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   const [preparingReplay, setPreparingReplay] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [awaitingVideo, setAwaitingVideo] = useState(false);
+  const [needsTap, setNeedsTap] = useState(false);
   const [liveNoSignal, setLiveNoSignal] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
@@ -331,6 +332,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       const onPlaying = () => {
         setAwaitingVideo(false);
         setIsLoading(false);
+        setNeedsTap(false);
       };
       video.src = playUrl;
       video.addEventListener("loadeddata", markVideoReady);
@@ -346,7 +348,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         { once: true },
       );
       video.load();
-      video.play().catch(() => undefined);
+      video.play().catch(() => setNeedsTap(true));
       cleanupFns.push(() => {
         video.removeEventListener("loadeddata", markVideoReady);
         video.removeEventListener("canplay", markVideoReady);
@@ -390,7 +392,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           setAwaitingVideo(true);
         }
         clearLoading();
-        video.play().catch(() => undefined);
+        video.play().catch(() => setNeedsTap(true));
       });
       hls.on(Hls.Events.FRAG_BUFFERED, markVideoReady);
       hls.on(Hls.Events.BUFFER_APPENDED, markVideoReady);
@@ -438,6 +440,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
       const onPlaying = () => {
         setAwaitingVideo(false);
+        setNeedsTap(false);
         clearLoading();
       };
       const onCanPlay = () => markVideoReady();
@@ -519,7 +522,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           "loadedmetadata",
           () => {
             setIsLoading(false);
-            video.play().catch(() => undefined);
+            video.play().catch(() => setNeedsTap(true));
           },
           { once: true },
         );
@@ -575,9 +578,28 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     setDuration(0);
   }, [playbackUrl]);
 
+  function startPlayback() {
+    const video = videoRef.current;
+    if (!video) return;
+    const started = () => {
+      setNeedsTap(false);
+      setAwaitingVideo(false);
+      setIsLoading(false);
+    };
+    video.muted = false;
+    setMuted(false);
+    const attempt = video.play();
+    if (!attempt) return;
+    attempt.then(started).catch(() => {
+      video.muted = true;
+      setMuted(true);
+      video.play().then(started).catch(() => setNeedsTap(true));
+    });
+  }
+
   function unmute() {
     setMuted(false);
-    videoRef.current?.play().catch(() => undefined);
+    videoRef.current?.play().catch(() => setNeedsTap(true));
   }
 
   function skip(seconds: number) {
@@ -642,21 +664,31 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
             crossOrigin={useCrossOrigin ? "anonymous" : undefined}
             className="absolute inset-0 h-full w-full object-cover"
           />
-          {(!playbackError && (isLoading || awaitingVideo)) && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px] px-6 text-center">
-              <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
-              <span className="mt-3 text-xs font-medium text-zinc-300">
-                {liveNoSignal
-                  ? "Waiting for broadcast signal…"
-                  : previewMode && awaitingVideo
-                    ? "Waiting for video frames…"
-                    : previewMode
-                      ? "Buffering preview…"
-                      : isLive
-                        ? "Connecting stream…"
-                        : preparingReplay
-                          ? "Preparing replay…"
-                          : "Loading replay…"}
+          {(!playbackError && (isLoading || awaitingVideo || needsTap)) && (
+            <button
+              type="button"
+              onClick={startPlayback}
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/50 px-6 text-center"
+            >
+              {needsTap ? (
+                <Play className="h-12 w-12 text-white" />
+              ) : (
+                <Disc3 className="h-10 w-10 text-[#53fc18]/80 animate-spin" style={{ animationDuration: "2s" }} />
+              )}
+              <span className="mt-3 text-sm font-semibold text-white">
+                {needsTap
+                  ? "Tap to play"
+                  : liveNoSignal
+                    ? "Waiting for broadcast signal…"
+                    : previewMode && awaitingVideo
+                      ? "Waiting for video frames…"
+                      : previewMode
+                        ? "Buffering preview…"
+                        : isLive
+                          ? "Connecting stream…"
+                          : preparingReplay
+                            ? "Preparing replay…"
+                            : "Loading replay…"}
               </span>
               {preparingReplay && !isLive && (
                 <span className="mt-2 text-[10px] text-zinc-500 max-w-xs">
@@ -669,7 +701,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
                   The booth is live but no video has reached the server yet. Host: stream from OBS on Go Live.
                 </span>
               )}
-            </div>
+            </button>
           )}
           {muted && !playbackError && !isLoading && !awaitingVideo && (!isLive || previewMode) && (
             <button
