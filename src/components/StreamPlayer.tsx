@@ -8,6 +8,7 @@ import { StreamVideoWatermark } from "@/components/StreamVideoWatermark";
 import {
   createMediaMtxHlsConfig,
   isProxiedMediaMtxHls,
+  playbackUrlForThisDevice,
   preferNativeMediaMtxHls,
 } from "@/lib/hls-playback";
 import {
@@ -127,6 +128,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !playbackUrl) return;
+    const playUrl = playbackUrlForThisDevice(playbackUrl);
 
     let cancelled = false;
     let cleanupFns: (() => void)[] = [];
@@ -238,7 +240,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       };
 
       const trySwitchToHls = () => {
-        void resolveVodPlaybackMode(playbackUrl).then(({ url: next, mode }) => {
+        void resolveVodPlaybackMode(playUrl).then(({ url: next, mode }) => {
           if (cancelled || mode !== "hls") return;
           runCleanup();
           attachVodHls(next, src);
@@ -248,7 +250,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       const onError = () => {
         if (vodReadyRef.current) return;
         trySwitchToHls();
-        const proxySrc = resolveVodProxySrc(playbackUrl);
+        const proxySrc = resolveVodProxySrc(playUrl);
         if (proxySrc && !vodFallbackTriedRef.current && !video.src.includes("/api/vod/file/")) {
           vodFallbackTriedRef.current = true;
           video.src = proxySrc;
@@ -306,7 +308,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
       // Remux watcher builds HLS VOD ~3–5 min after stream end — poll until ready.
       const hlsPoll = window.setInterval(() => {
-        void resolveVodPlaybackMode(playbackUrl).then(({ url: next, mode }) => {
+        void resolveVodPlaybackMode(playUrl).then(({ url: next, mode }) => {
           if (cancelled || mode !== "hls" || next === src) return;
           runCleanup();
           attachVodHls(next, src);
@@ -330,7 +332,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
         setAwaitingVideo(false);
         setIsLoading(false);
       };
-      video.src = playbackUrl;
+      video.src = playUrl;
       video.addEventListener("loadeddata", markVideoReady);
       video.addEventListener("canplay", markVideoReady);
       video.addEventListener("playing", onPlaying);
@@ -356,7 +358,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
 
     const attachLiveHlsJs = () => {
       const liveLike = isLive || previewMode;
-      const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playbackUrl);
+      const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playUrl);
       setIsLoading(!previewMode);
       if (isLive && mediaMtxHls) setAwaitingVideo(true);
       let manifestFailures = 0;
@@ -373,7 +375,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
               manifestLoadingMaxRetry: 8,
             },
       );
-      hls.loadSource(playbackUrl);
+      hls.loadSource(playUrl);
       hls.attachMedia(video);
 
       const clearLoading = () => {
@@ -394,7 +396,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       hls.on(Hls.Events.BUFFER_APPENDED, markVideoReady);
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
-        console.error("[hls]", data.type, data.details, playbackUrl);
+        console.error("[hls]", data.type, data.details, playUrl);
         if (
           isLive &&
           data.type === Hls.ErrorTypes.NETWORK_ERROR &&
@@ -474,13 +476,13 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
     void (async () => {
       if (!isLive && !previewMode) {
         const looksLikeFile =
-          playbackUrl.includes("/api/vod/file/") ||
-          playbackUrl.includes("/recordings/") ||
-          /\.(mp4|fmp4|webm|m3u8)(\?|$)/i.test(playbackUrl);
+          playUrl.includes("/api/vod/file/") ||
+          playUrl.includes("/recordings/") ||
+          /\.(mp4|fmp4|webm|m3u8)(\?|$)/i.test(playUrl);
 
         if (looksLikeFile) {
-          const mp4Src = resolveVodPlaybackSrc(playbackUrl);
-          const { url: src, mode } = await resolveVodPlaybackMode(playbackUrl);
+          const mp4Src = resolveVodPlaybackSrc(playUrl);
+          const { url: src, mode } = await resolveVodPlaybackMode(playUrl);
           if (cancelled) return;
           if (mode === "hls") {
             attachVodHls(src, mp4Src);
@@ -494,7 +496,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
       if (cancelled) return;
 
       const liveLike = isLive || previewMode;
-      const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playbackUrl);
+      const mediaMtxHls = liveLike && isProxiedMediaMtxHls(playUrl);
 
       if (mediaMtxHls && preferNativeMediaMtxHls()) {
         attachNativeLiveHls();
@@ -512,7 +514,7 @@ export const StreamPlayer = forwardRef<StreamPlayerHandle, StreamPlayerProps>(fu
           return;
         }
         setIsLoading(true);
-        video.src = playbackUrl;
+        video.src = playUrl;
         video.addEventListener(
           "loadedmetadata",
           () => {

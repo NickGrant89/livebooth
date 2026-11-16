@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Hls from "hls.js";
-import { createMediaMtxHlsConfig, isProxiedMediaMtxHls } from "@/lib/hls-playback";
+import { createMediaMtxHlsConfig, isProxiedMediaMtxHls, playbackUrlForThisDevice } from "@/lib/hls-playback";
 
 /** Muted live picture for the Discover hero. */
 export function LivePreviewVideo({ src }: { src: string }) {
@@ -12,10 +12,20 @@ export function LivePreviewVideo({ src }: { src: string }) {
     const video = ref.current;
     if (!video) return;
     video.muted = true;
+    const playUrl = playbackUrlForThisDevice(src);
 
-    if (isProxiedMediaMtxHls(src) && Hls.isSupported()) {
+    if (playUrl.startsWith("/api/hls/") || !Hls.isSupported()) {
+      video.src = playUrl;
+      video.play().catch(() => undefined);
+      return () => {
+        video.removeAttribute("src");
+        video.load();
+      };
+    }
+
+    if (isProxiedMediaMtxHls(playUrl) && Hls.isSupported()) {
       const hls = new Hls(createMediaMtxHlsConfig());
-      hls.loadSource(src);
+      hls.loadSource(playUrl);
       hls.attachMedia(video);
       const play = () => {
         video.play().catch(() => undefined);
@@ -24,7 +34,7 @@ export function LivePreviewVideo({ src }: { src: string }) {
       return () => hls.destroy();
     }
 
-    video.src = src;
+    video.src = playUrl;
     video.play().catch(() => undefined);
     return () => {
       video.removeAttribute("src");

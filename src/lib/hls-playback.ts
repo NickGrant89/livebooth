@@ -47,6 +47,33 @@ export function createMediaMtxHlsConfig() {
   } as const;
 }
 
+/** iPhone, iPad, and iPod play live video with the built-in player, not hls.js. */
+export function isIosDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent) || isIPadLike();
+}
+
+/**
+ * Phones cannot complete the stream server's cookie redirect.
+ * Same-origin /api/hls does that handshake on the server.
+ */
+export function playbackUrlForThisDevice(url: string): string {
+  if (!isIosDevice()) return url;
+  try {
+    const parsed = new URL(url, "https://livebooth.uk");
+    if (
+      parsed.hostname === "hls.livebooth.uk" &&
+      parsed.pathname.includes("/live/") &&
+      parsed.pathname.endsWith(".m3u8")
+    ) {
+      return `/api/hls${parsed.pathname}`;
+    }
+  } catch {
+    /* keep the original url */
+  }
+  return url;
+}
+
 /** Safari on iPhone/iPad can use native HLS; desktop macOS Safari often stalls on MediaMTX LL-HLS — prefer hls.js. */
 export function preferNativeMediaMtxHls(): boolean {
   if (typeof window === "undefined") return false;

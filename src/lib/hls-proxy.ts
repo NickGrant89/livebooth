@@ -226,6 +226,30 @@ function toProxyPath(ref: string, dir: string, hlsSession?: string | null): stri
   return appendHlsSessionQuery(`/api/hls${path}`, hlsSession);
 }
 
+/** iPhone's player stalls on low-latency parts and blocking reloads. Keep full segments only. */
+export function playlistForNativeHls(body: string): string {
+  return body
+    .split("\n")
+    .filter((line) => {
+      const tag = line.trim();
+      return !(
+        tag.startsWith("#EXT-X-SERVER-CONTROL") ||
+        tag.startsWith("#EXT-X-PART-INF") ||
+        tag.startsWith("#EXT-X-PART:") ||
+        tag.startsWith("#EXT-X-PRELOAD-HINT") ||
+        tag.startsWith("#EXT-X-SKIP") ||
+        tag.startsWith("#EXT-X-RENDITION-REPORT")
+      );
+    })
+    .map((line) => line.replace("#EXT-X-VERSION:10", "#EXT-X-VERSION:7"))
+    .join("\n");
+}
+
+export function requestWantsStableHls(request: Request): boolean {
+  const ua = request.headers.get("user-agent") ?? "";
+  return /iPhone|iPad|iPod|AppleCoreMedia/i.test(ua);
+}
+
 export function hlsResponseHeaders(contentType: string): Record<string, string> {
   return {
     "Content-Type": contentType,

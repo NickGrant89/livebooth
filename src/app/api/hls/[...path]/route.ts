@@ -7,11 +7,14 @@ import {
   readHlsSessionFromHeaders,
   rememberHlsSession,
   resolveUpstreamHlsSession,
+  playlistForNativeHls,
+  requestWantsStableHls,
   rewriteM3u8ForProxy,
   upstreamHlsUrl,
 } from "@/lib/hls-proxy";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 export async function GET(
   request: Request,
@@ -64,7 +67,8 @@ export async function GET(
         manifestPath,
         useQuerySession ? responseSession : null,
       );
-      return new Response(rewritten, {
+      const body = requestWantsStableHls(request) ? playlistForNativeHls(rewritten) : rewritten;
+      return new Response(body, {
         status: 200,
         headers,
       });
